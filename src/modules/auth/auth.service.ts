@@ -1,0 +1,134 @@
+import { Injectable, UnauthorizedException, BadRequestException } from '@nestjs/common';
+import { UsersService } from '../../modules/users/users.service';
+import { JwtService } from '@nestjs/jwt';
+import { hashPassword, comparePassword } from '../../common/utils/bcrypt.util';
+import { OtpService } from './otp.service';
+import * as bcrypt from 'bcrypt';
+import { ConfigService } from '@nestjs/config';
+import { LoginResponseDto } from './dto/login.dto';
+import { UserResponseDto } from '../users/dto/user-response.dto';
+
+@Injectable()
+export class AuthService {
+    constructor(
+        private readonly usersService: UsersService,
+        private readonly jwtService: JwtService,
+        private readonly otpService: OtpService,
+        private readonly configService: ConfigService,
+    ) { }
+
+    async login(email: string, password: string): Promise<LoginResponseDto> {
+        const user = await this.usersService.findByEmail(email);
+        if (!user) throw new UnauthorizedException('Invalid credentials');
+
+        const ok = await comparePassword(password, user.password || '');
+        if (!ok) throw new UnauthorizedException('Invalid credentials');
+
+        if (!user.isEmailVerified) {
+            throw new BadRequestException('Email not verified');
+        }
+
+        const payload = { sub: user._id!.toString(), email: user.email }; //user.role if needed
+        const accessToken = this.jwtService.sign(payload, {
+            expiresIn: this.configService.get<string>('JWT_EXPIRES_IN') || this.configService.get<string>('jwtExpiresIn') || '15m',
+        });
+
+        const refreshToken = this.jwtService.sign(
+            { sub: user._id!.toString(), tokenType: 'refresh' },
+            { expiresIn: this.configService.get<string>('REFRESH_TOKEN_EXPIRES_IN') || '7d' },
+        );
+
+        const refreshHash = await bcrypt.hash(refreshToken, 10);
+        await this.usersService.saveRefreshToken(user._id!.toString(), refreshHash);
+
+        const userResponseDto: UserResponseDto = {
+            id: user._id!.toString(),
+            email: user.email,
+            firstName: user.firstName,
+            lastName: user.lastName,
+            username: user.username,
+            role: user.role,
+            isEmailVerified: user.isEmailVerified,
+        };
+
+        return { accessToken, refreshToken, user: userResponseDto };
+    }
+
+    async sendOtp(email: string, purpose: string): Promise<{ success: boolean }> {
+        await this.otpService.generateAndSendOtp(email, purpose);
+        return { success: true };
+    }
+
+    async verifyOtp(email: string, otp: string): Promise<{ success: boolean }> {
+        const ok = await this.otpService.verifyOtp(email, otp, 'email_verification');
+        if (!ok) throw new BadRequestException('OTP invalid or expired');
+
+        const user = await this.usersService.findByEmail(email);
+        if (user) {
+            user.isEmailVerified = true;
+            await user.save();
+        }
+
+        return { success: true };
+    }
+
+    async setPassword(email: string, password: string, confirmPassword: string): Promise<{ success: boolean }> {
+        if (password !== confirmPassword) throw new BadRequestException('Passwords do not match');
+        const user = await this.usersService.findByEmail(email);
+        if (!user) throw new BadRequestException('User not found');
+        if (!user.isEmailVerified) throw new BadRequestException('Email not verified');
+
+        user.password = await hashPassword(password);
+        await user.save();
+        return { success: true };
+    }
+
+    async forgotPassword(email: string): Promise<{ success: boolean }> {
+        const user = await this.usersService.findByEmail(email);
+        if (!user) throw new BadRequestException('User not found');
+        await this.otpService.generateAndSendOtp(email, 'password_reset');
+        return { success: true };
+    }
+
+    async resetPassword(email: string, otp: string, newPassword: string, confirmPassword: string): Promise<{ success: boolean }> {
+        if (newPassword !== confirmPassword) throw new BadRequestException('Passwords do not match');
+        const ok = await this.otpService.verifyOtp(email, otp, 'password_reset');
+        if (!ok) throw new BadRequestException('OTP invalid or expired');
+
+        const user = await this.usersService.findByEmail(email);
+        if (!user) throw new BadRequestException('User not found');
+
+        user.password = await hashPassword(newPassword);
+        await user.save();
+
+        return { success: true };
+    }
+
+    async refreshToken(refreshToken: string): Promise<LoginResponseDto> {
+        try {
+            const payload: any = this.jwtService.verify(refreshToken);
+            const userEmail = payload.email;
+            const user = await this.usersService.findByEmail(userEmail);
+            if (!user) throw new UnauthorizedException('Invalid token');
+
+            if (!user.refreshToken) throw new UnauthorizedException('Invalid token');
+            const valid = await bcrypt.compare(refreshToken, user.refreshToken);
+            if (!valid) throw new UnauthorizedException('Invalid token');
+
+            const newAccess = this.jwtService.sign({ sub: user._id!.toString(), email: user.email }, { expiresIn: this.configService.get<string>('JWT_EXPIRES_IN') || '15m' });
+            const newRefresh = this.jwtService.sign({ sub: user._id!.toString(), tokenType: 'refresh' }, { expiresIn: this.configService.get<string>('REFRESH_TOKEN_EXPIRES_IN') || '7d' });
+
+            const newRefreshHash = await bcrypt.hash(newRefresh, 10);
+            await this.usersService.saveRefreshToken(user._id!.toString(), newRefreshHash);
+
+            return { accessToken: newAccess, refreshToken: newRefresh };
+        } catch (err) {
+            throw new UnauthorizedException('Invalid token');
+        }
+    }
+
+    async logout(userId: string): Promise<{ success: boolean }> {
+        await this.usersService.clearRefreshToken(userId);
+        return { success: true };
+    }
+}
