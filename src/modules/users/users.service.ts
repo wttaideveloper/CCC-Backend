@@ -43,6 +43,12 @@ export class UsersService {
         return user;
     }
 
+    async findByRole(role: string): Promise<UserResponseDto[]> {
+        const users = await this.userModel.find({ role }).exec();
+        if (!users || users.length === 0) throw new NotFoundException('User not found');
+        return users.map(user => toUserResponseDto(user));
+    }
+
     async update(id: string, updateData: Partial<User>): Promise<UserResponseDto> {
         const updated = await this.userModel
             .findByIdAndUpdate(id, updateData, { new: true })

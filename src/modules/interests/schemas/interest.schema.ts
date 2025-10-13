@@ -34,6 +34,9 @@ export class ChurchDetails {
 
 @Schema({ timestamps: true })
 export class Interest {
+    @Prop()
+    profileInfo?: string;
+
     @Prop({ required: true })
     firstName: string;
 
@@ -45,6 +48,9 @@ export class Interest {
 
     @Prop({ required: true, unique: true })
     email: string;
+
+    @Prop()
+    profilePicture?: string;
 
     @Prop({ type: [ChurchDetails], default: [] })
     churchDetails: ChurchDetails[];

@@ -12,6 +12,7 @@ async function bootstrap() {
       transform: true,
     }),
   );
+  // app.useGlobalFilters();
 
   app.enableCors();
 

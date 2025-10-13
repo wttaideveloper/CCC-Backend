@@ -1,6 +1,6 @@
-import { Body, Controller, Get, Post } from '@nestjs/common';
+import { Body, Controller, Get, Param, Patch, Post } from '@nestjs/common';
 import { InterestService } from './interests.service';
-import { CreateInterestDto } from './dto/create-interest.dto';
+import { CreateInterestDto, UpdateInterestDto } from './dto/create-interest.dto';
 import { BaseResponse } from '../../shared/interfaces/base-response.interface';
 import { InterestResponseDto } from './dto/interest-response.dto';
 import { InterestMetadataDto } from './dto/interestMetadata.dto';
@@ -35,6 +35,29 @@ export class InterestController {
         return {
             success: true,
             message: 'Metadata fetched successfully',
+            data,
+        };
+    }
+
+    @Get(':email')
+    async getByEmail(@Param('email') email: string): Promise<BaseResponse<InterestResponseDto>> {
+        const data = await this.interestService.findByEmail(email);
+        return {
+            success: true,
+            message: 'Interest form fetched successfully',
+            data,
+        };
+    }
+
+    @Patch(':email')
+    async update(
+        @Param('email') email: string,
+        @Body() dto: UpdateInterestDto,
+    ): Promise<BaseResponse<InterestResponseDto>> {
+        const data = await this.interestService.update(email, dto);
+        return {
+            success: true,
+            message: 'Interest form updated successfully',
             data,
         };
     }

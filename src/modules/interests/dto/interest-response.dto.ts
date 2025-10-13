@@ -41,6 +41,10 @@ export class InterestResponseDto {
     id: string;
 
     @IsString()
+    @IsOptional()
+    profileInfo?: string;
+
+    @IsString()
     @IsNotEmpty()
     firstName: string;
 
@@ -55,6 +59,10 @@ export class InterestResponseDto {
     @IsEmail()
     @IsNotEmpty()
     email: string;
+
+    @IsString()
+    @IsOptional()
+    profilePicture?: string;
 
     @IsArray()
     @IsOptional()

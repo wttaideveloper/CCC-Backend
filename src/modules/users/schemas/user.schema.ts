@@ -24,11 +24,8 @@ export class User {
     @Prop()
     password?: string;
 
-    @Prop({ enum: ['director', 'mentor', 'pastor', 'pending'], default: 'pending' })
+    @Prop({ enum: ['director', 'mentor', 'field mentor', 'pastor', 'pending'], default: 'pending' })
     role: string;
-
-    @Prop()
-    profilePicture?: string;
 
     @Prop({ default: false })
     isEmailVerified: boolean;

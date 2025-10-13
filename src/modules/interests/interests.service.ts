@@ -2,7 +2,7 @@ import { Injectable } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model } from 'mongoose';
 import { Interest, InterestDocument } from './schemas/interest.schema';
-import { CreateInterestDto } from './dto/create-interest.dto';
+import { CreateInterestDto, UpdateInterestDto } from './dto/create-interest.dto';
 import { InterestResponseDto } from './dto/interest-response.dto';
 import { toInterestResponseDto } from './utils/interest.mapper';
 import { COUNTRIES_STATES_LIST, INTERESTS_LIST, TITLES_LIST } from 'src/shared/constants/metadata.constants';
@@ -39,5 +39,16 @@ export class InterestService {
     const interest = await this.interestModel.findOne({ email }).exec();
     if (!interest) throw new Error('Interest form not found');
     return toInterestResponseDto(interest);
+  }
+
+  async update(email: string, dto: UpdateInterestDto): Promise<InterestResponseDto> {
+    const updatedInterest = await this.interestModel.findOneAndUpdate(
+      { email },
+      { $set: dto },
+      { new: true, runValidators: true }
+    ).exec();
+
+    if (!updatedInterest) throw new Error('Interest form not found');
+    return toInterestResponseDto(updatedInterest);
   }
 }

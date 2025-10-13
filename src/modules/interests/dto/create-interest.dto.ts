@@ -1,3 +1,4 @@
+import { PartialType } from '@nestjs/mapped-types';
 import { Type } from 'class-transformer';
 import { IsArray, IsEmail, IsNotEmpty, IsOptional, IsString, ValidateNested } from 'class-validator';
 
@@ -37,6 +38,10 @@ class ChurchDetailsDto {
 
 export class CreateInterestDto {
     @IsString()
+    @IsOptional()
+    profileInfo?: string;
+
+    @IsString()
     @IsNotEmpty()
     firstName: string;
 
@@ -51,6 +56,10 @@ export class CreateInterestDto {
     @IsEmail()
     @IsNotEmpty()
     email: string;
+
+    @IsString()
+    @IsOptional()
+    profilePicture?: string;
 
     @IsArray()
     @IsOptional()
@@ -74,11 +83,14 @@ export class CreateInterestDto {
     @IsOptional()
     currentCommunityProjects?: string;
 
-    @IsString()
+    @IsString({ each: true })
     @IsOptional()
+    @IsArray()
     interests?: string[];
 
     @IsString()
     @IsOptional()
     comments?: string;
 }
+
+export class UpdateInterestDto extends PartialType(CreateInterestDto) {}
