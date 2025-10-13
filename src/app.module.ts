@@ -5,6 +5,7 @@ import { UsersModule } from './modules/users/users.module';
 import configuration from './config/configuration';
 import { InterestModule } from './modules/interests/interests.module';
 import { AuthModule } from './modules/auth/auth.module';
+import { HomeModule } from './modules/home/home.module';
 
 @Module({
   imports: [
@@ -17,7 +18,8 @@ import { AuthModule } from './modules/auth/auth.module';
     DatabaseModule,
     AuthModule,
     UsersModule,
-    InterestModule
+    InterestModule,
+    HomeModule,
   ],
   controllers: [],
   providers: [],

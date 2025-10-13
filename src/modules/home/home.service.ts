@@ -3,9 +3,18 @@ import { InjectModel } from "@nestjs/mongoose";
 import { Model } from "mongoose";
 import { Home, HomeDocument } from "./schemas/home.schema";
 import { HomeResponseDto } from "./dto/home-response.dto";
-import { toHomeResponseDto } from "./utils/home.mapper";
+import { toHomeResponseDto, toMentorResponseDto } from "./utils/home.mapper";
 import { UsersService } from "../users/users.service";
+import { MentorResponseDto } from "./dto/mentor-response.dto";
 
+interface MentorFilterOptions {
+    page?: number;
+    limit?: number;
+    country?: string;
+    state?: string;
+    conference?: string;
+    role?: string;
+}
 
 @Injectable()
 export class HomeService {
@@ -35,4 +44,100 @@ export class HomeService {
     // async getVideos(email: string): Promise<HomeVideoDto> {
 
     // }
+
+
+    async getMentorByEmail(email: string): Promise<MentorResponseDto> {
+        const user = await this.userService.findByEmail(email);
+        return toMentorResponseDto(user as any);
+    }
+
+    async getMenteeByEmail(email: string): Promise<MentorResponseDto> {
+        const user = await this.userService.findByEmail(email);
+        return toMentorResponseDto(user as any);
+    }
+
+    async getAllMentors(options: MentorFilterOptions = {}): Promise<{ mentors: MentorResponseDto[]; total: number }> {
+        const { page = 1, limit = 10, country, state, conference, role } = options;
+
+        const roleFilter: any = role || { $in: ['mentor', 'field mentor'] };
+
+        const allMentors = await this.userService.findByRole(roleFilter);
+
+        let filteredMentors = allMentors;
+
+        if (country || state || conference) {
+            filteredMentors = allMentors.filter((mentor: any) => {
+                const interests = mentor.interests || [];
+                return interests.some((interest: any) => {
+                    const church = interest.churchDetails?.[0] || {};
+                    return (
+                        (!country || church.country === country) &&
+                        (!state || church.state === state) &&
+                        (!conference || interest.conference === conference)
+                    );
+                });
+            });
+        }
+
+        const mentorDtos: MentorResponseDto[] = filteredMentors.map(mentor => {
+            const dto = new MentorResponseDto();
+            dto.id = mentor.id;
+            dto.firstName = mentor.firstName;
+            dto.lastName = mentor.lastName;
+            dto.email = mentor.email;
+            dto.username = mentor.username || '';
+            dto.role = mentor.role;
+            // dto.profileInfo = mentor.profileInfo || '';
+            return dto;
+        });
+
+        const total = mentorDtos.length;
+        const paginated = mentorDtos.slice((page - 1) * limit, page * limit);
+
+        return { mentors: paginated, total };
+    }
+
+    async getAllMentees(options: {
+        page?: number;
+        limit?: number;
+        phase?: string;
+        country?: string;
+    } = {}): Promise<{ mentees: MentorResponseDto[]; total: number }> {
+        const { page = 1, limit = 10, phase, country } = options;
+
+        const allMentees = await this.userService.findByRole('pastor');
+
+        let filteredMentees = allMentees;
+
+        if (country || phase) {
+            filteredMentees = allMentees.filter((mentor: any) => {
+                const interests = mentor.interests || [];
+                return interests.some((interest: any) => {
+                    const church = interest.churchDetails?.[0] || {};
+                    return (
+                        (!country || church.country === country) &&
+                        (!phase || church.state === phase)
+                    );
+                });
+            });
+        }
+
+        const menteeDtos = filteredMentees.map(mentee => {
+            const dto = new MentorResponseDto();
+            dto.id = mentee.id;
+            dto.firstName = mentee.firstName;
+            dto.lastName = mentee.lastName;
+            dto.email = mentee.email;
+            dto.username = mentee.username || '';
+            dto.role = mentee.role;
+            // dto.profileInfo = mentee.profileInfo || '';
+            return dto;
+        });
+
+        const total = menteeDtos.length;
+        const paginated = menteeDtos.slice((page - 1) * limit, page * limit);
+
+        return { mentees: paginated, total };
+    }
+
 }

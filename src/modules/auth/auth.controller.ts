@@ -2,7 +2,11 @@ import { Body, Controller, Post, UseGuards, Req } from '@nestjs/common';
 import { AuthService } from './auth.service';
 import { LoginDto, LoginResponseDto } from './dto/login.dto';
 import { SendOtpDto, VerifyOtpDto } from './dto/otp.dto';
-import { SetPasswordDto, ForgotPasswordDto, ResetPasswordDto } from './dto/password.dto';
+import {
+    SetPasswordDto,
+    ForgotPasswordDto,
+    ResetPasswordDto,
+} from './dto/password.dto';
 import { RefreshTokenDto } from './dto/token.dto';
 import { JwtAuthGuard } from './guards/jwt-auth.guard';
 import { BaseResponse } from 'src/shared/interfaces/base-response.interface';
@@ -18,8 +22,8 @@ export class AuthController {
         return {
             success: true,
             message: 'Login successful',
-            data: loginDetails
-        }
+            data: loginDetails,
+        };
     }
 
     @Post('send-otp')
@@ -28,7 +32,7 @@ export class AuthController {
         return {
             success: true,
             message: 'OTP sent successfully',
-            data: null
+            data: null,
         };
     }
 
@@ -38,47 +42,62 @@ export class AuthController {
         return {
             success: true,
             message: 'OTP verified successfully',
-            data: null
+            data: null,
         };
     }
 
     @Post('set-password')
     async setPassword(@Body() dto: SetPasswordDto): Promise<BaseResponse<null>> {
-        await this.authService.setPassword(dto.email, dto.password, dto.confirmPassword);
+        await this.authService.setPassword(
+            dto.email,
+            dto.password,
+            dto.confirmPassword,
+        );
         return {
             success: true,
             message: 'Password set successfully',
-            data: null
+            data: null,
         };
     }
 
     @Post('forgot-password')
-    async forgotPassword(@Body() dto: ForgotPasswordDto): Promise<BaseResponse<null>> {
+    async forgotPassword(
+        @Body() dto: ForgotPasswordDto,
+    ): Promise<BaseResponse<null>> {
         await this.authService.forgotPassword(dto.email);
         return {
             success: true,
             message: 'Password reset OTP sent successfully',
-            data: null
+            data: null,
         };
     }
 
     @Post('reset-password')
-    async resetPassword(@Body() dto: ResetPasswordDto): Promise<BaseResponse<null>> {
-        await this.authService.resetPassword(dto.email, dto.otp, dto.newPassword, dto.confirmPassword);
+    async resetPassword(
+        @Body() dto: ResetPasswordDto,
+    ): Promise<BaseResponse<null>> {
+        await this.authService.resetPassword(
+            dto.email,
+            dto.otp,
+            dto.newPassword,
+            dto.confirmPassword,
+        );
         return {
             success: true,
             message: 'Password reset successfully',
-            data: null
+            data: null,
         };
     }
 
     @Post('refresh-token')
-    async refresh(@Body() dto: RefreshTokenDto): Promise<BaseResponse<LoginResponseDto>> {
+    async refresh(
+        @Body() dto: RefreshTokenDto,
+    ): Promise<BaseResponse<LoginResponseDto>> {
         const tokens = await this.authService.refreshToken(dto.refreshToken);
         return {
             success: true,
             message: 'Token refreshed successfully',
-            data: tokens
+            data: tokens,
         };
     }
 
@@ -90,7 +109,7 @@ export class AuthController {
         return {
             success: true,
             message: 'Logged out successfully',
-            data: null
+            data: null,
         };
     }
 }
