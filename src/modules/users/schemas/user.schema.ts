@@ -1,5 +1,6 @@
 import { Prop, Schema, SchemaFactory } from '@nestjs/mongoose';
 import { Document, Types } from 'mongoose';
+import { nanoid } from 'nanoid';
 
 export type UserDocument = Document<unknown, {}, User> & User & {
     _id: Types.ObjectId;
@@ -8,6 +9,9 @@ export type UserDocument = Document<unknown, {}, User> & User & {
 @Schema({ timestamps: true })
 export class User {
     readonly _id?: Types.ObjectId;
+
+    @Prop({ type: Types.ObjectId, ref: 'Interest' })
+    interestId?: Types.ObjectId;
 
     @Prop({ required: true })
     firstName: string;
@@ -26,6 +30,17 @@ export class User {
 
     @Prop({ enum: ['director', 'mentor', 'field mentor', 'pastor', 'pending'], default: 'pending' })
     role: string;
+
+    @Prop({
+        required: true,
+        unique: true,
+        default: () => nanoid(),
+        index: true
+    })
+    roleId: string;
+
+    @Prop()
+    profilePicture?: string;
 
     @Prop({ default: false })
     isEmailVerified: boolean;

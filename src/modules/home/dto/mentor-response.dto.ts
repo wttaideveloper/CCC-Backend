@@ -26,6 +26,10 @@ export class MentorResponseDto {
     role: string;
 
     @IsString()
+    @IsNotEmpty()
+    roleId: string;
+
+    @IsString()
     @IsOptional()
     profileInfo?: string;
 }

@@ -4,8 +4,7 @@ import { Document, Types } from 'mongoose';
 export type InterestDocument = Document<unknown, {}, Interest> & Interest & {
     _id: Types.ObjectId;
 };
-
-@Schema({ _id: false })
+@Schema()
 export class ChurchDetails {
     @Prop({ required: true })
     churchName: string;
@@ -34,6 +33,10 @@ export class ChurchDetails {
 
 @Schema({ timestamps: true })
 export class Interest {
+
+    @Prop({ type: Types.ObjectId, ref: 'User' })
+    userId?: Types.ObjectId;
+
     @Prop()
     profileInfo?: string;
 
