@@ -10,7 +10,16 @@ import {
   toHomeResponseDto,
   toMentorMenteeDetailsDto,
 } from './utils/home.mapper';
-import { MentorMenteeDetailsDto } from './schemas/mentor.mentee.response.dto';
+import { MentorMenteeDetailsDto } from './dto/mentor.mentee.response.dto';
+import {
+  Notification,
+  NotificationDocument,
+  NotificationItem,
+} from './schemas/notification.schema';
+import {
+  AddNotificationDto,
+  NotificationResponseDto,
+} from './dto/notification.dto';
 
 interface MentorFilterOptions {
   page?: number;
@@ -28,6 +37,8 @@ export class HomeService {
     private readonly homeModel: Model<HomeDocument>,
     @InjectModel(User.name)
     private readonly userModel: Model<UserDocument>,
+    @InjectModel(Notification.name)
+    private readonly notificationModel: Model<NotificationDocument>,
     private readonly userService: UsersService,
   ) {}
 
@@ -160,5 +171,57 @@ export class HomeService {
     const paginated = menteeDtos.slice((page - 1) * limit, page * limit);
 
     return { mentees: paginated, total };
+  }
+
+  async addNotification(
+    dto: AddNotificationDto,
+  ): Promise<NotificationResponseDto> {
+    const { email, name, details, module, roleId } = dto;
+
+    let notificationDoc = await this.notificationModel.findOne({ email });
+
+    const newItem: NotificationItem = {
+      name,
+      details,
+      module,
+      read: false,
+    };
+
+    if (notificationDoc) {
+      notificationDoc.notifications.push(newItem);
+      if (roleId) notificationDoc.roleId = roleId;
+      await notificationDoc.save();
+    } else {
+      notificationDoc = await this.notificationModel.create({
+        email,
+        roleId,
+        notifications: [newItem],
+      });
+    }
+
+    return this.mapToResponse(notificationDoc);
+  }
+
+  async getNotifications(email: string): Promise<NotificationResponseDto> {
+    const notificationDoc = await this.notificationModel.findOne({ email });
+    if (!notificationDoc) {
+      throw new NotFoundException('No notifications found for this user');
+    }
+    return this.mapToResponse(notificationDoc);
+  }
+
+  private mapToResponse(doc: NotificationDocument): NotificationResponseDto {
+    return {
+      _id: doc._id.toString(),
+      email: doc.email,
+      roleId: doc.roleId,
+      notifications: doc.notifications.map((n) => ({
+        name: n.name,
+        details: n.details,
+        module: n.module,
+      })),
+      createdAt: doc.createdAt,
+      updatedAt: doc.updatedAt,
+    };
   }
 }

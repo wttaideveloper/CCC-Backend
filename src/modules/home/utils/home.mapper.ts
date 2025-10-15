@@ -2,7 +2,7 @@ import { HomeDocument } from '../schemas/home.schema';
 import { HomeResponseDto } from '../dto/home-response.dto';
 import { UserDocument } from 'src/modules/users/schemas/user.schema';
 import { MentorResponseDto } from '../dto/mentor-response.dto';
-import { MentorMenteeDetailsDto } from '../schemas/mentor.mentee.response.dto';
+import { MentorMenteeDetailsDto } from '../dto/mentor.mentee.response.dto';
 
 export function toHomeResponseDto(home: HomeDocument): HomeResponseDto {
   if (!home) {
