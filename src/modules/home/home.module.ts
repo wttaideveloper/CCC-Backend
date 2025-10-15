@@ -5,11 +5,19 @@ import { HomeController } from './home.controller';
 // import { Notification, NotificationSchema } from './schemas/notification.schema';
 import { Home, HomeSchema } from './schemas/home.schema';
 import { UsersModule } from '../users/users.module';
+import { User, UserSchema } from '../users/schemas/user.schema';
 
 @Module({
-    imports: [MongooseModule.forFeature([{ name: Home.name, schema: HomeSchema }]), UsersModule],
-    controllers: [HomeController],
-    providers: [HomeService],
-    exports: [HomeService],
+  imports: [
+    MongooseModule.forFeature([
+      { name: Home.name, schema: HomeSchema },
+      { name: User.name, schema: UserSchema },
+    ]),
+    UsersModule,
+  ],
+
+  controllers: [HomeController],
+  providers: [HomeService],
+  exports: [HomeService],
 })
-export class HomeModule { }
+export class HomeModule {}
