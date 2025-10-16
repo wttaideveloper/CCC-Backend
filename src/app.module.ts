@@ -8,6 +8,7 @@ import { AuthModule } from './modules/auth/auth.module';
 import { HomeModule } from './modules/home/home.module';
 import { RoadMapsModule } from './modules/roadmaps/roadmaps.module';
 import { AppointmentsModule } from './modules/appointments/appointments.module';
+import { AssessmentModule } from './modules/assessment/assessment.module';
 
 @Module({
   imports: [
@@ -23,7 +24,8 @@ import { AppointmentsModule } from './modules/appointments/appointments.module';
     InterestModule,
     HomeModule,
     RoadMapsModule,
-    AppointmentsModule
+    AppointmentsModule,
+    AssessmentModule
   ],
   controllers: [],
   providers: [],
