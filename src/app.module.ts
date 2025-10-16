@@ -6,6 +6,8 @@ import configuration from './config/configuration';
 import { InterestModule } from './modules/interests/interests.module';
 import { AuthModule } from './modules/auth/auth.module';
 import { HomeModule } from './modules/home/home.module';
+import { RoadMapsModule } from './modules/roadmaps/roadmaps.module';
+import { AppointmentsModule } from './modules/appointments/appointments.module';
 
 @Module({
   imports: [
@@ -20,6 +22,8 @@ import { HomeModule } from './modules/home/home.module';
     UsersModule,
     InterestModule,
     HomeModule,
+    RoadMapsModule,
+    AppointmentsModule
   ],
   controllers: [],
   providers: [],

@@ -17,7 +17,7 @@ export class NestedRoadMapItem {
     @Prop({ enum: ['due', 'not started', 'completed'], default: 'not started' })
     status: string;
 
-    @Prop()
+    @Prop({ required: true })
     duration: string;
 
     @Prop({ type: Date })
@@ -34,6 +34,9 @@ export class NestedRoadMapItem {
 
     @Prop({ type: [Date], default: [] })
     meetings: Date[];
+
+    @Prop()
+    extras: Object;
 }
 
 export const NestedRoadMapItemSchema = SchemaFactory.createForClass(NestedRoadMapItem);
@@ -57,20 +60,20 @@ export class RoadMap {
     @Prop({ enum: ['due', 'not started', 'completed'], default: 'not started' })
     status: string;
 
-    @Prop()
+    @Prop({ required: true })
     duration: string;
 
     @Prop({ type: Date })
-    startDate: Date;
+    startDate?: Date;
 
     @Prop({ type: Date })
-    endDate: Date;
+    endDate?: Date;
 
     @Prop({ type: Date })
-    completedOn: Date;
+    completedOn?: Date;
 
     @Prop()
-    imageUrl: string;
+    imageUrl?: string;
 
     @Prop({ type: [Date], default: [] })
     meetings: Date[];
@@ -80,6 +83,9 @@ export class RoadMap {
 
     @Prop({ default: "" })
     phase: string;
+
+    @Prop()
+    extras?: Object; 
 
     @Prop({ type: [NestedRoadMapItemSchema], default: [] })
     roadmaps: Types.Array<NestedRoadMapItem>;

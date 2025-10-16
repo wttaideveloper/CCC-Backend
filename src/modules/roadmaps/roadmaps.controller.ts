@@ -96,8 +96,9 @@ export class RoadMapsController {
     async getAllQueryThreads(
         @Param('roadMapId') roadMapId: string,
         @Query('userId') userId: string,
+        @Query('status') status?: string
     ): Promise<BaseResponse<QueriesThreadResponseDto[]>> {
-        const threads = await this.roadMapsService.getAllQueryThreads(roadMapId, userId);
+        const threads = await this.roadMapsService.getAllQueryThreads(roadMapId, userId, status);
         return {
             success: true,
             message: 'Query threads fetched successfully',
