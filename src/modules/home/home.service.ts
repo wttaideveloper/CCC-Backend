@@ -210,6 +210,27 @@ export class HomeService {
     return this.mapToResponse(notificationDoc);
   }
 
+  async deleteNotification(
+    email: string,
+    notificationId: string,
+  ): Promise<NotificationResponseDto> {
+    const doc = await this.notificationModel.findOne({ email });
+    if (!doc) throw new NotFoundException('Notification document not found');
+
+    const target = doc.notifications.find(
+      (item: any) => item._id.toString() === notificationId,
+    );
+
+    if (!target) {
+      throw new Error('Notification not found');
+    }
+
+    target.read = true;
+    await doc.save();
+
+    return this.mapToResponse(doc);
+  }
+
   private mapToResponse(doc: NotificationDocument): NotificationResponseDto {
     return {
       _id: doc._id.toString(),

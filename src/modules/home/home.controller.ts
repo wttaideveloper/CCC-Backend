@@ -1,4 +1,13 @@
-import { Body, Controller, Get, Param, Post, Query } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  Delete,
+  Get,
+  Param,
+  Patch,
+  Post,
+  Query,
+} from '@nestjs/common';
 import { BaseResponse } from 'src/shared/interfaces/base-response.interface';
 import { HomeService } from './home.service';
 import { HomeResponseDto } from './dto/home-response.dto';
@@ -125,6 +134,22 @@ export class HomeController {
     return {
       success: true,
       message: 'Notification added successfully',
+      data: result,
+    };
+  }
+
+  @Delete('notifications/:email/:notificationId')
+  async deleteNotification(
+    @Param('email') email: string,
+    @Param('notificationId') notificationId: string,
+  ): Promise<BaseResponse<NotificationResponseDto>> {
+    const result = await this.homeService.deleteNotification(
+      email,
+      notificationId,
+    );
+    return {
+      success: true,
+      message: 'Notification deleted successfully',
       data: result,
     };
   }

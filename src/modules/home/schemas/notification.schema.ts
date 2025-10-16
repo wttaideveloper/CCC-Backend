@@ -33,6 +33,9 @@ export class Notification {
   email: string;
 
   @Prop()
+  userId?: string;
+
+  @Prop()
   roleId?: string;
 
   @Prop({
