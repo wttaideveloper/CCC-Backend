@@ -22,9 +22,8 @@ export class NestedRoadMapItemDto {
     @IsOptional()
     status?: 'due' | 'not started' | 'completed';
 
-    @IsOptional()
     @IsString()
-    duration?: string;
+    duration: string;
 
     @IsOptional()
     @IsDateString()
@@ -46,6 +45,9 @@ export class NestedRoadMapItemDto {
     @IsArray()
     @IsDateString({}, { each: true })
     meetings?: Date[];
+
+    @IsOptional()
+    extras?: Object;
 }
 
 export class CreateRoadMapDto {
@@ -64,9 +66,8 @@ export class CreateRoadMapDto {
     @IsOptional()
     status?: 'due' | 'not started' | 'completed';
 
-    @IsOptional()
     @IsString()
-    duration?: string;
+    duration: string;
 
     @IsOptional()
     @IsDateString()
@@ -88,6 +89,9 @@ export class CreateRoadMapDto {
     @IsArray()
     @IsDateString({}, { each: true })
     meetings?: Date[];
+
+    @IsOptional()
+    extras?: Object;
 
     @IsOptional()
     @IsString()
@@ -112,6 +116,7 @@ export class RoadMapResponseDto {
     completedOn?: Date;
     imageUrl?: string;
     meetings?: Date[];
+    extras?: Object;
     haveNextedRoadMaps: boolean;
     phase?: string;
     roadmaps: NestedRoadMapItemDto[];

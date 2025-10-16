@@ -110,11 +110,63 @@ export class RoadMapsService {
         return toCommentsThreadResponseDto(updatedThread);
     }
 
-    async getAllQueryThreads(roadMapId: string, userId: string): Promise<QueriesThreadResponseDto[]> {
+    async getAllQueryThreads(roadMapId: string, userId: string, status?: string): Promise<QueriesThreadResponseDto[]> {
         const roadMapObjectId = new Types.ObjectId(roadMapId);
         const userObjectId = new Types.ObjectId(userId);
-        const threads = await this.queriesModel.find({ roadMapId: roadMapObjectId, userId: userObjectId }).populate('queries.repliedMentorId').exec();
 
+        const pipeline: any[] = [
+            { $match: { roadMapId: roadMapObjectId, userId: userObjectId } },
+
+            { $unwind: '$queries' },
+
+            ...(status ? [{ $match: { 'queries.status': status } }] : []),
+
+            {
+                $lookup: {
+                    from: 'users',
+                    let: { mentorId: '$queries.repliedMentorId', queryStatus: '$queries.status' },
+                    pipeline: [
+                        {
+                            $match: {
+                                $expr: {
+                                    $and: [
+                                        { $eq: ['$$mentorId', '$_id'] },
+                                        { $eq: ['$$queryStatus', 'answered'] }
+                                    ]
+                                }
+                            }
+                        },
+                        { $project: { _id: 1, email: 1, firstName: 1, lastName: 1, profilePicture: 1, role: 1 } }
+                    ],
+                    as: 'populatedMentor'
+                }
+            },
+
+            {
+                $set: {
+                    'queries.repliedMentorId': {
+                        $cond: {
+                            if: { $ne: ['$populatedMentor', []] },
+                            then: { $arrayElemAt: ['$populatedMentor', 0] },
+                            else: '$queries.repliedMentorId'
+                        }
+                    }
+                }
+            },
+
+            { $unset: 'populatedMentor' },
+
+            {
+                $group: {
+                    _id: '$_id',
+                    userId: { $first: '$userId' },
+                    roadMapId: { $first: '$roadMapId' },
+                    queries: { $push: '$queries' },
+                },
+            },
+        ];
+
+        const threads = await this.queriesModel.aggregate(pipeline).exec();
         return threads.map(toQueriesThreadResponseDto);
     }
 
