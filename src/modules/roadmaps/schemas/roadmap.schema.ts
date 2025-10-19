@@ -35,7 +35,7 @@ export class NestedRoadMapItem {
     @Prop({ type: [Date], default: [] })
     meetings: Date[];
 
-    @Prop()
+    @Prop({ type: Object })
     extras: Object;
 }
 
@@ -84,8 +84,8 @@ export class RoadMap {
     @Prop({ default: "" })
     phase: string;
 
-    @Prop()
-    extras?: Object; 
+    @Prop({ type: Object })
+    extras?: Object;
 
     @Prop({ type: [NestedRoadMapItemSchema], default: [] })
     roadmaps: Types.Array<NestedRoadMapItem>;

@@ -47,7 +47,7 @@ export class NestedRoadMapItemDto {
     meetings?: Date[];
 
     @IsOptional()
-    extras?: Object;
+    extras?: Record<string, any>;
 }
 
 export class CreateRoadMapDto {
@@ -91,7 +91,7 @@ export class CreateRoadMapDto {
     meetings?: Date[];
 
     @IsOptional()
-    extras?: Object;
+    extras?: Record<string, any>;
 
     @IsOptional()
     @IsString()
@@ -116,7 +116,7 @@ export class RoadMapResponseDto {
     completedOn?: Date;
     imageUrl?: string;
     meetings?: Date[];
-    extras?: Object;
+    extras?: Record<string, any>;
     haveNextedRoadMaps: boolean;
     phase?: string;
     roadmaps: NestedRoadMapItemDto[];
