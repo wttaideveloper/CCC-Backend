@@ -8,13 +8,11 @@ import { User, UserSchema } from '../users/schemas/user.schema';
 
 @Module({
   imports: [
-    MongooseModule.forFeature([
-      { name: Interest.name, schema: InterestSchema },
-    ]),
+    MongooseModule.forFeature([{ name: Interest.name, schema: InterestSchema },]),
     MongooseModule.forFeature([{ name: User.name, schema: UserSchema }]),
   ],
   controllers: [InterestController],
   providers: [InterestService, MailerService],
   exports: [InterestService],
 })
-export class InterestModule {}
+export class InterestModule { }

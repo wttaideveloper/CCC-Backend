@@ -27,7 +27,7 @@ export class InterestService {
     private readonly interestModel: Model<InterestDocument>,
     @InjectModel(User.name)
     private readonly userModel: Model<UserDocument>,
-  ) {}
+  ) { }
 
   async create(dto: CreateInterestDto): Promise<InterestResponseDto> {
     const interest = await this.interestModel.create(dto);

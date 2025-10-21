@@ -1,12 +1,4 @@
-import {
-  Body,
-  Controller,
-  Get,
-  Param,
-  Patch,
-  Post,
-  Query,
-} from '@nestjs/common';
+import { Body, Controller, Get, Param, Patch, Post, Query } from '@nestjs/common';
 import { InterestService } from './interests.service';
 import {
   CreateInterestDto,
@@ -42,32 +34,32 @@ export class InterestController {
     };
   }
 
-  @Get('metadata')
-  async getMetadata(): Promise<BaseResponse<InterestMetadataDto>> {
-    const data = await this.interestService.getMetadata();
-    return {
-      success: true,
-      message: 'Metadata fetched successfully',
-      data,
-    };
-  }
+    @Get('metadata')
+    async getMetadata(): Promise<BaseResponse<InterestMetadataDto>> {
+        const data = await this.interestService.getMetadata();
+        return {
+            success: true,
+            message: 'Metadata fetched successfully',
+            data,
+        };
+    }
 
-  @Get('request')
-  async getInterestsByStatus(
-    @Query('status') status: string,
-    @Query('limit') limit?: string,
-  ) {
-    const parsedLimit = limit ? parseInt(limit, 10) : 10;
-    return this.interestService.getInterestsByStatus(status, parsedLimit);
-  }
+    @Get('request')
+    async getInterestsByStatus(
+        @Query('status') status: string,
+        @Query('limit') limit?: string,
+    ) {
+        const parsedLimit = limit ? parseInt(limit, 10) : 10;
+        return this.interestService.getInterestsByStatus(status, parsedLimit);
+    }
 
-  @Patch('request/:userId')
-  async updateUserStatus(
-    @Param('userId') userId: string,
-    @Body('status') status: 'pending' | 'accepted' | 'rejected',
-  ) {
-    return this.interestService.updateUserStatus(userId, status);
-  }
+    @Patch('request/:userId')
+    async updateUserStatus(
+        @Param('userId') userId: string,
+        @Body('status') status: 'pending' | 'accepted' | 'rejected',
+    ) {
+        return this.interestService.updateUserStatus(userId, status);
+    }
 
   @Get(':email')
   async getByEmail(
