@@ -5,6 +5,7 @@ export const toRoadMapResponseDto = (doc: RoadMapDocument): RoadMapResponseDto =
 
     return {
         _id: doc._id.toString(),
+        type: doc.type,
         name: doc.name,
         roadMapDetails: doc.roadMapDetails,
         description: doc.description,
@@ -15,6 +16,7 @@ export const toRoadMapResponseDto = (doc: RoadMapDocument): RoadMapResponseDto =
         completedOn: doc.completedOn,
         imageUrl: doc.imageUrl,
         meetings: doc.meetings,
+        division: doc.division,
         haveNextedRoadMaps: doc.haveNextedRoadMaps,
         phase: doc.phase,
         extras: doc.extras,
@@ -31,6 +33,7 @@ export const toRoadMapResponseDto = (doc: RoadMapDocument): RoadMapResponseDto =
             completedOn: item.completedOn,
             imageUrl: item.imageUrl,
             meetings: item.meetings,
+            phase: item.phase,
             extras: item.extras
         }) as NestedRoadMapItemDto),
         // createdAt: doc.createdAt,

@@ -35,6 +35,9 @@ export class NestedRoadMapItem {
     @Prop({ type: [Date], default: [] })
     meetings: Date[];
 
+    @Prop({ default: "" })
+    phase: string;
+
     @Prop({ type: Object })
     extras: Object;
 }
@@ -47,6 +50,9 @@ export type RoadMapDocument = Document<unknown, {}, RoadMap> & RoadMap & {
 
 @Schema({ timestamps: true })
 export class RoadMap {
+
+    @Prop({ required: true })
+    type: string;
 
     @Prop({ required: true })
     name: string;
@@ -77,6 +83,9 @@ export class RoadMap {
 
     @Prop({ type: [Date], default: [] })
     meetings: Date[];
+
+    @Prop({ enum: ['church', 'pastor'], default: 'pastor' })
+    division: string;
 
     @Prop({ default: false })
     haveNextedRoadMaps: boolean;
