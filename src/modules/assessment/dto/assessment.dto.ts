@@ -11,10 +11,6 @@ export class LayerDto {
   @IsNotEmpty()
   title: string;
 
-  @IsString()
-  @IsNotEmpty()
-  type: string;
-
   @IsArray()
   @IsOptional()
   choices?: ChoiceDto[];
@@ -55,7 +51,7 @@ export class CreateAssessmentDto {
   bannerImage?: string;
 
   @IsString()
-  @IsNotEmpty()
+  @IsOptional()
   roadmapId: string;
 
   @IsArray()

@@ -2,7 +2,7 @@ import { Module } from '@nestjs/common';
 import { MongooseModule } from '@nestjs/mongoose';
 import { Assessment, AssessmentSchema } from './schemas/assessment.schema';
 import { AssessmentController } from './assessment.controller';
-import { AssessmentService } from './assessment.service.spec';
+import { AssessmentService } from './assessment.service';
 
 @Module({
   imports: [

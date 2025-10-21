@@ -13,12 +13,10 @@ export class Layer {
   @Prop({ required: true })
   title: string;
 
-  @Prop({ required: true, enum: ['SINGLE', 'MULTIPLE', 'CUSTOM'] })
-  type: string;
-
   @Prop({ type: [ChoiceSchema], default: [] })
   choices: Choice[];
 }
+
 export const LayerSchema = SchemaFactory.createForClass(Layer);
 
 @Schema()
@@ -53,7 +51,7 @@ export class Assessment {
   @Prop()
   bannerImage?: string;
 
-  @Prop({ type: Types.ObjectId, ref: 'Roadmap', required: true })
+  @Prop({ type: Types.ObjectId, ref: 'Roadmap', required: false })
   roadmapId: Types.ObjectId;
 
   @Prop({ type: [SectionSchema], default: [] })
