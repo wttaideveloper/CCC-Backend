@@ -1,4 +1,5 @@
 import {
+  BadRequestException,
   Body,
   Controller,
   Delete,
@@ -24,6 +25,53 @@ export class AssessmentController {
   @Get()
   async getAll(): Promise<Assessment[]> {
     return this.assessmentService.getAll();
+  }
+
+  // Assign assessment to multiple users
+  @Post(':assessmentId/assign')
+  async assignAssessment(
+    @Param('assessmentId') assessmentId: string,
+    @Body('userIds') userIds: string[],
+  ) {
+    const result = await this.assessmentService.assignAssessmentToUsers(
+      assessmentId,
+      userIds,
+    );
+    return {
+      success: true,
+      message: 'Assessment assigned successfully',
+      data: result,
+    };
+  }
+
+  // Get all assessments assigned to a specific user
+  @Get('assigned/:userId')
+  async getAssignedAssessments(@Param('userId') userId: string) {
+    const result = await this.assessmentService.getAssignedAssessments(userId);
+    return {
+      success: true,
+      message: 'Assigned assessments fetched successfully',
+      data: result,
+    };
+  }
+
+  // Update user assignment status
+  @Patch(':assessmentId/status/:userId')
+  async updateAssignmentStatus(
+    @Param('assessmentId') assessmentId: string,
+    @Param('userId') userId: string,
+    @Body('status') status: string,
+  ) {
+    const result = await this.assessmentService.updateAssignmentStatus(
+      assessmentId,
+      userId,
+      status,
+    );
+    return {
+      success: true,
+      message: 'Assignment status updated successfully',
+      data: result,
+    };
   }
 
   @Get(':id')

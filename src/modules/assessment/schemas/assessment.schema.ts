@@ -17,6 +17,27 @@ export class Layer {
   choices: Choice[];
 }
 
+@Schema()
+export class AssignTo {
+  @Prop({ type: Types.ObjectId, ref: 'User', required: true })
+  userId: Types.ObjectId;
+
+  @Prop({
+    type: String,
+    enum: ['assigned', 'in-progress', 'completed'],
+    default: 'assigned',
+  })
+  status: string;
+
+  @Prop({ type: Date, default: Date.now })
+  assignedAt: Date;
+
+  @Prop({ type: Date })
+  completedAt?: Date;
+}
+
+export const AssignmentSchema = SchemaFactory.createForClass(AssignTo);
+
 export const LayerSchema = SchemaFactory.createForClass(Layer);
 
 @Schema()
@@ -56,6 +77,9 @@ export class Assessment {
 
   @Prop({ type: [SectionSchema], default: [] })
   sections: Section[];
+
+  @Prop({ type: [AssignmentSchema], default: [] })
+  assignments: AssignTo[];
 }
 
 export const AssessmentSchema = SchemaFactory.createForClass(Assessment);

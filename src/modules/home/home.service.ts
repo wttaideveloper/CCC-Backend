@@ -51,18 +51,6 @@ export class HomeService {
     return toHomeResponseDto(home);
   }
 
-  // async getMentors(): Promise<MentorDto> {
-  //     const mentors = await this.userService.findByRole('mentor');
-
-  //     if (!mentors) throw new NotFoundException(`Mentors data not found`);
-
-  //     return mentors.map(mentor => toMentorResponseDto(mentor))
-  // }
-
-  // async getVideos(email: string): Promise<HomeVideoDto> {
-
-  // }
-
   async getMentorByEmail(email: string): Promise<MentorMenteeDetailsDto> {
     const user = await this.userModel
       .findOne({ email, role: 'mentor' })
