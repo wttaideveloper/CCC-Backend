@@ -1,4 +1,4 @@
-import { Body, Controller, Get, Param, Patch, Post } from '@nestjs/common';
+import { Body, Controller, Get, Param, Patch, Post, Query } from '@nestjs/common';
 import { InterestService } from './interests.service';
 import { CreateInterestDto, UpdateInterestDto } from './dto/create-interest.dto';
 import { BaseResponse } from '../../shared/interfaces/base-response.interface';
@@ -37,6 +37,23 @@ export class InterestController {
             message: 'Metadata fetched successfully',
             data,
         };
+    }
+
+    @Get('request')
+    async getInterestsByStatus(
+        @Query('status') status: string,
+        @Query('limit') limit?: string,
+    ) {
+        const parsedLimit = limit ? parseInt(limit, 10) : 10;
+        return this.interestService.getInterestsByStatus(status, parsedLimit);
+    }
+
+    @Patch('request/:userId')
+    async updateUserStatus(
+        @Param('userId') userId: string,
+        @Body('status') status: 'pending' | 'accepted' | 'rejected',
+    ) {
+        return this.interestService.updateUserStatus(userId, status);
     }
 
     @Get(':email')

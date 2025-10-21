@@ -39,8 +39,14 @@ export class User {
     })
     roleId: string;
 
-    @Prop()
-    profilePicture?: string;
+  @Prop()
+  profilePicture?: string;
+
+  @Prop({
+    enum: ['new', 'pending', 'accepted'],
+    default: 'new',
+  })
+  status: string;
 
     @Prop({ default: false })
     isEmailVerified: boolean;
