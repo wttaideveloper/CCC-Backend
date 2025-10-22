@@ -1,5 +1,4 @@
 import {
-  BadRequestException,
   Body,
   Controller,
   Delete,
@@ -8,6 +7,8 @@ import {
   Param,
   Patch,
   Post,
+  HttpCode,
+  HttpStatus,
 } from '@nestjs/common';
 import { CreateAssessmentDto, SectionDto } from './dto/assessment.dto';
 import { Assessment } from './schemas/assessment.schema';
@@ -18,6 +19,7 @@ export class AssessmentController {
   constructor(private readonly assessmentService: AssessmentService) {}
 
   @Post()
+  @HttpCode(HttpStatus.CREATED)
   async create(@Body() dto: CreateAssessmentDto): Promise<Assessment> {
     return this.assessmentService.create(dto);
   }
@@ -27,7 +29,34 @@ export class AssessmentController {
     return this.assessmentService.getAll();
   }
 
-  // Assign assessment to multiple users
+  @Get(':id')
+  async getById(@Param('id') id: string): Promise<Assessment> {
+    return this.assessmentService.getById(id);
+  }
+
+  @Delete(':id')
+  async deleteAssessment(@Param('id') id: string) {
+    const deleted = await this.assessmentService.deleteAssessment(id);
+    if (!deleted) throw new NotFoundException('Assessment not found');
+    return { success: true, message: 'Assessment deleted successfully' };
+  }
+
+  @Patch(':id/instructions')
+  async updateInstructions(
+    @Param('id') id: string,
+    @Body('instructions') instructions: string[],
+  ): Promise<Assessment> {
+    return this.assessmentService.updateInstructions(id, instructions);
+  }
+
+  @Patch(':id/sections')
+  async updateSections(
+    @Param('id') id: string,
+    @Body('sections') sections: SectionDto[],
+  ): Promise<Assessment> {
+    return this.assessmentService.updateSections(id, sections);
+  }
+
   @Post(':assessmentId/assign')
   async assignAssessment(
     @Param('assessmentId') assessmentId: string,
@@ -44,7 +73,6 @@ export class AssessmentController {
     };
   }
 
-  // Get all assessments assigned to a specific user
   @Get('assigned/:userId')
   async getAssignedAssessments(@Param('userId') userId: string) {
     const result = await this.assessmentService.getAssignedAssessments(userId);
@@ -55,7 +83,6 @@ export class AssessmentController {
     };
   }
 
-  // Update user assignment status
   @Patch(':assessmentId/status/:userId')
   async updateAssignmentStatus(
     @Param('assessmentId') assessmentId: string,
@@ -74,33 +101,62 @@ export class AssessmentController {
     };
   }
 
-  @Get(':id')
-  async getById(@Param('id') id: string): Promise<Assessment> {
-    return this.assessmentService.getById(id);
+  // Start assessment
+  @Patch(':assessmentId/start/:userId')
+  async startAssessment(
+    @Param('assessmentId') assessmentId: string,
+    @Param('userId') userId: string,
+  ) {
+    const result = await this.assessmentService.startAssessment(
+      assessmentId,
+      userId,
+    );
+    return {
+      success: true,
+      message: 'Assessment started successfully',
+      data: result,
+    };
   }
 
-  @Delete(':id')
-  async deleteAssessment(@Param('id') id: string) {
-    const deleted = await this.assessmentService.deleteAssessment(id);
-    if (!deleted) {
-      throw new NotFoundException('Assessment not found');
-    }
-    return { message: 'Assessment deleted successfully' };
+  @Patch(':assessmentId/submit')
+  async submitAssessmentWithAnswers(
+    @Param('assessmentId') assessmentId: string,
+    @Body()
+    body: {
+      userId: string;
+      answers: {
+        sectionId: string;
+        layerId: string;
+        selectedChoice: string;
+      }[];
+    },
+  ) {
+    const result = await this.assessmentService.submitAssessment(
+      assessmentId,
+      body.userId,
+      body.answers,
+    );
+    return {
+      success: true,
+      message: 'Assessment submitted successfully',
+      data: result,
+    };
   }
 
-  @Patch(':id/instructions')
-  async updateInstructions(
-    @Param('id') id: string,
-    @Body('instructions') instructions: string[],
-  ): Promise<Assessment> {
-    return this.assessmentService.updateInstructions(id, instructions);
-  }
-
-  @Patch(':id/sections')
-  async updateSections(
-    @Param('id') id: string,
-    @Body('sections') sections: SectionDto[],
-  ): Promise<Assessment> {
-    return this.assessmentService.updateSections(id, sections);
+  // Get user’s answers for a specific assessment
+  @Get(':assessmentId/answers/:userId')
+  async getUserAnswers(
+    @Param('assessmentId') assessmentId: string,
+    @Param('userId') userId: string,
+  ) {
+    const result = await this.assessmentService.getUserAnswers(
+      assessmentId,
+      userId,
+    );
+    return {
+      success: true,
+      message: 'User answers fetched successfully',
+      data: result,
+    };
   }
 }
