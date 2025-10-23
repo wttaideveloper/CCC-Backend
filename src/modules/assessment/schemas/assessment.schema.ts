@@ -2,6 +2,26 @@ import { Prop, Schema, SchemaFactory } from '@nestjs/mongoose';
 import { Document, Types } from 'mongoose';
 
 @Schema()
+export class UserAnswer {
+  @Prop({ type: Types.ObjectId, ref: 'User', required: true })
+  userId: Types.ObjectId;
+
+  @Prop({ type: Types.ObjectId })
+  sectionId: Types.ObjectId;
+
+  @Prop({ type: Types.ObjectId })
+  layerId: Types.ObjectId;
+
+  @Prop()
+  selectedChoice: string;
+
+  @Prop({ type: Date, default: Date.now })
+  answeredAt: Date;
+}
+
+export const UserAnswerSchema = SchemaFactory.createForClass(UserAnswer);
+
+@Schema()
 export class Choice {
   @Prop({ required: true })
   text: string;
@@ -80,6 +100,9 @@ export class Assessment {
 
   @Prop({ type: [AssignmentSchema], default: [] })
   assignments: AssignTo[];
+
+  @Prop({ type: [UserAnswerSchema], default: [] })
+  userAnswers: UserAnswer[];
 }
 
 export const AssessmentSchema = SchemaFactory.createForClass(Assessment);
