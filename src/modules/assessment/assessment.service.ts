@@ -8,6 +8,7 @@ import { Model, Types } from 'mongoose';
 import { Assessment, AssessmentDocument } from './schemas/assessment.schema';
 import { CreateAssessmentDto, SectionDto } from './dto/assessment.dto';
 import { User, UserDocument } from '../users/schemas/user.schema';
+import { UserAnswer } from './schemas/answer.schema';
 
 @Injectable()
 export class AssessmentService {
@@ -16,7 +17,9 @@ export class AssessmentService {
     private readonly assessmentModel: Model<AssessmentDocument>,
     @InjectModel(User.name)
     private readonly userModel: Model<UserDocument>,
-  ) { }
+    @InjectModel(UserAnswer.name)
+    private readonly userAnswerModel: Model<UserAnswer>,
+  ) {}
 
   async create(dto: CreateAssessmentDto): Promise<Assessment> {
     const newAssessment = new this.assessmentModel({
@@ -27,14 +30,11 @@ export class AssessmentService {
   }
 
   async getAll(): Promise<Assessment[]> {
-    return this.assessmentModel.find().populate('roadmapId').exec();
+    return this.assessmentModel.find().exec();
   }
 
   async getById(id: string): Promise<Assessment> {
-    const assessment = await this.assessmentModel
-      .findById(id)
-      .populate('roadmapId')
-      .exec();
+    const assessment = await this.assessmentModel.findById(id).exec();
     if (!assessment) throw new NotFoundException('Assessment not found');
     return assessment;
   }
@@ -106,156 +106,84 @@ export class AssessmentService {
         description: a.description,
         bannerImage: a.bannerImage,
         instructions: a.instructions,
-        status: userAssignment?.status,
         assignedAt: userAssignment?.assignedAt,
         completedAt: userAssignment?.completedAt,
       };
     });
   }
-
-  // Update user assignment status
-  async updateAssignmentStatus(
+  // Save or update answers for one section
+  async saveOrUpdateSectionAnswers(
     assessmentId: string,
     userId: string,
-    status: string,
+    sectionId: string,
+    layers: { layerId: string; selectedChoice: string }[],
   ) {
-    const validStatuses = ['assigned', 'in-progress', 'completed'];
-    if (!validStatuses.includes(status))
-      throw new BadRequestException('Invalid status');
+    const assessmentExists = await this.assessmentModel.exists({
+      _id: assessmentId,
+    });
+    if (!assessmentExists) throw new NotFoundException('Assessment not found');
 
-    const result = await this.assessmentModel.findOneAndUpdate(
-      {
-        _id: assessmentId,
-        'assignments.userId': new Types.ObjectId(userId),
-      },
-      {
-        $set: {
-          'assignments.$.status': status,
-          'assignments.$.completedAt':
-            status === 'completed' ? new Date() : null,
-        },
-      },
-      { new: true },
-    );
-
-    if (!result)
-      throw new NotFoundException('Assignment not found for this user');
-
-    return result;
-  }
-
-  // Start an assessment (sets status = "in-progress")
-  async startAssessment(assessmentId: string, userId: string) {
-    const result = await this.assessmentModel.findOneAndUpdate(
-      {
-        _id: assessmentId,
-        'assignments.userId': new Types.ObjectId(userId),
-      },
-      {
-        $set: {
-          'assignments.$.status': 'in-progress',
-        },
-      },
-      { new: true },
-    );
-
-    if (!result)
-      throw new NotFoundException(
-        'Assessment not found or not assigned to this user',
-      );
-    return result;
-  }
-
-  // Save all user's answers at once (called on submission)
-  async saveAnswers(
-    assessmentId: string,
-    userId: string,
-    answers: {
-      sectionId: string;
-      layerId: string;
-      selectedChoice: string;
-    }[],
-  ) {
-    const assessment = await this.assessmentModel.findById(assessmentId);
-    if (!assessment) throw new NotFoundException('Assessment not found');
-
-    const userAssigned = assessment.assignments.find(
-      (a) => a.userId.toString() === userId,
-    );
-    if (!userAssigned)
-      throw new BadRequestException('User not assigned to this assessment');
-
-    assessment.userAnswers = assessment.userAnswers.filter(
-      (a) => a.userId.toString() !== userId,
-    );
-
-    const formattedAnswers = answers.map((ans) => ({
-      userId: new Types.ObjectId(userId),
-      sectionId: new Types.ObjectId(ans.sectionId),
-      layerId: new Types.ObjectId(ans.layerId),
-      selectedChoice: ans.selectedChoice,
+    const layerAnswers = layers.map((layer) => ({
+      layerId: new Types.ObjectId(layer.layerId),
+      selectedChoice: layer.selectedChoice,
       answeredAt: new Date(),
     }));
 
-    assessment.userAnswers.push(...formattedAnswers);
-
-    await assessment.save();
-    return { assessmentId, userId, answersCount: answers.length };
-  }
-
-  // Submit assessment and marks completed
-  async submitAssessment(
-    assessmentId: string,
-    userId: string,
-    answers?: { sectionId: string; layerId: string; selectedChoice: string }[],
-  ) {
-    const assessment = await this.assessmentModel.findById(assessmentId);
-    if (!assessment) throw new NotFoundException('Assessment not found');
-
-    const userAssigned = assessment.assignments.find(
-      (a) => a.userId.toString() === userId,
-    );
-    if (!userAssigned)
-      throw new BadRequestException('User not assigned to this assessment');
-
-    if (answers && answers.length > 0) {
-      await this.saveAnswers(assessmentId, userId, answers);
-    }
-
-    const result = await this.assessmentModel.findOneAndUpdate(
+    // Try updating existing section
+    const updated = await this.userAnswerModel.findOneAndUpdate(
       {
-        _id: assessmentId,
-        'assignments.userId': new Types.ObjectId(userId),
+        assessmentId: new Types.ObjectId(assessmentId),
+        userId: new Types.ObjectId(userId),
+        'sections.sectionId': new Types.ObjectId(sectionId),
       },
       {
         $set: {
-          'assignments.$.status': 'completed',
-          'assignments.$.completedAt': new Date(),
+          'sections.$.layers': layerAnswers,
         },
       },
       { new: true },
     );
 
-    return { message: 'Assessment submitted successfully', data: result };
-  }
+    if (updated) return updated;
 
-  // Get user answers for a specific assessment
-  async getUserAnswers(assessmentId: string, userId: string) {
-    const assessment = await this.assessmentModel
-      .findById(assessmentId)
-      .select('userAnswers sections name')
-      .lean();
-
-    if (!assessment) throw new NotFoundException('Assessment not found');
-
-    const answers = assessment.userAnswers.filter(
-      (a) => a.userId.toString() === userId,
+    // If section doesn't exist yet, push a new one
+    const result = await this.userAnswerModel.findOneAndUpdate(
+      {
+        assessmentId: new Types.ObjectId(assessmentId),
+        userId: new Types.ObjectId(userId),
+      },
+      {
+        $setOnInsert: {
+          assessmentId: new Types.ObjectId(assessmentId),
+          userId: new Types.ObjectId(userId),
+        },
+        $push: {
+          sections: {
+            sectionId: new Types.ObjectId(sectionId),
+            layers: layerAnswers,
+          },
+        },
+      },
+      { upsert: true, new: true },
     );
 
-    return {
-      name: assessment.name,
-      sections: assessment.sections,
-      answers,
-    };
+    return result;
+  }
+
+  // Get all saved answers for a user
+  async getUserAnswers(assessmentId: string, userId: string) {
+    const result = await this.userAnswerModel
+      .findOne({
+        assessmentId: new Types.ObjectId(assessmentId),
+        userId: new Types.ObjectId(userId),
+      })
+      .lean();
+
+    if (!result)
+      throw new NotFoundException(
+        'No answers found for this user and assessment',
+      );
+
+    return result;
   }
 }
