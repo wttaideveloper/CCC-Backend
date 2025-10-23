@@ -1,10 +1,11 @@
-import { IsString, IsOptional, IsDateString, IsBoolean, IsEnum, IsArray, ArrayMinSize, ValidateNested } from 'class-validator';
+import { IsString, IsOptional, IsDateString, IsBoolean, IsEnum, IsArray, ArrayMinSize, ValidateNested, IsNumber, IsMongoId } from 'class-validator';
 import { Type } from 'class-transformer';
+import { PartialType } from '@nestjs/mapped-types';
 
 export class NestedRoadMapItemDto {
 
     @IsOptional()
-    @IsString()
+    @IsMongoId()
     readonly _id?: string;
 
     @IsString()
@@ -49,6 +50,10 @@ export class NestedRoadMapItemDto {
     @IsOptional()
     @IsString()
     phase?: string;
+
+    @IsOptional()
+    @IsNumber()
+    totalSteps?: number;
 
     @IsOptional()
     extras?: Record<string, any>;
@@ -109,11 +114,21 @@ export class CreateRoadMapDto {
     phase?: string;
 
     @IsOptional()
+    @IsMongoId()
+    assesmentId?: string;
+
+    @IsOptional()
+    @IsNumber()
+    totalSteps?: number;
+
+    @IsOptional()
     @IsArray()
     @ValidateNested({ each: true })
     @Type(() => NestedRoadMapItemDto)
     roadmaps?: NestedRoadMapItemDto[];
 }
+
+export class UpdateRoadMapDto extends PartialType(CreateRoadMapDto) { }
 
 export class RoadMapResponseDto {
     _id: string;
@@ -132,6 +147,8 @@ export class RoadMapResponseDto {
     division: string;
     haveNextedRoadMaps: boolean;
     phase?: string;
+    assesmentId?: string;
+    totalSteps?: number;
     roadmaps: NestedRoadMapItemDto[];
     // createdAt: Date;
     // updatedAt: Date;

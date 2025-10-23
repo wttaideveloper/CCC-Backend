@@ -1,8 +1,9 @@
 import { Prop, Schema, SchemaFactory } from "@nestjs/mongoose";
 import { Document, Types } from "mongoose";
 
-export type ProgressDocument = Progress & Document;
-
+export type ProgressDocument = Document<unknown, {}, Progress> & Progress & {
+    _id: Types.ObjectId;
+};
 @Schema({ timestamps: true })
 export class Progress {
     @Prop({ type: Types.ObjectId, ref: "User", required: true })
@@ -17,7 +18,7 @@ export class Progress {
             progressPercentage: { type: Number, default: 0 },
             status: {
                 type: String,
-                enum: ["not_started", "in_progress", "completed"],
+                enum: ["not_started", "due", "in_progress", "completed"],
                 default: "not_started",
             },
         },

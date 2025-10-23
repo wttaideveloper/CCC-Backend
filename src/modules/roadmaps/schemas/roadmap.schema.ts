@@ -38,6 +38,9 @@ export class NestedRoadMapItem {
     @Prop({ default: "" })
     phase: string;
 
+    @Prop({ default: 0, type: Number })
+    totalSteps: number;
+
     @Prop({ type: Object })
     extras: Object;
 }
@@ -63,7 +66,7 @@ export class RoadMap {
     @Prop()
     description: string;
 
-    @Prop({ enum: ['due', 'not started', 'completed'], default: 'not started' })
+    @Prop({ enum: ['due', 'in-progress', 'not started', 'completed'], default: 'not started' })
     status: string;
 
     @Prop({ required: true })
@@ -92,6 +95,12 @@ export class RoadMap {
 
     @Prop({ default: "" })
     phase: string;
+
+    @Prop({ type: Types.ObjectId, ref: 'Assessment', required: false })
+    assesmentId?: Types.ObjectId;
+
+    @Prop({ default: 0, type: Number })
+    totalSteps: number;
 
     @Prop({ type: Object })
     extras?: Object;

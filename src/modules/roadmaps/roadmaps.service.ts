@@ -3,7 +3,7 @@ import { InjectModel } from '@nestjs/mongoose';
 import { Model, Types } from 'mongoose';
 import { RoadMap, RoadMapDocument } from './schemas/roadmap.schema';
 import { CommentItem, Comments, CommentsDocument } from './schemas/comments.schema';
-import { CreateRoadMapDto, RoadMapResponseDto } from './dto/roadmap.dto';
+import { CreateRoadMapDto, RoadMapResponseDto, UpdateRoadMapDto } from './dto/roadmap.dto';
 import { toRoadMapResponseDto } from './utils/roadmaps.mapper';
 import { Queries, QueriesDocument, QueryItem } from './schemas/queries.schema';
 import { AddCommentDto, CommentsThreadResponseDto } from './dto/comments.dto';
@@ -58,6 +58,39 @@ export class RoadMapsService {
         }
 
         return toRoadMapResponseDto(roadmap as RoadMapDocument);
+    }
+
+    async update(id: string, dto: UpdateRoadMapDto): Promise<RoadMapResponseDto> {
+        if (dto.name) {
+            const existing = await this.roadMapModel.findOne({
+                name: dto.name,
+                _id: { $ne: new Types.ObjectId(id) }
+            }).exec();
+
+            if (existing) {
+                throw new BadRequestException(`RoadMap with name '${dto.name}' already exists.`);
+            }
+        }
+
+        const updatedRoadmap = await this.roadMapModel.findByIdAndUpdate(id, dto, {
+            new: true,
+        }).exec();
+
+        if (!updatedRoadmap) {
+            throw new NotFoundException(`RoadMap with ID "${id}" not found`);
+        }
+
+        return toRoadMapResponseDto(updatedRoadmap as RoadMapDocument);
+    }
+
+    async delete(id: string): Promise<{ _id: string }> {
+        const result = await this.roadMapModel.findByIdAndDelete(id).exec();
+
+        if (!result) {
+            throw new NotFoundException(`RoadMap with ID "${id}" not found`);
+        }
+
+        return { _id: id };
     }
 
     // async getRoadMap(id: string): Promise<{ roadmap: RoadMapResponseDto; comments: CommentsResponseDto }> {
