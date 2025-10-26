@@ -9,6 +9,8 @@ import { HomeModule } from './modules/home/home.module';
 import { RoadMapsModule } from './modules/roadmaps/roadmaps.module';
 import { AppointmentsModule } from './modules/appointments/appointments.module';
 import { AssessmentModule } from './modules/assessment/assessment.module';
+import { ProductsServicesModule } from './modules/products_services/products_services.module';
+import { ProgressModule } from './modules/progress/progress.module';
 
 @Module({
   imports: [
@@ -25,7 +27,9 @@ import { AssessmentModule } from './modules/assessment/assessment.module';
     HomeModule,
     RoadMapsModule,
     AppointmentsModule,
-    AssessmentModule
+    AssessmentModule,
+    ProgressModule,
+    ProductsServicesModule,
   ],
   controllers: [],
   providers: [],
