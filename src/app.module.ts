@@ -9,6 +9,7 @@ import { HomeModule } from './modules/home/home.module';
 import { RoadMapsModule } from './modules/roadmaps/roadmaps.module';
 import { AppointmentsModule } from './modules/appointments/appointments.module';
 import { AssessmentModule } from './modules/assessment/assessment.module';
+import { MicroGrantModule } from './modules/micro-grand/micro-grant.module';
 
 @Module({
   imports: [
@@ -25,7 +26,8 @@ import { AssessmentModule } from './modules/assessment/assessment.module';
     HomeModule,
     RoadMapsModule,
     AppointmentsModule,
-    AssessmentModule
+    AssessmentModule,
+    MicroGrantModule
   ],
   controllers: [],
   providers: [],
