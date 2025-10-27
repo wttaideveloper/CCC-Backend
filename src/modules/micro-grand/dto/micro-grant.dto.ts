@@ -1,10 +1,13 @@
 import {
   IsString,
-  IsNumber,
   IsArray,
   ValidateNested,
   IsBoolean,
   IsOptional,
+  IsMongoId,
+  IsNotEmpty,
+  IsObject,
+  IsEnum,
 } from 'class-validator';
 import { Type } from 'class-transformer';
 
@@ -36,4 +39,26 @@ export class CreateOrUpdateFormDto {
   @ValidateNested({ each: true })
   @Type(() => FieldDto)
   fields: FieldDto[];
+}
+
+export class ApplyMicroGrantDto {
+  @IsMongoId()
+  @IsNotEmpty()
+  userId: string;
+
+  @IsObject()
+  @IsNotEmpty()
+  answers: Record<string, any>;
+
+  @IsString()
+  @IsOptional()
+  supportingDoc?: string;
+}
+
+export class UpdateApplicationStatusDto {
+  @IsNotEmpty()
+  @IsEnum(['new', 'pending', 'accepted', 'rejected'], {
+    message: 'Status must be one of: new, pending, accepted',
+  })
+  status: string;
 }

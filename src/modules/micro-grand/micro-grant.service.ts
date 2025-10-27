@@ -13,16 +13,21 @@ import {
   MicroGrantApplication,
   MicroGrantApplicationDocument,
 } from './schemas/micro-grant-application.schema';
-import { CreateOrUpdateFormDto } from './dto/micro-grant.dto';
+import {
+  ApplyMicroGrantDto,
+  CreateOrUpdateFormDto,
+} from './dto/micro-grant.dto';
+import { User, UserDocument } from '../users/schemas/user.schema';
 
 @Injectable()
 export class MicroGrantService {
   constructor(
     @InjectModel(MicroGrantForm.name)
     private formModel: Model<MicroGrantFormDocument>,
-
     @InjectModel(MicroGrantApplication.name)
     private applicationModel: Model<MicroGrantApplicationDocument>,
+    @InjectModel(User.name)
+    private readonly userModel: Model<UserDocument>,
   ) {}
 
   async createOrUpdateForm(dto: CreateOrUpdateFormDto) {
@@ -51,23 +56,92 @@ export class MicroGrantService {
     return form;
   }
 
-  // // Pastor applies for micro grant
-  // async applyGrant(pastorId: string, dto: ApplyMicroGrantDto) {
-  //   // Check if form exists
-  //   const form = await this.formModel.findOne();
-  //   if (!form) throw new NotFoundException('No active form found');
-  //
-  //   if (!dto.amount || dto.amount <= 0) {
-  //     throw new BadRequestException('Please enter a valid amount');
-  //   }
-  //
-  //   const application = await this.applicationModel.create({
-  //     userId: new Types.ObjectId(pastorId),
-  //     formId: form._id,
-  //     answers: dto.answers,
-  //     supportingDoc: dto.supportingDoc,
-  //   });
-  //
-  //   return application;
-  // }
+  async applyForGrant(dto: ApplyMicroGrantDto) {
+    const form = await this.formModel.findOne().sort({ updatedAt: -1 });
+    if (!form) throw new NotFoundException('No active form available');
+    const missingRequired = form.fields.filter(
+      (f) =>
+        f.required &&
+        (dto.answers[f.label] === undefined || dto.answers[f.label] === ''),
+    );
+
+    if (missingRequired.length > 0) {
+      throw new BadRequestException(
+        `Missing answers for required fields: ${missingRequired
+          .map((f) => f.label)
+          .join(', ')}`,
+      );
+    }
+    const application = await this.applicationModel.create({
+      userId: new Types.ObjectId(dto.userId),
+      formId: form._id,
+      answers: dto.answers,
+      supportingDoc: dto.supportingDoc || '',
+    });
+
+    return application;
+  }
+
+  async getApplications(status?: string, search?: string) {
+    const query: any = {};
+
+    if (status) query.status = status;
+
+    if (search) {
+      query['$or'] = [
+        { 'answers.Church Name': new RegExp(search, 'i') },
+        { 'answers.Purpose of Grant': new RegExp(search, 'i') },
+      ];
+    }
+
+    const applications = await this.applicationModel
+      .find(query)
+      .populate('userId', 'name email')
+      .populate('formId', 'title');
+
+    return applications;
+  }
+
+  async getUserApplication(userId: string) {
+    console.log('🔹 Received userId:', userId);
+
+    if (!Types.ObjectId.isValid(userId)) {
+      throw new NotFoundException('Invalid user ID format');
+    }
+
+    const user = await this.userModel
+      .findById(userId)
+      .select('name email role profileImage');
+
+    const query = { userId: new Types.ObjectId(userId) };
+
+    const application = await this.applicationModel
+      .findOne(query)
+      .populate('formId', 'title description')
+      .lean();
+
+    if (!application)
+      throw new NotFoundException('Application not found for this user');
+
+    return { user, application };
+  }
+
+  async updateApplicationStatus(id: string, status: string) {
+    if (!Types.ObjectId.isValid(id)) {
+      throw new BadRequestException('Invalid application ID');
+    }
+
+    const application = await this.applicationModel.findById(id);
+    if (!application) {
+      throw new NotFoundException('Application not found');
+    }
+
+    application.status = status;
+    await application.save();
+
+    return {
+      message: `Application status updated to ${status}`,
+      application,
+    };
+  }
 }

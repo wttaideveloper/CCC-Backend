@@ -17,7 +17,11 @@ export class MicroGrantApplication {
   @Prop()
   supportingDoc: string;
 
-  @Prop({ type: String, enum: ['new', 'pending', 'accepted'], default: 'new' })
+  @Prop({
+    type: String,
+    enum: ['new', 'pending', 'accepted', 'rejected'],
+    default: 'new',
+  })
   status: string;
 }
 
