@@ -11,6 +11,17 @@ export class AssignRoadmapDto {
     roadMapId: Types.ObjectId;
 }
 
+export class AssignAssessmentDto {
+    @IsMongoId()
+    @IsNotEmpty()
+    userId: Types.ObjectId;
+
+    @IsMongoId()
+    @IsNotEmpty()
+    assessmentId: Types.ObjectId;
+
+}
+
 export class UpdateRoadmapProgressDto {
     @IsMongoId()
     @IsNotEmpty()

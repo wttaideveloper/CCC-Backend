@@ -1,23 +1,129 @@
 import { NestFactory } from '@nestjs/core';
 import { AppModule } from './app.module';
-import { ValidationPipe } from '@nestjs/common';
+import { ValidationPipe, Logger } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
+import helmet from 'helmet';
+import compression from 'compression';
+import { HttpExceptionFilter } from './common/filters';
 
 async function bootstrap() {
-  const app = await NestFactory.create(AppModule);
+  const logger = new Logger('Bootstrap');
 
+  const app = await NestFactory.create(AppModule, {
+    logger: ['error', 'warn', 'log', 'debug', 'verbose'],
+    cors: false,
+  });
+
+  const configService = app.get(ConfigService);
+  const nodeEnv = configService.get<string>('nodeEnv', 'development');
+  const port = configService.get<number>('port', 3000);
+
+  // HELMET
+  app.use(
+    helmet({
+      contentSecurityPolicy: nodeEnv === 'production',
+      crossOriginEmbedderPolicy: nodeEnv === 'production',
+      crossOriginResourcePolicy: { policy: 'cross-origin' },
+      hsts: nodeEnv === 'production' ? {
+        maxAge: 31536000,
+        includeSubDomains: true,
+        preload: true,
+      } : false,
+    }),
+  );
+
+  // CORS
+  const allowedOrigins = process.env.ALLOWED_ORIGINS
+    ? process.env.ALLOWED_ORIGINS.split(',')
+    : ['http://localhost:3000', 'http://localhost:3001'];
+
+  app.enableCors({
+    origin: (origin, callback) => {
+      if (!origin) return callback(null, true);
+
+      if (allowedOrigins.includes(origin) || nodeEnv === 'development') {
+        callback(null, true);
+      } else {
+        callback(new Error('Not allowed by CORS'));
+      }
+    },
+    credentials: true,
+    methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
+    allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With'],
+    exposedHeaders: ['X-Total-Count', 'X-Page-Count'],
+    maxAge: 3600, // Cache preflight requests for 1 hour
+  });
+
+  // COMPRESSION
+  app.use(
+    compression({
+      filter: (req, res) => {
+        if (req.headers['x-no-compression']) {
+          return false;
+        }
+        return compression.filter(req, res);
+      },
+      level: 6,
+      threshold: 2044,
+    }),
+  );
+
+  // GLOBAL PIPES: Validation
   app.useGlobalPipes(
     new ValidationPipe({
       whitelist: true,
       forbidNonWhitelisted: true,
       transform: true,
+      transformOptions: {
+        enableImplicitConversion: true,
+      },
+      disableErrorMessages: nodeEnv === 'production',
+      validationError: {
+        target: false,
+        value: false,
+      },
     }),
   );
-  // app.useGlobalFilters();
 
-  app.enableCors();
+  // FILTERS
+  app.useGlobalFilters(new HttpExceptionFilter());
 
-  const port = process.env.PORT || 3000;
+  //API PREFIX/VERSIONING
+  app.setGlobalPrefix('api/v1', {
+    exclude: ['/', '/health', '/metrics'],
+  });
+
+  // GRACEFUL SHUTDOWN
+  app.enableShutdownHooks();
+
+  process.on('SIGTERM', async () => {
+    logger.warn('SIGTERM signal received: closing HTTP server');
+    await app.close();
+    logger.log('HTTP server closed');
+    process.exit(0);
+  });
+
+  process.on('SIGINT', async () => {
+    logger.warn('SIGINT signal received: closing HTTP server');
+    await app.close();
+    logger.log('HTTP server closed');
+    process.exit(0);
+  });
+
   await app.listen(port);
-  console.log(`Server running on port: ${port}`);
+
+  logger.log(`=================================================`);
+  logger.log(`Application started successfully`);
+  logger.log(`=================================================`);
+  logger.log(`Environment: ${nodeEnv}`);
+  logger.log(`Server running on: http://localhost:${port}`);
+  logger.log(`API Base URL: http://localhost:${port}/api/v1`);
+  logger.log(`Health Check: http://localhost:${port}/health`);
+  logger.log(`=================================================`);
 }
-bootstrap();
+
+bootstrap().catch((error) => {
+  const logger = new Logger('Bootstrap');
+  logger.error('Failed to start application', error);
+  process.exit(1);
+});

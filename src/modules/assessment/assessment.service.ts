@@ -8,6 +8,7 @@ import { Model, Types } from 'mongoose';
 import { Assessment, AssessmentDocument } from './schemas/assessment.schema';
 import { CreateAssessmentDto, SectionDto } from './dto/assessment.dto';
 import { User, UserDocument } from '../users/schemas/user.schema';
+import { VALID_ASSESSMENT_ASSIGNMENT_STATUSES, ASSESSMENT_ASSIGNMENT_STATUSES } from '../../common/constants/status.constants';
 
 @Injectable()
 export class AssessmentService {
@@ -27,13 +28,14 @@ export class AssessmentService {
   }
 
   async getAll(): Promise<Assessment[]> {
-    return this.assessmentModel.find().populate('roadmapId').exec();
+    return this.assessmentModel.find().populate('roadmapId').lean().exec();
   }
 
   async getById(id: string): Promise<Assessment> {
     const assessment = await this.assessmentModel
       .findById(id)
       .populate('roadmapId')
+      .lean()
       .exec();
     if (!assessment) throw new NotFoundException('Assessment not found');
     return assessment;
@@ -79,7 +81,7 @@ export class AssessmentService {
 
     const newAssignments = validUsers.map((user) => ({
       userId: user._id,
-      status: 'assigned',
+      status: ASSESSMENT_ASSIGNMENT_STATUSES.ASSIGNED,
       assignedAt: new Date(),
     }));
 
@@ -92,9 +94,12 @@ export class AssessmentService {
   // Get all assessments assigned to a specific user
   async getAssignedAssessments(userId: string) {
     const userObjectId = new Types.ObjectId(userId);
-    const assessments = await this.assessmentModel.find({
-      'assignments.userId': userObjectId,
-    });
+    const assessments = await this.assessmentModel
+      .find({
+        'assignments.userId': userObjectId,
+      })
+      .lean()
+      .exec();
 
     return assessments.map((a) => {
       const userAssignment = a.assignments.find(
@@ -119,8 +124,7 @@ export class AssessmentService {
     userId: string,
     status: string,
   ) {
-    const validStatuses = ['assigned', 'in-progress', 'completed'];
-    if (!validStatuses.includes(status))
+    if (!VALID_ASSESSMENT_ASSIGNMENT_STATUSES.includes(status as any))
       throw new BadRequestException('Invalid status');
 
     const result = await this.assessmentModel.findOneAndUpdate(
@@ -132,7 +136,7 @@ export class AssessmentService {
         $set: {
           'assignments.$.status': status,
           'assignments.$.completedAt':
-            status === 'completed' ? new Date() : null,
+            status === ASSESSMENT_ASSIGNMENT_STATUSES.COMPLETED ? new Date() : null,
         },
       },
       { new: true },
@@ -153,7 +157,7 @@ export class AssessmentService {
       },
       {
         $set: {
-          'assignments.$.status': 'in-progress',
+          'assignments.$.status': ASSESSMENT_ASSIGNMENT_STATUSES.IN_PROGRESS,
         },
       },
       { new: true },
@@ -229,7 +233,7 @@ export class AssessmentService {
       },
       {
         $set: {
-          'assignments.$.status': 'completed',
+          'assignments.$.status': ASSESSMENT_ASSIGNMENT_STATUSES.COMPLETED,
           'assignments.$.completedAt': new Date(),
         },
       },

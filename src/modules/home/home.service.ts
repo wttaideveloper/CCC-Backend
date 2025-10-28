@@ -5,7 +5,6 @@ import { Home, HomeDocument } from './schemas/home.schema';
 import { HomeResponseDto } from './dto/home-response.dto';
 import { MentorResponseDto } from './dto/mentor-response.dto';
 import { User, UserDocument } from '../users/schemas/user.schema';
-import { UsersService } from '../users/users.service';
 import {
   toHomeResponseDto,
   toMentorMenteeDetailsDto,
@@ -20,6 +19,7 @@ import {
   AddNotificationDto,
   NotificationResponseDto,
 } from './dto/notification.dto';
+import { USER_ROLES } from '../../common/constants/status.constants';
 
 interface MentorFilterOptions {
   page?: number;
@@ -39,21 +39,20 @@ export class HomeService {
     private readonly userModel: Model<UserDocument>,
     @InjectModel(Notification.name)
     private readonly notificationModel: Model<NotificationDocument>,
-    private readonly userService: UsersService,
-  ) {}
+  ) { }
 
   async getByEmail(email: string): Promise<HomeResponseDto> {
-    const home = await this.homeModel.findOne({ email }).exec();
+    const home = await this.homeModel.findOne({ email }).lean().exec();
 
     if (!home) {
       throw new NotFoundException(`Home data not found for email: ${email}`);
     }
-    return toHomeResponseDto(home);
+    return toHomeResponseDto(home as any);
   }
 
   async getMentorByEmail(email: string): Promise<MentorMenteeDetailsDto> {
     const user = await this.userModel
-      .findOne({ email, role: 'mentor' })
+      .findOne({ email, role: USER_ROLES.MENTOR })
       .populate('interestId')
       .exec();
 
@@ -64,7 +63,7 @@ export class HomeService {
 
   async getMenteeByEmail(email: string): Promise<MentorMenteeDetailsDto> {
     const user = await this.userModel
-      .findOne({ email, role: 'pastor' })
+      .findOne({ email, role: USER_ROLES.PASTOR })
       .populate('interestId')
       .exec();
 
@@ -77,43 +76,85 @@ export class HomeService {
     options: MentorFilterOptions = {},
   ): Promise<{ mentors: MentorResponseDto[]; total: number }> {
     const { page = 1, limit = 10, country, state, conference, role } = options;
+    const skip = (page - 1) * limit;
 
-    const roleFilter: any = role || { $in: ['mentor', 'field mentor'] };
+    const roleFilter = role
+      ? Array.isArray(role)
+        ? { $in: role }
+        : role
+      : { $in: [USER_ROLES.MENTOR, 'field mentor'] };
 
-    const allMentors = await this.userService.findByRole(roleFilter);
+    const pipeline: any[] = [
+      {
+        $match: {
+          role: roleFilter,
+        },
+      },
 
-    let filteredMentors = allMentors;
+      {
+        $lookup: {
+          from: 'interests',
+          localField: '_id',
+          foreignField: 'userId',
+          as: 'interestData',
+        },
+      },
+    ];
 
     if (country || state || conference) {
-      filteredMentors = allMentors.filter((mentor: any) => {
-        const interests = mentor.interests || [];
-        return interests.some((interest: any) => {
-          const church = interest.churchDetails?.[0] || {};
-          return (
-            (!country || church.country === country) &&
-            (!state || church.state === state) &&
-            (!conference || interest.conference === conference)
-          );
-        });
+      const matchConditions: any = {};
+
+      if (country) {
+        matchConditions['interestData.churchDetails.country'] = country;
+      }
+      if (state) {
+        matchConditions['interestData.churchDetails.state'] = state;
+      }
+      if (conference) {
+        matchConditions['interestData.conference'] = conference;
+      }
+
+      pipeline.push({
+        $match: matchConditions,
       });
     }
 
-    const mentorDtos: MentorResponseDto[] = filteredMentors.map((mentor) => {
+    pipeline.push({
+      $project: {
+        _id: 1,
+        firstName: 1,
+        lastName: 1,
+        email: 1,
+        username: 1,
+        role: 1,
+        profilePicture: 1,
+      },
+    });
+
+    pipeline.push({
+      $facet: {
+        metadata: [{ $count: 'total' }],
+        data: [{ $skip: skip }, { $limit: limit }],
+      },
+    });
+
+    const result = await this.userModel.aggregate(pipeline).exec();
+
+    const total = result[0]?.metadata[0]?.total || 0;
+    const mentorsData = result[0]?.data || [];
+
+    const mentors: MentorResponseDto[] = mentorsData.map((mentor) => {
       const dto = new MentorResponseDto();
-      dto.id = mentor.id;
+      dto.id = mentor._id.toString();
       dto.firstName = mentor.firstName;
       dto.lastName = mentor.lastName;
       dto.email = mentor.email;
       dto.username = mentor.username || '';
       dto.role = mentor.role;
-      // dto.profileInfo = mentor.profileInfo || '';
       return dto;
     });
 
-    const total = mentorDtos.length;
-    const paginated = mentorDtos.slice((page - 1) * limit, page * limit);
-
-    return { mentors: paginated, total };
+    return { mentors, total };
   }
 
   async getAllMentees(
@@ -125,40 +166,76 @@ export class HomeService {
     } = {},
   ): Promise<{ mentees: MentorResponseDto[]; total: number }> {
     const { page = 1, limit = 10, phase, country } = options;
+    const skip = (page - 1) * limit;
 
-    const allMentees = await this.userService.findByRole('pastor');
+    const pipeline: any[] = [
+      {
+        $match: {
+          role: USER_ROLES.PASTOR,
+        },
+      },
 
-    let filteredMentees = allMentees;
+      {
+        $lookup: {
+          from: 'interests',
+          localField: '_id',
+          foreignField: 'userId',
+          as: 'interestData',
+        },
+      },
+    ];
 
     if (country || phase) {
-      filteredMentees = allMentees.filter((mentor: any) => {
-        const interests = mentor.interests || [];
-        return interests.some((interest: any) => {
-          const church = interest.churchDetails?.[0] || {};
-          return (
-            (!country || church.country === country) &&
-            (!phase || church.state === phase)
-          );
-        });
+      const matchConditions: any = {};
+
+      if (country) {
+        matchConditions['interestData.churchDetails.country'] = country;
+      }
+      if (phase) {
+        matchConditions['interestData.churchDetails.state'] = phase;
+      }
+
+      pipeline.push({
+        $match: matchConditions,
       });
     }
 
-    const menteeDtos = filteredMentees.map((mentee) => {
+    pipeline.push({
+      $project: {
+        _id: 1,
+        firstName: 1,
+        lastName: 1,
+        email: 1,
+        username: 1,
+        role: 1,
+        profilePicture: 1,
+      },
+    });
+
+    pipeline.push({
+      $facet: {
+        metadata: [{ $count: 'total' }],
+        data: [{ $skip: skip }, { $limit: limit }],
+      },
+    });
+
+    const result = await this.userModel.aggregate(pipeline).exec();
+
+    const total = result[0]?.metadata[0]?.total || 0;
+    const menteesData = result[0]?.data || [];
+
+    const mentees: MentorResponseDto[] = menteesData.map((mentee) => {
       const dto = new MentorResponseDto();
-      dto.id = mentee.id;
+      dto.id = mentee._id.toString();
       dto.firstName = mentee.firstName;
       dto.lastName = mentee.lastName;
       dto.email = mentee.email;
       dto.username = mentee.username || '';
       dto.role = mentee.role;
-      // dto.profileInfo = mentee.profileInfo || '';
       return dto;
     });
 
-    const total = menteeDtos.length;
-    const paginated = menteeDtos.slice((page - 1) * limit, page * limit);
-
-    return { mentees: paginated, total };
+    return { mentees, total };
   }
 
   async addNotification(
@@ -191,11 +268,11 @@ export class HomeService {
   }
 
   async getNotifications(email: string): Promise<NotificationResponseDto> {
-    const notificationDoc = await this.notificationModel.findOne({ email });
+    const notificationDoc = await this.notificationModel.findOne({ email }).lean().exec();
     if (!notificationDoc) {
       throw new NotFoundException('No notifications found for this user');
     }
-    return this.mapToResponse(notificationDoc);
+    return this.mapToResponse(notificationDoc as any);
   }
 
   async deleteNotification(
@@ -219,16 +296,16 @@ export class HomeService {
     return this.mapToResponse(doc);
   }
 
-  private mapToResponse(doc: NotificationDocument): NotificationResponseDto {
+  private mapToResponse(doc: NotificationDocument | any): NotificationResponseDto {
     return {
-      _id: doc._id.toString(),
+      _id: doc._id?.toString() || String(doc._id),
       email: doc.email,
       roleId: doc.roleId,
-      notifications: doc.notifications.map((n) => ({
+      notifications: doc.notifications?.map((n: any) => ({
         name: n.name,
         details: n.details,
         module: n.module,
-      })),
+      })) || [],
       createdAt: doc.createdAt,
       updatedAt: doc.updatedAt,
     };

@@ -19,6 +19,7 @@ import {
 } from 'src/shared/constants/metadata.constants';
 import { InterestMetadataDto } from './dto/interestMetadata.dto';
 import { User, UserDocument } from '../users/schemas/user.schema';
+import { VALID_USER_APPLICATION_STATUSES, USER_APPLICATION_STATUSES } from '../../common/constants/status.constants';
 
 @Injectable()
 export class InterestService {
@@ -38,6 +39,7 @@ export class InterestService {
     const interests = await this.interestModel
       .find()
       .sort({ createdAt: -1 })
+      .lean()
       .exec();
     return interests.map(toInterestResponseDto);
   }
@@ -53,8 +55,8 @@ export class InterestService {
   }
 
   async findByEmail(email: string): Promise<InterestResponseDto> {
-    const interest = await this.interestModel.findOne({ email }).exec();
-    if (!interest) throw new Error('Interest form not found');
+    const interest = await this.interestModel.findOne({ email }).lean().exec();
+    if (!interest) throw new NotFoundException('Interest form not found');
     return toInterestResponseDto(interest);
   }
 
@@ -75,14 +77,13 @@ export class InterestService {
   }
 
   async getInterestsByStatus(status: string, limit = 10) {
-    const validStatuses = ['new', 'pending', 'accepted'];
-    if (!validStatuses.includes(status)) {
+    if (!VALID_USER_APPLICATION_STATUSES.includes(status as any)) {
       throw new BadRequestException('Invalid status value');
     }
 
     const matchCondition: any = {};
 
-    if (status === 'new') {
+    if (status === USER_APPLICATION_STATUSES.NEW) {
       matchCondition.userDetails = { $eq: null };
     } else {
       matchCondition['userDetails.status'] = status;
@@ -128,8 +129,8 @@ export class InterestService {
     userId: string,
     status: 'pending' | 'accepted' | 'rejected',
   ) {
-    const validStatuses = ['pending', 'accepted', 'rejected'];
-    if (!validStatuses.includes(status)) {
+    const validStatuses = [USER_APPLICATION_STATUSES.PENDING, USER_APPLICATION_STATUSES.ACCEPTED, USER_APPLICATION_STATUSES.REJECTED];
+    if (!validStatuses.includes(status as any)) {
       throw new BadRequestException('Invalid status value');
     }
 

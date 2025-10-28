@@ -7,9 +7,11 @@ import { Assessment, AssessmentDocument } from '../assessment/schemas/assessment
 import { ProgressResponseDto, toProgressResponseDto } from './utils/progress.mapper';
 import {
     AssignRoadmapDto,
+    AssignAssessmentDto,
     UpdateRoadmapProgressDto,
     UpdateAssessmentProgressDto,
 } from './dto/progress.dto';
+import { PROGRESS_STATUSES } from '../../common/constants/status.constants';
 
 @Injectable()
 export class ProgressService {
@@ -47,13 +49,50 @@ export class ProgressService {
             completedSteps: 0,
             totalSteps: roadMap.totalSteps || 0,
             progressPercentage: 0,
-            status: 'not_started',
+            status: PROGRESS_STATUSES.NOT_STARTED,
         };
 
         const updatedProgress = await this.progressModel.findOneAndUpdate(
             { userId: dto.userId },
             {
                 $push: { roadmaps: newRoadmapEntry }
+            },
+            {
+                new: true,
+                upsert: true,
+            }
+        ).exec();
+
+        return toProgressResponseDto(updatedProgress);
+    }
+
+    async assignAssessment(dto: AssignAssessmentDto): Promise<ProgressResponseDto> {
+        const existingProgress = await this.progressModel.findOne({
+            userId: dto.userId,
+            'assessments.assessmentId': dto.assessmentId,
+        }).exec();
+
+        if (existingProgress) {
+            throw new BadRequestException(`Assessment ${dto.assessmentId} is already assigned to this user.`);
+        }
+
+        const assessment = await this.assessmentModel.findById(dto.assessmentId).exec();
+        if (!assessment) {
+            throw new NotFoundException(`Assessment with ID ${dto.assessmentId} not found.`);
+        }
+
+        const newAssessmentEntry = {
+            assessmentId: dto.assessmentId,
+            completedSections: 0,
+            totalSections: 0, //assessment.totalSections || needed
+            progressPercentage: 0,
+            status: PROGRESS_STATUSES.NOT_STARTED,
+        };
+
+        const updatedProgress = await this.progressModel.findOneAndUpdate(
+            { userId: dto.userId },
+            {
+                $push: { assessments: newAssessmentEntry }
             },
             {
                 new: true,

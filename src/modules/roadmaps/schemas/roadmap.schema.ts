@@ -1,5 +1,6 @@
 import { Prop, Schema, SchemaFactory } from "@nestjs/mongoose";
 import { Document, Types } from "mongoose";
+import { VALID_ROADMAP_STATUSES, ROADMAP_STATUSES } from '../../../common/constants/status.constants';
 
 @Schema()
 export class NestedRoadMapItem {
@@ -14,7 +15,7 @@ export class NestedRoadMapItem {
     @Prop()
     description: string;
 
-    @Prop({ enum: ['due', 'not started', 'completed'], default: 'not started' })
+    @Prop({ enum: VALID_ROADMAP_STATUSES, default: ROADMAP_STATUSES.NOT_STARTED })
     status: string;
 
     @Prop({ required: true })
@@ -66,7 +67,7 @@ export class RoadMap {
     @Prop()
     description: string;
 
-    @Prop({ enum: ['due', 'in-progress', 'not started', 'completed'], default: 'not started' })
+    @Prop({ enum: VALID_ROADMAP_STATUSES, default: ROADMAP_STATUSES.NOT_STARTED })
     status: string;
 
     @Prop({ required: true })
@@ -110,6 +111,13 @@ export class RoadMap {
 }
 
 export const RoadMapSchema = SchemaFactory.createForClass(RoadMap);
+
+RoadMapSchema.index({ name: 1 });
+RoadMapSchema.index({ status: 1 });
+RoadMapSchema.index({ name: 1, status: 1 });
+RoadMapSchema.index({ name: 'text', description: 'text' });
+RoadMapSchema.index({ status: 1, createdAt: -1 });
+RoadMapSchema.index({ type: 1, status: 1 });
 
 RoadMapSchema.pre('save', function (next) {
     const doc = this as RoadMapDocument;

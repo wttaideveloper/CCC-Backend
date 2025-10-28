@@ -38,3 +38,10 @@ export class Comments {
 }
 
 export const CommentsSchema = SchemaFactory.createForClass(Comments);
+
+CommentsSchema.index({ userId: 1, roadMapId: 1 });
+CommentsSchema.index({ roadMapId: 1 });
+CommentsSchema.index({ userId: 1 });
+// CommentsSchema.index({ 'comments.mentorId': 1 });
+CommentsSchema.index({ createdAt: 1 });
+CommentsSchema.index({ updatedAt: -1 });

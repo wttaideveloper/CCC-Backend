@@ -1,5 +1,6 @@
 import { Prop, Schema, SchemaFactory } from "@nestjs/mongoose";
 import { Document, Types } from "mongoose";
+import { VALID_PROGRESS_STATUSES, PROGRESS_STATUSES } from '../../../common/constants/status.constants';
 
 export type ProgressDocument = Document<unknown, {}, Progress> & Progress & {
     _id: Types.ObjectId;
@@ -18,8 +19,8 @@ export class Progress {
             progressPercentage: { type: Number, default: 0 },
             status: {
                 type: String,
-                enum: ["not_started", "due", "in_progress", "completed"],
-                default: "not_started",
+                enum: VALID_PROGRESS_STATUSES,
+                default: PROGRESS_STATUSES.NOT_STARTED,
             },
         },
     ])
@@ -44,20 +45,20 @@ export class Progress {
         {
             _id: false,
             assessmentId: { type: Types.ObjectId, ref: "Assessment", required: true },
-            score: { type: Number, default: 0 },
-            maxScore: { type: Number, default: 0 },
+            completedSections: { type: Number, default: 0 },
+            totalSections: { type: Number, default: 0 },
             progressPercentage: { type: Number, default: 0 },
             status: {
                 type: String,
-                enum: ["not_started", "in_progress", "completed"],
-                default: "not_started",
+                enum: VALID_PROGRESS_STATUSES.filter(s => s !== PROGRESS_STATUSES.DUE),
+                default: PROGRESS_STATUSES.NOT_STARTED,
             },
         },
     ])
     assessments: {
         assessmentId: Types.ObjectId;
-        score: number;
-        maxScore: number;
+        completedSections: number;
+        totalSections: number;
         progressPercentage: number;
         status: string;
     }[];
@@ -85,12 +86,12 @@ ProgressSchema.pre<ProgressDocument>("save", function (next) {
             r.progressPercentage = Math.min((r.completedSteps / r.totalSteps) * 100, 100);
         else r.progressPercentage = 0;
 
-        if (r.progressPercentage >= 100) r.status = "completed";
-        else if (r.progressPercentage > 0) r.status = "in_progress";
-        else r.status = "not_started";
+        if (r.progressPercentage >= 100) r.status = PROGRESS_STATUSES.COMPLETED;
+        else if (r.progressPercentage > 0) r.status = PROGRESS_STATUSES.IN_PROGRESS;
+        else r.status = PROGRESS_STATUSES.NOT_STARTED;
 
         totalRoadmapPercent += r.progressPercentage;
-        if (r.status === "completed") completedRoadmaps++;
+        if (r.status === PROGRESS_STATUSES.COMPLETED) completedRoadmaps++;
     });
 
     this.totalRoadmaps = this.roadmaps.length;
@@ -103,16 +104,16 @@ ProgressSchema.pre<ProgressDocument>("save", function (next) {
     // --- Assessments ---
     let completedAssessments = 0;
     this.assessments.forEach((a) => {
-        if (a.maxScore > 0)
-            a.progressPercentage = Math.min((a.score / a.maxScore) * 100, 100);
+        if (a.completedSections > 0)
+            a.progressPercentage = Math.min((a.completedSections / a.totalSections) * 100, 100);
         else a.progressPercentage = 0;
 
-        if (a.progressPercentage >= 100) a.status = "completed";
-        else if (a.progressPercentage > 0) a.status = "in_progress";
-        else a.status = "not_started";
+        if (a.progressPercentage >= 100) a.status = PROGRESS_STATUSES.COMPLETED;
+        else if (a.progressPercentage > 0) a.status = PROGRESS_STATUSES.IN_PROGRESS;
+        else a.status = PROGRESS_STATUSES.NOT_STARTED;
 
         totalAssessmentPercent += a.progressPercentage;
-        if (a.status === "completed") completedAssessments++;
+        if (a.status === PROGRESS_STATUSES.COMPLETED) completedAssessments++;
     });
 
     this.totalAssessments = this.assessments.length;
@@ -124,3 +125,9 @@ ProgressSchema.pre<ProgressDocument>("save", function (next) {
 
     next();
 });
+
+ProgressSchema.index({ userId: 1 });
+ProgressSchema.index({ userId: 1, 'roadmaps.roadMapId': 1 });
+ProgressSchema.index({ userId: 1, 'assessments.assessmentId': 1 });
+ProgressSchema.index({ createdAt: 1 });
+ProgressSchema.index({ updatedAt: -1 });

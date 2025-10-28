@@ -14,15 +14,15 @@ function mapChurchDetails(details: ChurchDetails): ChurchDetailsResponseDto {
     };
 }
 
-export function toInterestResponseDto(interest: InterestDocument): InterestResponseDto {
+export function toInterestResponseDto(interest: InterestDocument | any): InterestResponseDto {
 
     return {
-        id: interest._id.toString(),
+        id: interest._id?.toString() || String(interest._id),
         firstName: interest.firstName,
         lastName: interest.lastName,
         phoneNumber: interest.phoneNumber,
         email: interest.email,
-        churchDetails: interest.churchDetails.map(mapChurchDetails),
+        churchDetails: (interest.churchDetails || []).map(mapChurchDetails),
         title: interest.title,
         conference: interest.conference,
         yearsInMinistry: interest.yearsInMinistry,

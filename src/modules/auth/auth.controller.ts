@@ -8,7 +8,7 @@ import {
     ResetPasswordDto,
 } from './dto/password.dto';
 import { RefreshTokenDto } from './dto/token.dto';
-import { JwtAuthGuard } from './guards/jwt-auth.guard';
+import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
 import { BaseResponse } from 'src/shared/interfaces/base-response.interface';
 
 @Controller('auth')

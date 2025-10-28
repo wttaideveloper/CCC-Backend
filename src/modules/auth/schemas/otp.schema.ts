@@ -22,3 +22,7 @@ export class OtpToken {
 }
 
 export const OtpTokenSchema = SchemaFactory.createForClass(OtpToken);
+
+OtpTokenSchema.index({ email: 1, purpose: 1, used: 1 });
+OtpTokenSchema.index({ createdAt: 1 });
+OtpTokenSchema.index({ expiresAt: 1 }, { expireAfterSeconds: 0 });

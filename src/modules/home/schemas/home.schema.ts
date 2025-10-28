@@ -30,3 +30,5 @@ export class Home {
 }
 
 export const HomeSchema = SchemaFactory.createForClass(Home);
+
+HomeSchema.index({ username: 1 });

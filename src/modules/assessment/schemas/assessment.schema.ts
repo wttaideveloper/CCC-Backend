@@ -1,5 +1,6 @@
 import { Prop, Schema, SchemaFactory } from '@nestjs/mongoose';
 import { Document, Types } from 'mongoose';
+import { VALID_ASSESSMENT_ASSIGNMENT_STATUSES, ASSESSMENT_ASSIGNMENT_STATUSES } from '../../../common/constants/status.constants';
 
 @Schema()
 export class UserAnswer {
@@ -44,8 +45,8 @@ export class AssignTo {
 
   @Prop({
     type: String,
-    enum: ['assigned', 'in-progress', 'completed'],
-    default: 'assigned',
+    enum: VALID_ASSESSMENT_ASSIGNMENT_STATUSES,
+    default: ASSESSMENT_ASSIGNMENT_STATUSES.ASSIGNED,
   })
   status: string;
 
@@ -106,3 +107,11 @@ export class Assessment {
 }
 
 export const AssessmentSchema = SchemaFactory.createForClass(Assessment);
+
+AssessmentSchema.index({ 'assignments.userId': 1 });
+AssessmentSchema.index({ 'assignments.status': 1 });
+AssessmentSchema.index({ 'userAnswers.userId': 1 });
+AssessmentSchema.index({ 'assignments.userId': 1, 'assignments.status': 1 });
+AssessmentSchema.index({ name: 1 });
+AssessmentSchema.index({ createdAt: 1 });
+AssessmentSchema.index({ 'assignments.status': 1, createdAt: -1 });

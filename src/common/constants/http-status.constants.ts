@@ -1,4 +1,3 @@
-// HTTP status codes for filters, interceptors, services
 export const HTTP_SUCCESS = 200;
 export const HTTP_CREATED = 201;
 export const HTTP_BAD_REQUEST = 400;

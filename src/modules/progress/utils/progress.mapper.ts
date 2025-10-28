@@ -11,8 +11,8 @@ class ProgressRoadmapDto {
 
 class ProgressAssessmentDto {
     assessmentId: Types.ObjectId;
-    score: number;
-    maxScore: number;
+    completedSections: number;
+    totalSections: number;
     progressPercentage: number;
     status: string;
 }
@@ -48,8 +48,8 @@ export function toProgressResponseDto(doc: ProgressDocument): ProgressResponseDt
         overallRoadmapProgress: doc.overallRoadmapProgress,
         assessments: doc.assessments.map(a => ({
             assessmentId: a.assessmentId,
-            score: a.score,
-            maxScore: a.maxScore,
+            completedSections: a.completedSections,
+            totalSections: a.totalSections,
             progressPercentage: a.progressPercentage,
             status: a.status,
         })),

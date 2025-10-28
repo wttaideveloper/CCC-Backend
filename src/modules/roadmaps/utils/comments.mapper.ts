@@ -23,22 +23,22 @@ export const mapUserToDto = (userDoc: Types.ObjectId | any): PopulatedUserRespon
 };
 
 
-const toCommentItemResponseDto = (item: CommentItemDocument): CommentItemResponseDto => {
+const toCommentItemResponseDto = (item: CommentItemDocument | any): CommentItemResponseDto => {
     const mentorDetails = mapUserToDto(item.mentorId);
 
     return {
-        _id: item._id.toString(),
+        _id: item._id?.toString() || String(item._id),
         text: item.text,
         addedDate: item.addedDate,
         mentorId: mentorDetails as PopulatedUserResponseDto,
     };
 };
 
-export const toCommentsThreadResponseDto = (doc: CommentsDocument): CommentsThreadResponseDto => ({
-    _id: doc._id.toString(),
-    userId: doc.userId.toString(),
-    roadMapId: doc.roadMapId.toString(),
-    comments: doc.comments.map(toCommentItemResponseDto),
+export const toCommentsThreadResponseDto = (doc: CommentsDocument | any): CommentsThreadResponseDto => ({
+    _id: doc._id?.toString() || String(doc._id),
+    userId: doc.userId?.toString() || String(doc.userId),
+    roadMapId: doc.roadMapId?.toString() || String(doc.roadMapId),
+    comments: doc.comments?.map(toCommentItemResponseDto) || [],
     // createdAt: doc.createdAt,
     // updatedAt: doc.updatedAt,
 });

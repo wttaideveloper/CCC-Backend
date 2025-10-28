@@ -35,12 +35,12 @@ export class UsersService {
     }
 
     async findAll(): Promise<UserResponseDto[]> {
-        const users = await this.userModel.find().select('-password').exec();
+        const users = await this.userModel.find().select('-password').lean().exec();
         return users.map((user) => toUserResponseDto(user));
     }
 
     async findById(id: string): Promise<UserResponseDto> {
-        const user = await this.userModel.findById(id).select('-password').exec();
+        const user = await this.userModel.findById(id).select('-password').lean().exec();
         if (!user) throw new NotFoundException('User not found');
         return toUserResponseDto(user);
     }
@@ -52,7 +52,7 @@ export class UsersService {
     }
 
     async findByRole(role: string): Promise<UserResponseDto[]> {
-        const users = await this.userModel.find({ role }).exec();
+        const users = await this.userModel.find({ role }).lean().exec();
         if (!users || users.length === 0)
             throw new NotFoundException('User not found');
         return users.map((user) => toUserResponseDto(user));
@@ -98,7 +98,7 @@ export class UsersService {
     }
 
     async checkUserStatus(userId: string): Promise<string> {
-        const user = await this.userModel.findById(userId).select('status');
+        const user = await this.userModel.findById(userId).select('status').lean().exec();
         if (!user) {
             throw new NotFoundException('User not found');
         }

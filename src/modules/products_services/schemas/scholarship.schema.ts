@@ -1,5 +1,6 @@
 import { Prop, Schema, SchemaFactory } from '@nestjs/mongoose';
 import { Document, Types } from 'mongoose';
+import { VALID_SCHOLARSHIP_TYPES, VALID_SCHOLARSHIP_STATUSES, SCHOLARSHIP_STATUSES, VALID_AWARD_STATUSES, AWARD_STATUSES } from '../../../common/constants/status.constants';
 
 export type ScholarshipDocument = Document<unknown, {}, Scholarship> &
   Scholarship & {
@@ -22,7 +23,7 @@ export class AwardedUser {
   @Prop()
   academicYear?: string;
 
-  @Prop({ enum: ['active', 'completed', 'revoked'], default: 'active' })
+  @Prop({ enum: VALID_AWARD_STATUSES, default: AWARD_STATUSES.ACTIVE })
   awardStatus: string;
 }
 
@@ -34,13 +35,7 @@ export class Scholarship {
 
   @Prop({
     required: true,
-    enum: [
-      'Full Scholarship',
-      'Partial Scholarship',
-      'Full Cost',
-      'Half Scholarship',
-      'ADRA Discount',
-    ],
+    enum: VALID_SCHOLARSHIP_TYPES,
     unique: true,
   })
   type: string;
@@ -51,7 +46,7 @@ export class Scholarship {
   @Prop()
   description?: string;
 
-  @Prop({ enum: ['active', 'inactive'], default: 'active' })
+  @Prop({ enum: VALID_SCHOLARSHIP_STATUSES, default: SCHOLARSHIP_STATUSES.ACTIVE })
   status: string;
 
   @Prop({ type: [AwardedUserSchema], default: [] })
@@ -67,7 +62,7 @@ ScholarshipSchema.virtual('numberOfAwards').get(function (
   this: ScholarshipDocument,
 ) {
   return (
-    this.awardedList?.filter((user) => user.awardStatus === 'active').length ||
+    this.awardedList?.filter((user) => user.awardStatus === AWARD_STATUSES.ACTIVE).length ||
     0
   );
 });
@@ -76,7 +71,7 @@ ScholarshipSchema.virtual('totalAmount').get(function (
   this: ScholarshipDocument,
 ) {
   const activeAwards =
-    this.awardedList?.filter((user) => user.awardStatus === 'active').length ||
+    this.awardedList?.filter((user) => user.awardStatus === AWARD_STATUSES.ACTIVE).length ||
     0;
   return this.amount * activeAwards;
 });
@@ -92,3 +87,9 @@ ScholarshipSchema.set('toJSON', {
 ScholarshipSchema.set('toObject', {
   virtuals: true,
 });
+
+ScholarshipSchema.index({ status: 1 });
+ScholarshipSchema.index({ type: 1, status: 1 });
+ScholarshipSchema.index({ 'awardedList.userId': 1 });
+ScholarshipSchema.index({ createdAt: 1 });
+ScholarshipSchema.index({ updatedAt: -1 });

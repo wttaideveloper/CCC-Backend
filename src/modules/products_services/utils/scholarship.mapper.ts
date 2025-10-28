@@ -5,11 +5,11 @@ import {
 } from '../dto/scholarship-response.dto';
 
 export function toScholarshipResponseDto(
-  scholarship: ScholarshipDocument,
+  scholarship: ScholarshipDocument | any,
 ): ScholarshipResponseDto {
-  const awardedList: AwardedUserResponseDto[] = scholarship.awardedList.map(
+  const awardedList: AwardedUserResponseDto[] = (scholarship.awardedList || []).map(
     (user) => ({
-      userId: user.userId.toString(),
+      userId: user.userId?.toString() || String(user.userId),
       awardedDate: user.awardedDate,
       notes: user.notes,
       academicYear: user.academicYear,
@@ -18,7 +18,7 @@ export function toScholarshipResponseDto(
   );
 
   return {
-    id: scholarship._id.toString(),
+    id: scholarship._id?.toString() || String(scholarship._id),
     type: scholarship.type,
     amount: scholarship.amount,
     description: scholarship.description,

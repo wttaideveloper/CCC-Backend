@@ -1,4 +1,6 @@
 import { IsDateString, IsEnum, IsMongoId, IsOptional, IsString, IsNotEmpty } from 'class-validator';
+import { PartialType, OmitType } from '@nestjs/mapped-types';
+import { VALID_APPOINTMENT_PLATFORMS, VALID_APPOINTMENT_STATUSES } from '../../../common/constants/status.constants';
 
 export class CreateAppointmentDto {
     @IsMongoId()
@@ -13,7 +15,7 @@ export class CreateAppointmentDto {
     @IsNotEmpty()
     meetingDate: string;
 
-    @IsEnum(['gmeet', 'zoom', 'teams', 'phone', 'in-person', 'other'])
+    @IsEnum(VALID_APPOINTMENT_PLATFORMS)
     platform: string;
 
     @IsOptional()
@@ -25,22 +27,12 @@ export class CreateAppointmentDto {
     notes?: string;
 }
 
-export class UpdateAppointmentDto {
+export class UpdateAppointmentDto extends PartialType(
+    OmitType(CreateAppointmentDto, ['userId', 'mentorId'] as const)
+) {
     @IsOptional()
-    @IsDateString()
-    meetingDate?: string;
-
-    @IsOptional()
-    @IsEnum(['gmeet', 'zoom', 'teams', 'phone', 'in-person', 'other'])
-    platform?: string;
-
-    @IsOptional()
-    @IsEnum(['scheduled', 'completed', 'postponed', 'canceled'])
+    @IsEnum(VALID_APPOINTMENT_STATUSES)
     status?: string;
-
-    @IsOptional()
-    @IsString()
-    meetingLink?: string;
 }
 
 export class AppointmentResponseDto {
@@ -52,4 +44,5 @@ export class AppointmentResponseDto {
     platform: string;
     meetingLink?: string;
     status: string;
+    notes?: string;
 }

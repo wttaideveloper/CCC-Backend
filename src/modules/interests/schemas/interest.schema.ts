@@ -79,3 +79,10 @@ export class Interest {
 }
 
 export const InterestSchema = SchemaFactory.createForClass(Interest);
+
+InterestSchema.index({ 'churchDetails.country': 1 });
+InterestSchema.index({ 'churchDetails.state': 1 });
+InterestSchema.index({ 'churchDetails.conference': 1 });
+InterestSchema.index({ userId: 1 });
+InterestSchema.index({ createdAt: 1 });
+InterestSchema.index({ 'churchDetails.country': 1, 'churchDetails.state': 1 });

@@ -1,5 +1,6 @@
 import { Prop, Schema, SchemaFactory } from '@nestjs/mongoose';
 import { Document, Types } from 'mongoose';
+import { VALID_APPOINTMENT_STATUSES, VALID_APPOINTMENT_PLATFORMS, APPOINTMENT_STATUSES, APPOINTMENT_PLATFORMS } from '../../../common/constants/status.constants';
 
 export type AppointmentDocument = Document<unknown, {}, Appointment> & Appointment & {
     _id: Types.ObjectId;
@@ -46,8 +47,8 @@ export class Appointment {
 
     @Prop({
         type: String,
-        enum: ['gmeet', 'zoom', 'teams', 'phone', 'in-person', 'other'],
-        default: 'teams',
+        enum: VALID_APPOINTMENT_PLATFORMS,
+        default: APPOINTMENT_PLATFORMS.TEAMS,
         required: true
     })
     platform: string;
@@ -60,8 +61,8 @@ export class Appointment {
 
     @Prop({
         type: String,
-        enum: ['scheduled', 'completed', 'postponed', 'canceled'],
-        default: 'scheduled',
+        enum: VALID_APPOINTMENT_STATUSES,
+        default: APPOINTMENT_STATUSES.SCHEDULED,
         required: true
     })
     status: string;
@@ -80,3 +81,7 @@ AppointmentSchema.pre('save', function (next) {
 AppointmentSchema.index({ meetingDate: 1, endTime: 1 });
 AppointmentSchema.index({ userId: 1, meetingDate: 1 });
 AppointmentSchema.index({ mentorId: 1, meetingDate: 1 });
+AppointmentSchema.index({ status: 1 });
+AppointmentSchema.index({ status: 1, mentorId: 1 });
+AppointmentSchema.index({ status: 1, userId: 1 });
+AppointmentSchema.index({ status: 1, meetingDate: -1 });

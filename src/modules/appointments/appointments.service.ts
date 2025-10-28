@@ -4,6 +4,7 @@ import { Model, Types } from 'mongoose';
 import { Appointment, AppointmentDocument } from './schemas/appointment.schema';
 import { CreateAppointmentDto, AppointmentResponseDto, UpdateAppointmentDto } from './dto/appointment.dto';
 import { toAppointmentResponseDto } from './utils/appointment.mapper';
+import { APPOINTMENT_STATUSES } from '../../common/constants/status.constants';
 
 @Injectable()
 export class AppointmentsService {
@@ -17,12 +18,12 @@ export class AppointmentsService {
 
         const overlapQuery = {
             mentorId: new Types.ObjectId(dto.mentorId),
-            status: 'scheduled',
+            status: APPOINTMENT_STATUSES.SCHEDULED,
             meetingDate: { $lt: newEndTime },
             endTime: { $gt: newMeetingDate },
         };
 
-        const existingOverlap = await this.appointmentModel.findOne(overlapQuery).exec();
+        const existingOverlap = await this.appointmentModel.findOne(overlapQuery).select('_id').lean().exec();
 
         if (existingOverlap) {
             throw new BadRequestException('Mentor is already scheduled for an overlapping appointment.');

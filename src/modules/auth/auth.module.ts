@@ -7,7 +7,7 @@ import { OtpToken, OtpTokenSchema } from './schemas/otp.schema';
 import { AuthService } from './auth.service';
 import { AuthController } from './auth.controller';
 import { OtpService } from './otp.service';
-import { JwtStrategy } from './jwt.strategy';
+import { JwtStrategy } from './utils/jwt.strategy';
 import { UsersModule } from '../../modules/users/users.module';
 import { MailerService } from '../../common/utils/mail.util';
 

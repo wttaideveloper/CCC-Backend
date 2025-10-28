@@ -10,6 +10,7 @@ import { AddCommentDto, CommentsThreadResponseDto } from './dto/comments.dto';
 import { CreateQueryDto, QueriesThreadResponseDto, ReplyQueryDto } from './dto/queries.dto';
 import { toCommentsThreadResponseDto } from './utils/comments.mapper';
 import { toQueriesThreadResponseDto } from './utils/queries.mapper';
+import { VALID_ROADMAP_STATUSES, ROADMAP_STATUSES, QUERY_STATUSES } from '../../common/constants/status.constants';
 
 @Injectable()
 export class RoadMapsService {
@@ -34,30 +35,31 @@ export class RoadMapsService {
     async findAll(status: string, search: string): Promise<RoadMapResponseDto[]> {
         const query: any = {};
 
-        const validStatuses = ['due', 'not started', 'completed'];
         const normalizedStatus = status?.toLowerCase();
 
-        if (normalizedStatus && normalizedStatus !== 'all' && validStatuses.includes(normalizedStatus)) {
+        if (normalizedStatus && normalizedStatus !== ROADMAP_STATUSES.ALL && VALID_ROADMAP_STATUSES.includes(normalizedStatus as any)) {
             query.status = normalizedStatus;
         }
 
         if (search) {
-            query.name = { $regex: search, $options: 'i' };
+            // Escape special regex characters to prevent ReDoS attacks
+            const escapedSearch = search.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+            query.name = { $regex: escapedSearch, $options: 'i' };
         }
 
-        const roadmaps = await this.roadMapModel.find(query).exec();
+        const roadmaps = await this.roadMapModel.find(query).lean().exec();
 
-        return roadmaps.map(rm => toRoadMapResponseDto(rm as RoadMapDocument));
+        return roadmaps.map(rm => toRoadMapResponseDto(rm as any));
     }
 
     async findById(id: string): Promise<RoadMapResponseDto> {
-        const roadmap = await this.roadMapModel.findById(id).exec();
+        const roadmap = await this.roadMapModel.findById(id).lean().exec();
 
         if (!roadmap) {
             throw new NotFoundException(`RoadMap with ID "${id}" not found`);
         }
 
-        return toRoadMapResponseDto(roadmap as RoadMapDocument);
+        return toRoadMapResponseDto(roadmap as any);
     }
 
     async update(id: string, dto: UpdateRoadMapDto): Promise<RoadMapResponseDto> {
@@ -112,13 +114,14 @@ export class RoadMapsService {
             userId: new Types.ObjectId(userId)
         })
             .populate('comments.mentorId')
+            .lean()
             .exec();
 
         if (!thread) {
             throw new NotFoundException(`Comment thread for user ${userId} on roadmap ${roadMapId} not found`);
         }
 
-        return toCommentsThreadResponseDto(thread);
+        return toCommentsThreadResponseDto(thread as any);
     }
 
     async addComment(roadMapId: string, dto: AddCommentDto): Promise<CommentsThreadResponseDto> {
@@ -138,9 +141,11 @@ export class RoadMapsService {
                 $setOnInsert: { roadMapId: roadMapObjectId, userId: userObjectId }
             },
             { new: true, upsert: true }
-        ).exec();
+        )
+            .lean()
+            .exec();
 
-        return toCommentsThreadResponseDto(updatedThread);
+        return toCommentsThreadResponseDto(updatedThread as any);
     }
 
     async getAllQueryThreads(roadMapId: string, userId: string, status?: string): Promise<QueriesThreadResponseDto[]> {
@@ -164,7 +169,7 @@ export class RoadMapsService {
                                 $expr: {
                                     $and: [
                                         { $eq: ['$$mentorId', '$_id'] },
-                                        { $eq: ['$$queryStatus', 'answered'] }
+                                        { $eq: ['$$queryStatus', QUERY_STATUSES.ANSWERED] }
                                     ]
                                 }
                             }
@@ -210,7 +215,7 @@ export class RoadMapsService {
         const newQuery: QueryItem = {
             actualQueryText: dto.actualQueryText,
             createdDate: new Date(),
-            status: 'pending',
+            status: QUERY_STATUSES.PENDING,
         } as QueryItem;
 
         const updatedThread = await this.queriesModel.findOneAndUpdate(
@@ -220,9 +225,11 @@ export class RoadMapsService {
                 $setOnInsert: { roadMapId: roadMapObjectId, userId: userObjectId }
             },
             { new: true, upsert: true }
-        ).exec();
+        )
+            .lean()
+            .exec();
 
-        return toQueriesThreadResponseDto(updatedThread);
+        return toQueriesThreadResponseDto(updatedThread as any);
     }
 
     async replyQuery(roadMapId: string, queryItemId: string, dto: ReplyQueryDto): Promise<QueriesThreadResponseDto> {
@@ -240,16 +247,18 @@ export class RoadMapsService {
                     'queries.$.repliedAnswer': dto.repliedAnswer,
                     'queries.$.repliedDate': new Date(),
                     'queries.$.repliedMentorId': mentorObjectId,
-                    'queries.$.status': 'answered',
+                    'queries.$.status': QUERY_STATUSES.ANSWERED,
                 }
             },
             { new: true }
-        ).exec();
+        )
+            .lean()
+            .exec();
 
         if (!updatedThread) {
             throw new NotFoundException(`Query thread or item ID ${queryItemId} not found.`);
         }
 
-        return toQueriesThreadResponseDto(updatedThread);
+        return toQueriesThreadResponseDto(updatedThread as any);
     }
 }

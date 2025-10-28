@@ -3,6 +3,7 @@ import { ProgressService } from './progress.service';
 import { Types } from 'mongoose';
 import {
     AssignRoadmapDto,
+    AssignAssessmentDto,
     UpdateRoadmapProgressDto,
     UpdateAssessmentProgressDto,
 } from './dto/progress.dto';
@@ -34,6 +35,18 @@ export class ProgressController {
         return {
             success: true,
             message: 'RoadMap assigned and progress record updated.',
+            data: progress,
+        };
+    }
+
+    @Post('assign-assessment')
+    async assignAssessment(
+        @Body() dto: AssignAssessmentDto,
+    ): Promise<BaseResponse<ProgressResponseDto>> {
+        const progress = await this.progressService.assignAssessment(dto);
+        return {
+            success: true,
+            message: 'Assessment assigned and progress record updated.',
             data: progress,
         };
     }

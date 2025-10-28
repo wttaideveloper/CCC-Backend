@@ -5,11 +5,11 @@ import { mapUserToDto } from './comments.mapper';
 import { PopulatedUserResponseDto } from '../dto/populated-response.dto';
 
 
-const toQueryItemResponseDto = (item: QueryItemDocument): QueryItemResponseDto => {
+const toQueryItemResponseDto = (item: QueryItemDocument | any): QueryItemResponseDto => {
     const mentorDetails = mapUserToDto(item.repliedMentorId);
 
     return {
-        _id: item._id.toString(),
+        _id: item._id?.toString() || String(item._id),
         actualQueryText: item.actualQueryText,
         createdDate: item.createdDate,
         repliedAnswer: item.repliedAnswer,
@@ -19,11 +19,11 @@ const toQueryItemResponseDto = (item: QueryItemDocument): QueryItemResponseDto =
     };
 };
 
-export const toQueriesThreadResponseDto = (doc: QueriesDocument): QueriesThreadResponseDto => ({
-    _id: doc._id.toString(),
-    userId: doc.userId.toString(),
-    roadMapId: doc.roadMapId.toString(),
-    queries: doc.queries.map(toQueryItemResponseDto),
+export const toQueriesThreadResponseDto = (doc: QueriesDocument | any): QueriesThreadResponseDto => ({
+    _id: doc._id?.toString() || String(doc._id),
+    userId: doc.userId?.toString() || String(doc.userId),
+    roadMapId: doc.roadMapId?.toString() || String(doc.roadMapId),
+    queries: doc.queries?.map(toQueryItemResponseDto) || [],
     // createdAt: doc.createdAt,
     // updatedAt: doc.updatedAt,
 });

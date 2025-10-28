@@ -28,13 +28,22 @@ export class AuthService {
             throw new BadRequestException('Email not verified');
         }
 
-        const payload = { sub: user._id!.toString(), email: user.email }; //user.role if needed
+        const payload = {
+            sub: user._id!.toString(),
+            email: user.email,
+            role: user.role,
+        };
         const accessToken = this.jwtService.sign(payload, {
             expiresIn: this.configService.get<string>('JWT_EXPIRES_IN') || this.configService.get<string>('jwtExpiresIn') || '15m',
         });
 
         const refreshToken = this.jwtService.sign(
-            { sub: user._id!.toString(), tokenType: 'refresh' },
+            {
+                sub: user._id!.toString(),
+                email: user.email,
+                role: user.role,
+                tokenType: 'refresh',
+            },
             { expiresIn: this.configService.get<string>('REFRESH_TOKEN_EXPIRES_IN') || '7d' },
         );
 
@@ -107,7 +116,16 @@ export class AuthService {
     async refreshToken(refreshToken: string): Promise<LoginResponseDto> {
         try {
             const payload: any = this.jwtService.verify(refreshToken);
+
             const userEmail = payload.email;
+            if (!userEmail) {
+                throw new UnauthorizedException('Invalid token structure');
+            }
+
+            if (payload.tokenType !== 'refresh') {
+                throw new UnauthorizedException('Invalid token type');
+            }
+
             const user = await this.usersService.findByEmail(userEmail);
             if (!user) throw new UnauthorizedException('Invalid token');
 
@@ -115,13 +133,41 @@ export class AuthService {
             const valid = await bcrypt.compare(refreshToken, user.refreshToken);
             if (!valid) throw new UnauthorizedException('Invalid token');
 
-            const newAccess = this.jwtService.sign({ sub: user._id!.toString(), email: user.email }, { expiresIn: this.configService.get<string>('JWT_EXPIRES_IN') || '15m' });
-            const newRefresh = this.jwtService.sign({ sub: user._id!.toString(), tokenType: 'refresh' }, { expiresIn: this.configService.get<string>('REFRESH_TOKEN_EXPIRES_IN') || '7d' });
+            const newAccessPayload = {
+                sub: user._id!.toString(),
+                email: user.email,
+                role: user.role,
+            };
+            const newAccess = this.jwtService.sign(
+                newAccessPayload,
+                { expiresIn: this.configService.get<string>('JWT_EXPIRES_IN') || '15m' }
+            );
+
+            const newRefreshPayload = {
+                sub: user._id!.toString(),
+                email: user.email,
+                role: user.role,
+                tokenType: 'refresh',
+            };
+            const newRefresh = this.jwtService.sign(
+                newRefreshPayload,
+                { expiresIn: this.configService.get<string>('REFRESH_TOKEN_EXPIRES_IN') || '7d' }
+            );
 
             const newRefreshHash = await bcrypt.hash(newRefresh, 10);
             await this.usersService.saveRefreshToken(user._id!.toString(), newRefreshHash);
 
-            return { accessToken: newAccess, refreshToken: newRefresh };
+            const userResponseDto: UserResponseDto = {
+                id: user._id!.toString(),
+                email: user.email,
+                firstName: user.firstName,
+                lastName: user.lastName,
+                username: user.username,
+                role: user.role,
+                isEmailVerified: user.isEmailVerified,
+            };
+
+            return { accessToken: newAccess, refreshToken: newRefresh, user: userResponseDto };
         } catch (err) {
             throw new UnauthorizedException('Invalid token');
         }

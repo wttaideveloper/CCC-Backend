@@ -1,10 +1,10 @@
 import { RoadMapDocument } from '../schemas/roadmap.schema';
 import { RoadMapResponseDto, NestedRoadMapItemDto } from '../dto/roadmap.dto';
 
-export const toRoadMapResponseDto = (doc: RoadMapDocument): RoadMapResponseDto => {
+export const toRoadMapResponseDto = (doc: RoadMapDocument | any): RoadMapResponseDto => {
 
     return {
-        _id: doc._id.toString(),
+        _id: doc._id?.toString() || String(doc._id),
         type: doc.type,
         name: doc.name,
         roadMapDetails: doc.roadMapDetails,
@@ -19,12 +19,12 @@ export const toRoadMapResponseDto = (doc: RoadMapDocument): RoadMapResponseDto =
         division: doc.division,
         haveNextedRoadMaps: doc.haveNextedRoadMaps,
         phase: doc.phase,
-        assesmentId: doc.assesmentId?.toString(),
+        assesmentId: doc.assesmentId?.toString() || (doc.assesmentId ? String(doc.assesmentId) : undefined),
         totalSteps: doc.totalSteps,
         extras: doc.extras,
 
-        roadmaps: doc.roadmaps.map(item => ({
-            _id: item._id?.toString(),
+        roadmaps: (doc.roadmaps || []).map(item => ({
+            _id: item._id?.toString() || String(item._id),
             name: item.name,
             roadMapDetails: item.roadMapDetails,
             description: item.description,

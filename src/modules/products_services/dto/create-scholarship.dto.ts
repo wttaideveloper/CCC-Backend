@@ -6,15 +6,10 @@ import {
   IsNumber,
   Min,
 } from 'class-validator';
+import { VALID_SCHOLARSHIP_TYPES, VALID_SCHOLARSHIP_STATUSES } from '../../../common/constants/status.constants';
 
 export class CreateScholarshipDto {
-  @IsEnum([
-    'Full Scholarship',
-    'Partial Scholarship',
-    'Full Cost',
-    'Half Scholarship',
-    'ADRA Discount',
-  ])
+  @IsEnum(VALID_SCHOLARSHIP_TYPES)
   @IsNotEmpty()
   type: string;
 
@@ -27,7 +22,7 @@ export class CreateScholarshipDto {
   @IsOptional()
   description?: string;
 
-  @IsEnum(['active', 'inactive'])
+  @IsEnum(VALID_SCHOLARSHIP_STATUSES)
   @IsOptional()
   status?: string;
 }

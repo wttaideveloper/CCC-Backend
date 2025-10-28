@@ -1,16 +1,20 @@
 import { Module } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
-import { DatabaseModule } from './database/database.module';
-import { UsersModule } from './modules/users/users.module';
+import { APP_GUARD } from '@nestjs/core';
+import { ThrottlerModule, ThrottlerGuard } from '@nestjs/throttler';
+
 import configuration from './config/configuration';
-import { InterestModule } from './modules/interests/interests.module';
+import { DatabaseModule } from './database/database.module';
+
 import { AuthModule } from './modules/auth/auth.module';
+import { UsersModule } from './modules/users/users.module';
+import { InterestModule } from './modules/interests/interests.module';
 import { HomeModule } from './modules/home/home.module';
 import { RoadMapsModule } from './modules/roadmaps/roadmaps.module';
 import { AppointmentsModule } from './modules/appointments/appointments.module';
 import { AssessmentModule } from './modules/assessment/assessment.module';
-import { ProductsServicesModule } from './modules/products_services/products_services.module';
 import { ProgressModule } from './modules/progress/progress.module';
+import { ProductsServicesModule } from './modules/products_services/products_services.module';
 
 @Module({
   imports: [
@@ -18,7 +22,27 @@ import { ProgressModule } from './modules/progress/progress.module';
       isGlobal: true,
       load: [configuration],
       envFilePath: ['.env'],
+      cache: true,
+      expandVariables: true,
     }),
+
+    ThrottlerModule.forRoot([
+      {
+        name: 'short',
+        ttl: 1000,
+        limit: 10,
+      },
+      {
+        name: 'medium',
+        ttl: 60000,
+        limit: 100,
+      },
+      {
+        name: 'long',
+        ttl: 3600000,
+        limit: 1000,
+      },
+    ]),
 
     DatabaseModule,
     AuthModule,
@@ -31,7 +55,14 @@ import { ProgressModule } from './modules/progress/progress.module';
     ProgressModule,
     ProductsServicesModule,
   ],
+
   controllers: [],
-  providers: [],
+
+  providers: [
+    {
+      provide: APP_GUARD,
+      useClass: ThrottlerGuard,
+    },
+  ],
 })
 export class AppModule { }

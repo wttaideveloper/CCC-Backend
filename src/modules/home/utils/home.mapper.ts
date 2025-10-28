@@ -4,15 +4,15 @@ import { UserDocument } from 'src/modules/users/schemas/user.schema';
 import { MentorResponseDto } from '../dto/mentor-response.dto';
 import { MentorMenteeDetailsDto } from '../dto/mentor.mentee.response.dto';
 
-export function toHomeResponseDto(home: HomeDocument): HomeResponseDto {
+export function toHomeResponseDto(home: HomeDocument | any): HomeResponseDto {
   if (!home) {
     throw new Error('Home document not found for mapping.');
   }
 
-  const obj = home.toObject({ getters: true });
+  const obj = home.toObject ? home.toObject({ getters: true }) : home;
 
   const dto = new HomeResponseDto();
-  dto.id = obj._id.toString();
+  dto.id = obj._id?.toString() || String(obj._id);
   dto.email = obj.email;
   dto.username = obj.username;
 

@@ -49,6 +49,14 @@ export class Queries {
 
 export const QueriesSchema = SchemaFactory.createForClass(Queries);
 
+QueriesSchema.index({ userId: 1, roadMapId: 1 });
+QueriesSchema.index({ roadMapId: 1 });
+QueriesSchema.index({ userId: 1 });
+QueriesSchema.index({ 'queries.status': 1 });
+// QueriesSchema.index({ 'queries.repliedMentorId': 1 });
+QueriesSchema.index({ createdAt: 1 });
+QueriesSchema.index({ updatedAt: -1 });
+
 QueriesSchema.pre('save', function (next) {
     const doc = this as QueriesDocument;
 
