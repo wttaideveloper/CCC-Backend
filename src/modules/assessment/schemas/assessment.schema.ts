@@ -3,26 +3,6 @@ import { Document, Types } from 'mongoose';
 import { VALID_ASSESSMENT_ASSIGNMENT_STATUSES, ASSESSMENT_ASSIGNMENT_STATUSES } from '../../../common/constants/status.constants';
 
 @Schema()
-export class UserAnswer {
-  @Prop({ type: Types.ObjectId, ref: 'User', required: true })
-  userId: Types.ObjectId;
-
-  @Prop({ type: Types.ObjectId })
-  sectionId: Types.ObjectId;
-
-  @Prop({ type: Types.ObjectId })
-  layerId: Types.ObjectId;
-
-  @Prop()
-  selectedChoice: string;
-
-  @Prop({ type: Date, default: Date.now })
-  answeredAt: Date;
-}
-
-export const UserAnswerSchema = SchemaFactory.createForClass(UserAnswer);
-
-@Schema()
 export class Choice {
   @Prop({ required: true })
   text: string;
@@ -37,11 +17,18 @@ export class Layer {
   @Prop({ type: [ChoiceSchema], default: [] })
   choices: Choice[];
 }
+export const LayerSchema = SchemaFactory.createForClass(Layer);
 
 @Schema()
 export class AssignTo {
   @Prop({ type: Types.ObjectId, ref: 'User', required: true })
   userId: Types.ObjectId;
+
+  @Prop({ type: Date, default: Date.now })
+  assignedAt: Date;
+
+  @Prop({ type: Date })
+  completedAt?: Date;
 
   @Prop({
     type: String,
@@ -49,17 +36,8 @@ export class AssignTo {
     default: ASSESSMENT_ASSIGNMENT_STATUSES.ASSIGNED,
   })
   status: string;
-
-  @Prop({ type: Date, default: Date.now })
-  assignedAt: Date;
-
-  @Prop({ type: Date })
-  completedAt?: Date;
 }
-
 export const AssignmentSchema = SchemaFactory.createForClass(AssignTo);
-
-export const LayerSchema = SchemaFactory.createForClass(Layer);
 
 @Schema()
 export class Section {
@@ -93,17 +71,11 @@ export class Assessment {
   @Prop()
   bannerImage?: string;
 
-  @Prop({ type: Types.ObjectId, ref: 'Roadmap', required: false })
-  roadmapId: Types.ObjectId;
-
   @Prop({ type: [SectionSchema], default: [] })
   sections: Section[];
 
   @Prop({ type: [AssignmentSchema], default: [] })
   assignments: AssignTo[];
-
-  @Prop({ type: [UserAnswerSchema], default: [] })
-  userAnswers: UserAnswer[];
 }
 
 export const AssessmentSchema = SchemaFactory.createForClass(Assessment);

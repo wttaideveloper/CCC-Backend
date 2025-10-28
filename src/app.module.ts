@@ -15,6 +15,7 @@ import { AppointmentsModule } from './modules/appointments/appointments.module';
 import { AssessmentModule } from './modules/assessment/assessment.module';
 import { ProgressModule } from './modules/progress/progress.module';
 import { ProductsServicesModule } from './modules/products_services/products_services.module';
+import { MicroGrantModule } from './modules/micro-grand/micro-grant.module';
 
 @Module({
   imports: [
@@ -52,6 +53,7 @@ import { ProductsServicesModule } from './modules/products_services/products_ser
     RoadMapsModule,
     AppointmentsModule,
     AssessmentModule,
+    MicroGrantModule,
     ProgressModule,
     ProductsServicesModule,
   ],

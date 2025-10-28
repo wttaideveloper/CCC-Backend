@@ -83,67 +83,32 @@ export class AssessmentController {
     };
   }
 
-  @Patch(':assessmentId/status/:userId')
-  async updateAssignmentStatus(
+  // Save or update answers for a single section
+  @Post(':assessmentId/section/:userId')
+  async saveSectionAnswers(
     @Param('assessmentId') assessmentId: string,
     @Param('userId') userId: string,
-    @Body('status') status: string,
-  ) {
-    const result = await this.assessmentService.updateAssignmentStatus(
-      assessmentId,
-      userId,
-      status,
-    );
-    return {
-      success: true,
-      message: 'Assignment status updated successfully',
-      data: result,
-    };
-  }
-
-  // Start assessment
-  @Patch(':assessmentId/start/:userId')
-  async startAssessment(
-    @Param('assessmentId') assessmentId: string,
-    @Param('userId') userId: string,
-  ) {
-    const result = await this.assessmentService.startAssessment(
-      assessmentId,
-      userId,
-    );
-    return {
-      success: true,
-      message: 'Assessment started successfully',
-      data: result,
-    };
-  }
-
-  @Patch(':assessmentId/submit')
-  async submitAssessmentWithAnswers(
-    @Param('assessmentId') assessmentId: string,
     @Body()
     body: {
-      userId: string;
-      answers: {
-        sectionId: string;
-        layerId: string;
-        selectedChoice: string;
-      }[];
+      sectionId: string;
+      layers: { layerId: string; selectedChoice: string }[];
     },
   ) {
-    const result = await this.assessmentService.submitAssessment(
+    const result = await this.assessmentService.saveOrUpdateSectionAnswers(
       assessmentId,
-      body.userId,
-      body.answers,
+      userId,
+      body.sectionId,
+      body.layers,
     );
+
     return {
       success: true,
-      message: 'Assessment submitted successfully',
+      message: 'Section answers saved successfully',
       data: result,
     };
   }
 
-  // Get user’s answers for a specific assessment
+  // Fetch user’s saved answers
   @Get(':assessmentId/answers/:userId')
   async getUserAnswers(
     @Param('assessmentId') assessmentId: string,
@@ -153,6 +118,7 @@ export class AssessmentController {
       assessmentId,
       userId,
     );
+
     return {
       success: true,
       message: 'User answers fetched successfully',

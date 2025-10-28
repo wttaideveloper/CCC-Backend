@@ -8,7 +8,8 @@ import { Model, Types } from 'mongoose';
 import { Assessment, AssessmentDocument } from './schemas/assessment.schema';
 import { CreateAssessmentDto, SectionDto } from './dto/assessment.dto';
 import { User, UserDocument } from '../users/schemas/user.schema';
-import { VALID_ASSESSMENT_ASSIGNMENT_STATUSES, ASSESSMENT_ASSIGNMENT_STATUSES } from '../../common/constants/status.constants';
+import { ASSESSMENT_ASSIGNMENT_STATUSES } from '../../common/constants/status.constants';
+import { UserAnswer } from './schemas/answer.schema';
 
 @Injectable()
 export class AssessmentService {
@@ -17,24 +18,33 @@ export class AssessmentService {
     private readonly assessmentModel: Model<AssessmentDocument>,
     @InjectModel(User.name)
     private readonly userModel: Model<UserDocument>,
-  ) { }
+    @InjectModel(UserAnswer.name)
+    private readonly userAnswerModel: Model<UserAnswer>,
+  ) {}
 
   async create(dto: CreateAssessmentDto): Promise<Assessment> {
-    const newAssessment = new this.assessmentModel({
+    const newAssessment = await this.assessmentModel.create({
       ...dto,
       roadmapId: dto.roadmapId ? new Types.ObjectId(dto.roadmapId) : undefined,
     });
-    return newAssessment.save();
+    return newAssessment;
   }
 
   async getAll(): Promise<Assessment[]> {
-    return this.assessmentModel.find().populate('roadmapId').lean().exec();
+    return this.assessmentModel
+      .find()
+      .sort({ createdAt: -1 })
+      .lean()
+      .exec();
   }
 
   async getById(id: string): Promise<Assessment> {
+    if (!Types.ObjectId.isValid(id)) {
+      throw new BadRequestException('Invalid assessment ID format');
+    }
+
     const assessment = await this.assessmentModel
       .findById(id)
-      .populate('roadmapId')
       .lean()
       .exec();
     if (!assessment) throw new NotFoundException('Assessment not found');
@@ -42,6 +52,9 @@ export class AssessmentService {
   }
 
   async deleteAssessment(id: string): Promise<AssessmentDocument | null> {
+    if (!Types.ObjectId.isValid(id)) {
+      throw new BadRequestException('Invalid assessment ID format');
+    }
     return this.assessmentModel.findByIdAndDelete(id).exec();
   }
 
@@ -49,8 +62,13 @@ export class AssessmentService {
     id: string,
     instructions: string[],
   ): Promise<Assessment> {
+    if (!Types.ObjectId.isValid(id)) {
+      throw new BadRequestException('Invalid assessment ID format');
+    }
+
     const assessment = await this.assessmentModel
       .findByIdAndUpdate(id, { instructions }, { new: true })
+      .lean()
       .exec();
     if (!assessment) throw new NotFoundException('Assessment not found');
     return assessment;
@@ -60,8 +78,13 @@ export class AssessmentService {
     id: string,
     sections: SectionDto[],
   ): Promise<Assessment> {
+    if (!Types.ObjectId.isValid(id)) {
+      throw new BadRequestException('Invalid assessment ID format');
+    }
+
     const assessment = await this.assessmentModel
       .findByIdAndUpdate(id, { sections }, { new: true })
+      .lean()
       .exec();
     if (!assessment) throw new NotFoundException('Assessment not found');
     return assessment;
@@ -69,35 +92,72 @@ export class AssessmentService {
 
   // Assign assessment to multiple users
   async assignAssessmentToUsers(assessmentId: string, userIds: string[]) {
-    const assessment = await this.assessmentModel.findById(assessmentId);
+    if (!Types.ObjectId.isValid(assessmentId)) {
+      throw new BadRequestException('Invalid assessment ID format');
+    }
+
+    const invalidIds = userIds.filter((id) => !Types.ObjectId.isValid(id));
+    if (invalidIds.length > 0) {
+      throw new BadRequestException(`Invalid user IDs: ${invalidIds.join(', ')}`);
+    }
+
+    const assessment = await this.assessmentModel.findById(assessmentId).exec();
     if (!assessment) throw new NotFoundException('Assessment not found');
 
-    const validUsers = await this.userModel.find({
-      _id: { $in: userIds.map((id) => new Types.ObjectId(id)) },
-    });
+    const validUsers = await this.userModel
+      .find({
+        _id: { $in: userIds.map((id) => new Types.ObjectId(id)) },
+      })
+      .select('_id')
+      .lean()
+      .exec();
 
-    if (validUsers.length === 0)
+    if (validUsers.length === 0) {
       throw new BadRequestException('No valid users found');
+    }
 
-    const newAssignments = validUsers.map((user) => ({
+    const alreadyAssignedIds = new Set(
+      assessment.assignments.map((a) => a.userId.toString()),
+    );
+    const newUsers = validUsers.filter(
+      (user) => !alreadyAssignedIds.has(user._id.toString()),
+    );
+
+    if (newUsers.length === 0) {
+      throw new BadRequestException('All users are already assigned to this assessment');
+    }
+
+    const newAssignments = newUsers.map((user) => ({
       userId: user._id,
       status: ASSESSMENT_ASSIGNMENT_STATUSES.ASSIGNED,
       assignedAt: new Date(),
     }));
 
-    assessment.assignments.push(...newAssignments);
-    await assessment.save();
+    const updated = await this.assessmentModel
+      .findByIdAndUpdate(
+        assessmentId,
+        { $push: { assignments: { $each: newAssignments } } },
+        { new: true },
+      )
+      .lean()
+      .exec();
 
-    return assessment;
+    return updated;
   }
 
   // Get all assessments assigned to a specific user
   async getAssignedAssessments(userId: string) {
+    if (!Types.ObjectId.isValid(userId)) {
+      throw new BadRequestException('Invalid user ID format');
+    }
+
     const userObjectId = new Types.ObjectId(userId);
     const assessments = await this.assessmentModel
       .find({
         'assignments.userId': userObjectId,
       })
+      .select('_id name description bannerImage instructions assignments')
+      .sort({ createdAt: -1 })
       .lean()
       .exec();
 
@@ -111,155 +171,111 @@ export class AssessmentService {
         description: a.description,
         bannerImage: a.bannerImage,
         instructions: a.instructions,
-        status: userAssignment?.status,
         assignedAt: userAssignment?.assignedAt,
         completedAt: userAssignment?.completedAt,
       };
     });
   }
-
-  // Update user assignment status
-  async updateAssignmentStatus(
+  // Save or update answers for one section
+  async saveOrUpdateSectionAnswers(
     assessmentId: string,
     userId: string,
-    status: string,
+    sectionId: string,
+    layers: { layerId: string; selectedChoice: string }[],
   ) {
-    if (!VALID_ASSESSMENT_ASSIGNMENT_STATUSES.includes(status as any))
-      throw new BadRequestException('Invalid status');
+    if (!Types.ObjectId.isValid(assessmentId)) {
+      throw new BadRequestException('Invalid assessment ID format');
+    }
+    if (!Types.ObjectId.isValid(userId)) {
+      throw new BadRequestException('Invalid user ID format');
+    }
+    if (!Types.ObjectId.isValid(sectionId)) {
+      throw new BadRequestException('Invalid section ID format');
+    }
 
-    const result = await this.assessmentModel.findOneAndUpdate(
-      {
-        _id: assessmentId,
-        'assignments.userId': new Types.ObjectId(userId),
-      },
-      {
-        $set: {
-          'assignments.$.status': status,
-          'assignments.$.completedAt':
-            status === ASSESSMENT_ASSIGNMENT_STATUSES.COMPLETED ? new Date() : null,
-        },
-      },
-      { new: true },
-    );
+    const invalidLayerIds = layers.filter((layer) => !Types.ObjectId.isValid(layer.layerId));
+    if (invalidLayerIds.length > 0) {
+      throw new BadRequestException('Invalid layer IDs found');
+    }
 
-    if (!result)
-      throw new NotFoundException('Assignment not found for this user');
+    const assessmentExists = await this.assessmentModel.exists({
+      _id: assessmentId,
+    });
+    if (!assessmentExists) throw new NotFoundException('Assessment not found');
 
-    return result;
-  }
-
-  // Start an assessment (sets status = "in-progress")
-  async startAssessment(assessmentId: string, userId: string) {
-    const result = await this.assessmentModel.findOneAndUpdate(
-      {
-        _id: assessmentId,
-        'assignments.userId': new Types.ObjectId(userId),
-      },
-      {
-        $set: {
-          'assignments.$.status': ASSESSMENT_ASSIGNMENT_STATUSES.IN_PROGRESS,
-        },
-      },
-      { new: true },
-    );
-
-    if (!result)
-      throw new NotFoundException(
-        'Assessment not found or not assigned to this user',
-      );
-    return result;
-  }
-
-  // Save all user's answers at once (called on submission)
-  async saveAnswers(
-    assessmentId: string,
-    userId: string,
-    answers: {
-      sectionId: string;
-      layerId: string;
-      selectedChoice: string;
-    }[],
-  ) {
-    const assessment = await this.assessmentModel.findById(assessmentId);
-    if (!assessment) throw new NotFoundException('Assessment not found');
-
-    const userAssigned = assessment.assignments.find(
-      (a) => a.userId.toString() === userId,
-    );
-    if (!userAssigned)
-      throw new BadRequestException('User not assigned to this assessment');
-
-    assessment.userAnswers = assessment.userAnswers.filter(
-      (a) => a.userId.toString() !== userId,
-    );
-
-    const formattedAnswers = answers.map((ans) => ({
-      userId: new Types.ObjectId(userId),
-      sectionId: new Types.ObjectId(ans.sectionId),
-      layerId: new Types.ObjectId(ans.layerId),
-      selectedChoice: ans.selectedChoice,
+    const layerAnswers = layers.map((layer) => ({
+      layerId: new Types.ObjectId(layer.layerId),
+      selectedChoice: layer.selectedChoice,
       answeredAt: new Date(),
     }));
 
-    assessment.userAnswers.push(...formattedAnswers);
-
-    await assessment.save();
-    return { assessmentId, userId, answersCount: answers.length };
-  }
-
-  // Submit assessment and marks completed
-  async submitAssessment(
-    assessmentId: string,
-    userId: string,
-    answers?: { sectionId: string; layerId: string; selectedChoice: string }[],
-  ) {
-    const assessment = await this.assessmentModel.findById(assessmentId);
-    if (!assessment) throw new NotFoundException('Assessment not found');
-
-    const userAssigned = assessment.assignments.find(
-      (a) => a.userId.toString() === userId,
-    );
-    if (!userAssigned)
-      throw new BadRequestException('User not assigned to this assessment');
-
-    if (answers && answers.length > 0) {
-      await this.saveAnswers(assessmentId, userId, answers);
-    }
-
-    const result = await this.assessmentModel.findOneAndUpdate(
+    // Try updating existing section
+    const updated = await this.userAnswerModel.findOneAndUpdate(
       {
-        _id: assessmentId,
-        'assignments.userId': new Types.ObjectId(userId),
+        assessmentId: new Types.ObjectId(assessmentId),
+        userId: new Types.ObjectId(userId),
+        'sections.sectionId': new Types.ObjectId(sectionId),
       },
       {
         $set: {
-          'assignments.$.status': ASSESSMENT_ASSIGNMENT_STATUSES.COMPLETED,
-          'assignments.$.completedAt': new Date(),
+          'sections.$.layers': layerAnswers,
         },
       },
       { new: true },
-    );
+    )
+    .lean()
+    .exec();
 
-    return { message: 'Assessment submitted successfully', data: result };
+    if (updated) return updated;
+
+    // If section doesn't exist yet, push a new one
+    const result = await this.userAnswerModel.findOneAndUpdate(
+      {
+        assessmentId: new Types.ObjectId(assessmentId),
+        userId: new Types.ObjectId(userId),
+      },
+      {
+        $setOnInsert: {
+          assessmentId: new Types.ObjectId(assessmentId),
+          userId: new Types.ObjectId(userId),
+        },
+        $push: {
+          sections: {
+            sectionId: new Types.ObjectId(sectionId),
+            layers: layerAnswers,
+          },
+        },
+      },
+      { upsert: true, new: true },
+    )
+    .lean()
+    .exec();
+
+    return result;
   }
 
-  // Get user answers for a specific assessment
+  // Get all saved answers for a user
   async getUserAnswers(assessmentId: string, userId: string) {
-    const assessment = await this.assessmentModel
-      .findById(assessmentId)
-      .select('userAnswers sections name')
-      .lean();
+    if (!Types.ObjectId.isValid(assessmentId)) {
+      throw new BadRequestException('Invalid assessment ID format');
+    }
+    if (!Types.ObjectId.isValid(userId)) {
+      throw new BadRequestException('Invalid user ID format');
+    }
 
-    if (!assessment) throw new NotFoundException('Assessment not found');
+    const result = await this.userAnswerModel
+      .findOne({
+        assessmentId: new Types.ObjectId(assessmentId),
+        userId: new Types.ObjectId(userId),
+      })
+      .lean()
+      .exec();
 
-    const answers = assessment.userAnswers.filter(
-      (a) => a.userId.toString() === userId,
-    );
+    if (!result)
+      throw new NotFoundException(
+        'No answers found for this user and assessment',
+      );
 
-    return {
-      name: assessment.name,
-      sections: assessment.sections,
-      answers,
-    };
+    return result;
   }
 }
