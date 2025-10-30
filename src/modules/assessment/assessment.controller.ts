@@ -9,16 +9,23 @@ import {
   Post,
   HttpCode,
   HttpStatus,
+  UseGuards,
 } from '@nestjs/common';
 import { CreateAssessmentDto, SectionDto } from './dto/assessment.dto';
 import { Assessment } from './schemas/assessment.schema';
 import { AssessmentService } from './assessment.service';
+import { JwtAuthGuard, RolesGuard } from '../../common/guards';
+import { ROLES } from '../../common/constants/roles.constants';
+import { Roles } from '../../common/decorators';
+import { ParseMongoIdPipe } from '../../common/pipes/parse-mongo-id.pipe';
 
 @Controller('assessment')
+@UseGuards(JwtAuthGuard, RolesGuard)
 export class AssessmentController {
   constructor(private readonly assessmentService: AssessmentService) {}
 
   @Post()
+  @Roles(ROLES.DIRECTOR, ROLES.MENTOR)
   @HttpCode(HttpStatus.CREATED)
   async create(@Body() dto: CreateAssessmentDto): Promise<Assessment> {
     return this.assessmentService.create(dto);
@@ -30,36 +37,42 @@ export class AssessmentController {
   }
 
   @Get(':id')
-  async getById(@Param('id') id: string): Promise<Assessment> {
+  async getById(
+    @Param('id', ParseMongoIdPipe) id: string,
+  ): Promise<Assessment> {
     return this.assessmentService.getById(id);
   }
 
   @Delete(':id')
-  async deleteAssessment(@Param('id') id: string) {
+  @Roles(ROLES.DIRECTOR, ROLES.MENTOR)
+  async deleteAssessment(@Param('id', ParseMongoIdPipe) id: string) {
     const deleted = await this.assessmentService.deleteAssessment(id);
     if (!deleted) throw new NotFoundException('Assessment not found');
     return { success: true, message: 'Assessment deleted successfully' };
   }
 
   @Patch(':id/instructions')
+  @Roles(ROLES.DIRECTOR, ROLES.MENTOR)
   async updateInstructions(
-    @Param('id') id: string,
+    @Param('id', ParseMongoIdPipe) id: string,
     @Body('instructions') instructions: string[],
   ): Promise<Assessment> {
     return this.assessmentService.updateInstructions(id, instructions);
   }
 
   @Patch(':id/sections')
+  @Roles(ROLES.DIRECTOR, ROLES.MENTOR)
   async updateSections(
-    @Param('id') id: string,
+    @Param('id', ParseMongoIdPipe) id: string,
     @Body('sections') sections: SectionDto[],
   ): Promise<Assessment> {
     return this.assessmentService.updateSections(id, sections);
   }
 
   @Post(':assessmentId/assign')
+  @Roles(ROLES.DIRECTOR, ROLES.MENTOR)
   async assignAssessment(
-    @Param('assessmentId') assessmentId: string,
+    @Param('assessmentId', ParseMongoIdPipe) assessmentId: string,
     @Body('userIds') userIds: string[],
   ) {
     const result = await this.assessmentService.assignAssessmentToUsers(
@@ -74,7 +87,9 @@ export class AssessmentController {
   }
 
   @Get('assigned/:userId')
-  async getAssignedAssessments(@Param('userId') userId: string) {
+  async getAssignedAssessments(
+    @Param('userId', ParseMongoIdPipe) userId: string,
+  ) {
     const result = await this.assessmentService.getAssignedAssessments(userId);
     return {
       success: true,
@@ -87,7 +102,7 @@ export class AssessmentController {
   @Post(':assessmentId/section/:userId')
   async saveSectionAnswers(
     @Param('assessmentId') assessmentId: string,
-    @Param('userId') userId: string,
+    @Param('userId', ParseMongoIdPipe) userId: string,
     @Body()
     body: {
       sectionId: string;
@@ -111,8 +126,8 @@ export class AssessmentController {
   // Fetch user’s saved answers
   @Get(':assessmentId/answers/:userId')
   async getUserAnswers(
-    @Param('assessmentId') assessmentId: string,
-    @Param('userId') userId: string,
+    @Param('assessmentId', ParseMongoIdPipe) assessmentId: string,
+    @Param('userId', ParseMongoIdPipe) userId: string,
   ) {
     const result = await this.assessmentService.getUserAnswers(
       assessmentId,
