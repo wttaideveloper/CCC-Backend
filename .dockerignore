@@ -1,0 +1,68 @@
+# Node modules
+node_modules
+npm-debug.log
+yarn-error.log
+
+# Build output
+dist
+build
+.next
+out
+
+# Environment files
+.env
+.env.local
+.env.*.local
+
+# IDE
+.vscode
+.idea
+*.swp
+*.swo
+*.swn
+.DS_Store
+
+# Git
+.git
+.gitignore
+.gitattributes
+
+# Testing
+coverage
+.nyc_output
+*.test.ts
+*.spec.ts
+test/
+tests/
+
+# Documentation
+*.md
+docs/
+README.md
+
+# Docker
+Dockerfile
+docker-compose*.yml
+.dockerignore
+
+# CI/CD
+.github
+.gitlab-ci.yml
+.circleci
+
+# Logs
+logs
+*.log
+
+# OS
+Thumbs.db
+
+# TypeScript
+*.tsbuildinfo
+
+# Misc - Keep essential config files for build
+.prettierrc
+.eslintrc*
+.editorconfig
+# tsconfig.json - NEEDED for build
+# nest-cli.json - NEEDED for build
