@@ -17,11 +17,6 @@ RUN npm run build
 
 FROM node:20-alpine AS production
 
-# Create non-root user for security
-RUN addgroup -g 1001 -S nodejs && \
-  adduser -S nestjs -u 1001 && \
-  chown -R nestjs:nodejs /app
-
 # Set the working directory for the runtime
 WORKDIR /app
 
@@ -31,6 +26,11 @@ COPY --from=builder /app/node_modules ./node_modules
 # Copy only the compiled JavaScript files and necessary package files
 COPY --from=builder /app/dist ./dist
 COPY --from=builder /app/package.json ./package.json
+
+# Create non-root user for security
+RUN addgroup -g 1001 -S nodejs && \
+  adduser -S nestjs -u 1001 && \
+  chown -R nestjs:nodejs /app
 
 # Switch to non-root user for execution
 USER nestjs
