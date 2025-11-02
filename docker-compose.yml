@@ -70,11 +70,11 @@ services:
     networks:
       - ccc-network
     healthcheck:
-      test: ["CMD-SHELL", "nc -z localhost 80 || exit 1"]
+      test: ["CMD-SHELL", "wget --no-verbose --tries=1 --spider http://localhost/health || exit 1"]
       interval: 30s
       timeout: 5s
       retries: 3
-      start_period: 10s
+      start_period: 70s
     logging:
       driver: "json-file"
       options:
