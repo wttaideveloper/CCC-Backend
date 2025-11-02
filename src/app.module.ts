@@ -16,6 +16,7 @@ import { AssessmentModule } from './modules/assessment/assessment.module';
 import { ProgressModule } from './modules/progress/progress.module';
 import { ProductsServicesModule } from './modules/products_services/products_services.module';
 import { MicroGrantModule } from './modules/micro-grand/micro-grant.module';
+import { HealthModule } from './health/health.module';
 
 @Module({
   imports: [
@@ -46,6 +47,7 @@ import { MicroGrantModule } from './modules/micro-grand/micro-grant.module';
     ]),
 
     DatabaseModule,
+    HealthModule,
     AuthModule,
     UsersModule,
     InterestModule,

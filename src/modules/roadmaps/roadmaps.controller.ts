@@ -7,6 +7,7 @@ import {
     Query,
     Patch,
     Delete,
+    UseGuards,
 } from '@nestjs/common';
 import { RoadMapsService } from './roadmaps.service';
 import { BaseResponse } from 'src/shared/interfaces/base-response.interface';
@@ -18,12 +19,18 @@ import {
     ReplyQueryDto,
 } from './dto/queries.dto';
 import { ParseMongoIdPipe } from 'src/common/pipes/parse-mongo-id.pipe';
+import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
+import { RolesGuard } from '../../common/guards/roles.guard';
+import { Roles } from '../../common/decorators/roles.decorator';
+import { ROLES } from '../../common/constants/roles.constants';
 
 @Controller('roadmaps')
+@UseGuards(JwtAuthGuard, RolesGuard) // Apply to all routes in this controller
 export class RoadMapsController {
     constructor(private readonly roadMapsService: RoadMapsService) { }
 
     @Post()
+    @Roles(ROLES.DIRECTOR, ROLES.MENTOR) // Only directors and mentors can create roadmaps
     async createRoadMap(
         @Body() dto: CreateRoadMapDto,
     ): Promise<BaseResponse<RoadMapResponseDto>> {
@@ -72,6 +79,7 @@ export class RoadMapsController {
     }
 
     @Patch(':id')
+    @Roles(ROLES.DIRECTOR, ROLES.MENTOR) // Only directors and mentors can update
     async updateRoadMap(
         @Param('id', ParseMongoIdPipe) id: string,
         @Body() dto: UpdateRoadMapDto,
@@ -85,6 +93,7 @@ export class RoadMapsController {
     }
 
     @Delete(':id')
+    @Roles(ROLES.DIRECTOR) // Only directors can delete
     async deleteRoadMap(
         @Param('id', ParseMongoIdPipe) id: string,
     ): Promise<BaseResponse<{ _id: string }>> {
