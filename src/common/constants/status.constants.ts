@@ -1,12 +1,12 @@
 export const ROADMAP_STATUSES = {
-  DUE: 'due',
+  IN_PROGRESS: 'in progress',
   NOT_STARTED: 'not started',
   COMPLETED: 'completed',
   ALL: 'all',
 } as const;
 
 export const VALID_ROADMAP_STATUSES = [
-  ROADMAP_STATUSES.DUE,
+  ROADMAP_STATUSES.IN_PROGRESS,
   ROADMAP_STATUSES.NOT_STARTED,
   ROADMAP_STATUSES.COMPLETED,
 ] as const;

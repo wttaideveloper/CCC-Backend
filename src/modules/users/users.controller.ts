@@ -24,7 +24,7 @@ export class UsersController {
   constructor(private readonly usersService: UsersService) { }
 
   @Post()
-  @Roles(ROLES.DIRECTOR)
+  @Roles(ROLES.DIRECTOR, ROLES.MENTOR, ROLES.PASTOR)
   async createUser(
     @Body() dto: CreateUserDto,
   ): Promise<BaseResponse<UserResponseDto>> {
@@ -37,7 +37,7 @@ export class UsersController {
   }
 
   @Get()
-  @Roles(ROLES.DIRECTOR, ROLES.MENTOR, ROLES.FIELD_MENTOR)
+  @Roles(ROLES.DIRECTOR, ROLES.MENTOR, ROLES.FIELD_MENTOR, ROLES.PASTOR)
   async getAllUsers(): Promise<BaseResponse<UserResponseDto[]>> {
     const users = await this.usersService.findAll();
     return {
@@ -61,7 +61,7 @@ export class UsersController {
   }
 
   @Get(':id')
-  @Roles(ROLES.DIRECTOR, ROLES.MENTOR, ROLES.FIELD_MENTOR, ROLES.PASTOR)
+  // @Roles(ROLES.DIRECTOR, ROLES.MENTOR, ROLES.FIELD_MENTOR, ROLES.PASTOR)
   async getUser(
     @Param('id') id: string,
   ): Promise<BaseResponse<UserResponseDto>> {
@@ -74,7 +74,7 @@ export class UsersController {
   }
 
   @Patch(':id')
-  @Roles(ROLES.DIRECTOR, ROLES.MENTOR, ROLES.FIELD_MENTOR, ROLES.PASTOR)
+  // @Roles(ROLES.DIRECTOR, ROLES.MENTOR, ROLES.FIELD_MENTOR, ROLES.PASTOR)
   async updateUser(
     @Param('id') id: string,
     @Body() updateData: UpdateUserDto,

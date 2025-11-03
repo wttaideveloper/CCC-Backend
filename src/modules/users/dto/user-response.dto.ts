@@ -19,6 +19,9 @@ export class UserResponseDto {
     @IsString()
     role: string;
 
+    @IsString()
+    status: string;
+
     @IsBoolean()
     isEmailVerified: boolean;
 

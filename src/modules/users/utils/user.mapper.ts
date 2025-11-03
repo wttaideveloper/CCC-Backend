@@ -10,6 +10,7 @@ export function toUserResponseDto(user: UserDocument | any): UserResponseDto {
         lastName: user.lastName,
         username: user.username,
         role: user.role,
+        status: user.status,
         isEmailVerified: user.isEmailVerified,
     };
 }

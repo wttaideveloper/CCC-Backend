@@ -57,6 +57,7 @@ export class AuthService {
             lastName: user.lastName,
             username: user.username,
             role: user.role,
+            status: user.status,
             isEmailVerified: user.isEmailVerified,
         };
 
@@ -161,6 +162,7 @@ export class AuthService {
                 lastName: user.lastName,
                 username: user.username,
                 role: user.role,
+                status: user.status,
                 isEmailVerified: user.isEmailVerified,
             };
 
