@@ -4,12 +4,12 @@ import { Interest, InterestSchema } from './schemas/interest.schema';
 import { InterestController } from './interests.controller';
 import { InterestService } from './interests.service';
 import { MailerService } from 'src/common/utils/mail.util';
-import { User, UserSchema } from '../users/schemas/user.schema';
+import { UsersModule } from '../users/users.module';
 
 @Module({
   imports: [
-    MongooseModule.forFeature([{ name: Interest.name, schema: InterestSchema },]),
-    MongooseModule.forFeature([{ name: User.name, schema: UserSchema }]),
+    MongooseModule.forFeature([{ name: Interest.name, schema: InterestSchema }]),
+    UsersModule,
   ],
   controllers: [InterestController],
   providers: [InterestService, MailerService],

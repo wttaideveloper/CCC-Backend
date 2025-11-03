@@ -43,20 +43,30 @@ export class InterestController {
     async getInterestsByStatus(
         @Query('status') status: string,
         @Query('limit') limit?: string,
-    ) {
+    ): Promise<BaseResponse<any>> {
         const parsedLimit = limit ? parseInt(limit, 10) : 10;
-        return this.interestService.getInterestsByStatus(status, parsedLimit);
+        const data = await this.interestService.getInterestsByStatus(status, parsedLimit);
+        return {
+            success: true,
+            message: 'Interests fetched by status successfully',
+            data,
+        };
     }
 
     @Patch('request/:userId')
     async updateUserStatus(
         @Param('userId') userId: string,
         @Body('status') status: 'pending' | 'accepted' | 'rejected',
-    ) {
-        return this.interestService.updateUserStatus(userId, status);
+    ): Promise<BaseResponse<any>> {
+        const data = await this.interestService.updateUserStatus(userId, status);
+        return {
+            success: true,
+            message: 'User status updated successfully',
+            data,
+        };
     }
 
-    @Get(':email')
+    @Get('by-email/:email')
     async getByEmail(@Param('email') email: string): Promise<BaseResponse<InterestResponseDto>> {
         const data = await this.interestService.findByEmail(email);
         return {
@@ -66,7 +76,7 @@ export class InterestController {
         };
     }
 
-    @Patch(':email')
+    @Patch('by-email/:email')
     async update(
         @Param('email') email: string,
         @Body() dto: UpdateInterestDto,

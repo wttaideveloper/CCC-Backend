@@ -18,20 +18,37 @@ import {
   TITLES_LIST,
 } from 'src/shared/constants/metadata.constants';
 import { InterestMetadataDto } from './dto/interestMetadata.dto';
-import { User, UserDocument } from '../users/schemas/user.schema';
 import { VALID_USER_APPLICATION_STATUSES, USER_APPLICATION_STATUSES } from '../../common/constants/status.constants';
+import { UsersService } from '../users/users.service';
 
 @Injectable()
 export class InterestService {
   constructor(
     @InjectModel(Interest.name)
     private readonly interestModel: Model<InterestDocument>,
-    @InjectModel(User.name)
-    private readonly userModel: Model<UserDocument>,
+    private readonly usersService: UsersService,
   ) { }
 
   async create(dto: CreateInterestDto): Promise<InterestResponseDto> {
     const interest = await this.interestModel.create(dto);
+
+    try {
+      await this.usersService.create({
+        firstName: dto.firstName,
+        lastName: dto.lastName,
+        email: dto.email,
+        interestId: interest._id,
+      });
+
+      console.log(`User automatically created for interest form: ${dto.email}`);
+    } catch (error) {
+      if (error instanceof BadRequestException) {
+        console.log(`User already exists for email: ${dto.email}`);
+      } else {
+        console.error('Failed to auto-create user:', error.message);
+      }
+    }
+
     return toInterestResponseDto(interest);
   }
 
@@ -72,7 +89,7 @@ export class InterestService {
       )
       .exec();
 
-    if (!updatedInterest) throw new Error('Interest form not found');
+    if (!updatedInterest) throw new NotFoundException('Interest form not found');
     return toInterestResponseDto(updatedInterest);
   }
 
@@ -134,10 +151,6 @@ export class InterestService {
       throw new BadRequestException('Invalid status value');
     }
 
-    const user = await this.userModel.findById(userId);
-    if (!user) throw new NotFoundException('User not found');
-
-    user.status = status;
-    return user.save();
+    return this.usersService.update(userId, { status });
   }
 }

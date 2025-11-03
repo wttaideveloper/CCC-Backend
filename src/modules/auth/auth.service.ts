@@ -1,7 +1,7 @@
 import { Injectable, UnauthorizedException, BadRequestException } from '@nestjs/common';
 import { UsersService } from '../../modules/users/users.service';
 import { JwtService } from '@nestjs/jwt';
-import { hashPassword, comparePassword } from '../../common/utils/bcrypt.util';
+import { comparePassword } from '../../common/utils/bcrypt.util';
 import { OtpService } from './otp.service';
 import * as bcrypt from 'bcrypt';
 import { ConfigService } from '@nestjs/config';
@@ -57,6 +57,7 @@ export class AuthService {
             lastName: user.lastName,
             username: user.username,
             role: user.role,
+            status: user.status,
             isEmailVerified: user.isEmailVerified,
         };
 
@@ -74,8 +75,7 @@ export class AuthService {
 
         const user = await this.usersService.findByEmail(email);
         if (user) {
-            user.isEmailVerified = true;
-            await user.save();
+            await this.usersService.update(user._id!.toString(), { isEmailVerified: true });
         }
 
         return { success: true };
@@ -87,8 +87,7 @@ export class AuthService {
         if (!user) throw new BadRequestException('User not found');
         if (!user.isEmailVerified) throw new BadRequestException('Email not verified');
 
-        user.password = await hashPassword(password);
-        await user.save();
+        await this.usersService.update(user._id!.toString(), { password });
         return { success: true };
     }
 
@@ -107,8 +106,7 @@ export class AuthService {
         const user = await this.usersService.findByEmail(email);
         if (!user) throw new BadRequestException('User not found');
 
-        user.password = await hashPassword(newPassword);
-        await user.save();
+        await this.usersService.update(user._id!.toString(), { password: newPassword });
 
         return { success: true };
     }
@@ -164,6 +162,7 @@ export class AuthService {
                 lastName: user.lastName,
                 username: user.username,
                 role: user.role,
+                status: user.status,
                 isEmailVerified: user.isEmailVerified,
             };
 

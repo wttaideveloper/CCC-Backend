@@ -1,4 +1,5 @@
-import { IsEmail, IsNotEmpty, MinLength, IsOptional, IsEnum } from 'class-validator';
+import { IsEmail, IsNotEmpty, MinLength, IsOptional, IsEnum, IsMongoId, IsBoolean } from 'class-validator';
+import { Types } from 'mongoose';
 
 export class CreateUserDto {
     @IsNotEmpty()
@@ -13,11 +14,26 @@ export class CreateUserDto {
     @IsOptional()
     username?: string;
 
-    @IsNotEmpty()
+    @IsOptional()
     @MinLength(6)
-    password: string;
+    password?: string;
 
     @IsOptional()
-    @IsEnum(['director', 'mentor', 'pastor', 'pending'])
+    @IsEnum(['director', 'mentor', 'field mentor', 'pastor', 'pending'])
     role?: string;
+
+    @IsOptional()
+    @IsEnum(['new', 'pending', 'accepted'])
+    status?: string;
+
+    @IsOptional()
+    @IsMongoId()
+    interestId?: Types.ObjectId;
+
+    @IsOptional()
+    profilePicture?: string;
+
+    @IsOptional()
+    @IsBoolean()
+    isEmailVerified?: boolean;
 }
