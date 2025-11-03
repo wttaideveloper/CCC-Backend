@@ -6,25 +6,25 @@ import {
   Param,
   Patch,
   Delete,
-  UseGuards,
+  // UseGuards,
 } from '@nestjs/common';
 import { UsersService } from './users.service';
 import { CreateUserDto } from './dto/create-user.dto';
 import { UpdateUserDto } from './dto/update-user.dto';
 import { BaseResponse } from '../../shared/interfaces/base-response.interface';
 import { UserResponseDto } from './dto/user-response.dto';
-import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
-import { RolesGuard } from '../../common/guards/roles.guard';
-import { Roles } from '../../common/decorators/roles.decorator';
-import { ROLES } from 'src/common/constants/roles.constants';
+// import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
+// import { RolesGuard } from '../../common/guards/roles.guard';
+// import { Roles } from '../../common/decorators/roles.decorator';
+// import { ROLES } from 'src/common/constants/roles.constants';
 
 @Controller('users')
-@UseGuards(JwtAuthGuard, RolesGuard)
+// @UseGuards(JwtAuthGuard, RolesGuard)
 export class UsersController {
   constructor(private readonly usersService: UsersService) { }
 
   @Post()
-  @Roles(ROLES.DIRECTOR, ROLES.MENTOR, ROLES.PASTOR)
+  // @Roles(ROLES.DIRECTOR, ROLES.MENTOR, ROLES.PASTOR)
   async createUser(
     @Body() dto: CreateUserDto,
   ): Promise<BaseResponse<UserResponseDto>> {
@@ -37,7 +37,7 @@ export class UsersController {
   }
 
   @Get()
-  @Roles(ROLES.DIRECTOR, ROLES.MENTOR, ROLES.FIELD_MENTOR, ROLES.PASTOR)
+  // @Roles(ROLES.DIRECTOR, ROLES.MENTOR, ROLES.FIELD_MENTOR, ROLES.PASTOR)
   async getAllUsers(): Promise<BaseResponse<UserResponseDto[]>> {
     const users = await this.usersService.findAll();
     return {
@@ -48,7 +48,7 @@ export class UsersController {
   }
 
   @Get('check-status/:id')
-  @Roles(ROLES.DIRECTOR, ROLES.MENTOR, ROLES.FIELD_MENTOR, ROLES.PASTOR)
+  // @Roles(ROLES.DIRECTOR, ROLES.MENTOR, ROLES.FIELD_MENTOR, ROLES.PASTOR)
   async checkUserStatus(
     @Param('id') userId: string,
   ): Promise<BaseResponse<{ status: string }>> {
@@ -88,7 +88,7 @@ export class UsersController {
   }
 
   @Delete(':id')
-  @Roles(ROLES.DIRECTOR)
+  // @Roles(ROLES.DIRECTOR)
   async deleteUser(@Param('id') id: string): Promise<BaseResponse<null>> {
     await this.usersService.delete(id);
     return {

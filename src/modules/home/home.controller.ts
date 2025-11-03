@@ -6,6 +6,7 @@ import {
   Param,
   Post,
   Query,
+  UseGuards,
 } from '@nestjs/common';
 import { BaseResponse } from 'src/shared/interfaces/base-response.interface';
 import { HomeService } from './home.service';
@@ -15,12 +16,18 @@ import {
   AddNotificationDto,
   NotificationResponseDto,
 } from './dto/notification.dto';
+import { JwtAuthGuard, RolesGuard } from '../../common/guards';
+import { Roles } from '../../common/decorators';
+import { ROLES } from '../../common/constants/roles.constants';
+import { ParseMongoIdPipe } from '../../common/pipes/parse-mongo-id.pipe';
 
 @Controller('home')
+@UseGuards(JwtAuthGuard, RolesGuard)
 export class HomeController {
   constructor(private readonly homeService: HomeService) {}
 
   @Get('mentor/:email')
+  @Roles(ROLES.DIRECTOR, ROLES.PASTOR)
   async getMentorByEmail(
     @Param('email') email: string,
   ): Promise<BaseResponse<MentorResponseDto>> {
@@ -33,6 +40,7 @@ export class HomeController {
   }
 
   @Get('mentee/:email')
+  @Roles(ROLES.DIRECTOR, ROLES.MENTOR, ROLES.FIELD_MENTOR)
   async getMenteeByEmail(
     @Param('email') email: string,
   ): Promise<BaseResponse<MentorResponseDto>> {
@@ -46,6 +54,7 @@ export class HomeController {
   }
 
   @Get('mentors')
+  @Roles(ROLES.DIRECTOR, ROLES.PASTOR)
   async getAllMentors(
     @Query('page') page?: number,
     @Query('limit') limit?: number,
@@ -71,6 +80,7 @@ export class HomeController {
   }
 
   @Get('mentees')
+  @Roles(ROLES.DIRECTOR, ROLES.MENTOR, ROLES.FIELD_MENTOR)
   async getAllMentees(
     @Query('page') page?: number,
     @Query('limit') limit?: number,
@@ -118,7 +128,7 @@ export class HomeController {
   @Delete('notifications/:email/:notificationId')
   async deleteNotification(
     @Param('email') email: string,
-    @Param('notificationId') notificationId: string,
+    @Param('notificationId', ParseMongoIdPipe) notificationId: string,
   ): Promise<BaseResponse<NotificationResponseDto>> {
     const result = await this.homeService.deleteNotification(
       email,
