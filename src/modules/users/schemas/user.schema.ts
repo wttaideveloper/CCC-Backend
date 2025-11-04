@@ -1,10 +1,14 @@
 import { Prop, Schema, SchemaFactory } from '@nestjs/mongoose';
 import { Document, Types } from 'mongoose';
 import { nanoid } from 'nanoid';
+import { ROLES } from '../../../common/constants/roles.constants';
+import { USER_STATUSES, VALID_USER_STATUSES } from '../../../common/constants/status.constants';
 
 export type UserDocument = Document<unknown, {}, User> & User & {
     _id: Types.ObjectId;
 };
+
+const VALID_ROLES = Object.values(ROLES);
 
 @Schema({ timestamps: true })
 export class User {
@@ -28,7 +32,7 @@ export class User {
     @Prop()
     password?: string;
 
-    @Prop({ enum: ['director', 'mentor', 'field mentor', 'pastor', 'pending'], default: 'pending' })
+    @Prop({ enum: VALID_ROLES, default: ROLES.PENDING })
     role: string;
 
     @Prop({
@@ -43,8 +47,8 @@ export class User {
     profilePicture?: string;
 
     @Prop({
-        enum: ['new', 'pending', 'accepted'],
-        default: 'new',
+        enum: VALID_USER_STATUSES,
+        default: USER_STATUSES.PENDING,
     })
     status: string;
 
