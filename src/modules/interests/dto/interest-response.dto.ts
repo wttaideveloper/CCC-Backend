@@ -95,4 +95,8 @@ export class InterestResponseDto {
     @IsString()
     comments?: string;
 
+    @IsOptional()
+    @IsString()
+    userId?: string;
+
 }

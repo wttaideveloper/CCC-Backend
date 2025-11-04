@@ -31,25 +31,34 @@ export class InterestService {
 
   async create(dto: CreateInterestDto): Promise<InterestResponseDto> {
     const interest = await this.interestModel.create(dto);
+    let userId: string | undefined;
 
     try {
-      await this.usersService.create({
+      const createdUser = await this.usersService.create({
         firstName: dto.firstName,
         lastName: dto.lastName,
         email: dto.email,
         interestId: interest._id,
       });
 
-      console.log(`User automatically created for interest form: ${dto.email}`);
+      userId = createdUser.id;
+      console.log(`User automatically created for interest form: ${dto.email}, userId: ${userId}`);
     } catch (error) {
       if (error instanceof BadRequestException) {
         console.log(`User already exists for email: ${dto.email}`);
+        try {
+          const existingUser = await this.usersService.findByEmail(dto.email);
+          userId = existingUser._id?.toString();
+        } catch (e) {
+          console.error('Failed to fetch existing user:', e.message);
+        }
       } else {
         console.error('Failed to auto-create user:', error.message);
       }
     }
 
-    return toInterestResponseDto(interest);
+    const responseDto = toInterestResponseDto(interest);
+    return { ...responseDto, userId };
   }
 
   async findAll(): Promise<InterestResponseDto[]> {
