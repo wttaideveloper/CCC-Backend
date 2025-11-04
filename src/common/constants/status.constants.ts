@@ -108,20 +108,15 @@ export const VALID_OTP_PURPOSES = [
 ] as const;
 
 export const USER_STATUSES = {
-  ACTIVE: 'active',
-  INACTIVE: 'inactive',
-  SUSPENDED: 'suspended',
-  PENDING_VERIFICATION: 'pending_verification',
   PENDING: 'pending',
   ACCEPTED: 'accepted',
   REJECTED: 'rejected',
 } as const;
 
 export const VALID_USER_STATUSES = [
-  USER_STATUSES.ACTIVE,
-  USER_STATUSES.INACTIVE,
-  USER_STATUSES.SUSPENDED,
-  USER_STATUSES.PENDING_VERIFICATION,
+  USER_STATUSES.PENDING,
+  USER_STATUSES.ACCEPTED,
+  USER_STATUSES.REJECTED,
 ] as const;
 
 export const USER_APPLICATION_STATUSES = {
