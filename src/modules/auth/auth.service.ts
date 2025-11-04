@@ -34,7 +34,7 @@ export class AuthService {
             role: user.role,
         };
         const accessToken = this.jwtService.sign(payload, {
-            expiresIn: this.configService.get<string>('JWT_EXPIRES_IN') || this.configService.get<string>('jwtExpiresIn') || '15m',
+            expiresIn: this.configService.get<string>('jwtExpiresIn') || '15m',
         });
 
         const refreshToken = this.jwtService.sign(
@@ -44,7 +44,7 @@ export class AuthService {
                 role: user.role,
                 tokenType: 'refresh',
             },
-            { expiresIn: this.configService.get<string>('REFRESH_TOKEN_EXPIRES_IN') || '7d' },
+            { expiresIn: this.configService.get<string>('refreshTokenExpiresIn') || '7d' },
         );
 
         const refreshHash = await bcrypt.hash(refreshToken, 10);
@@ -138,7 +138,7 @@ export class AuthService {
             };
             const newAccess = this.jwtService.sign(
                 newAccessPayload,
-                { expiresIn: this.configService.get<string>('JWT_EXPIRES_IN') || '15m' }
+                { expiresIn: this.configService.get<string>('jwtExpiresIn') || '15m' }
             );
 
             const newRefreshPayload = {
@@ -149,7 +149,7 @@ export class AuthService {
             };
             const newRefresh = this.jwtService.sign(
                 newRefreshPayload,
-                { expiresIn: this.configService.get<string>('REFRESH_TOKEN_EXPIRES_IN') || '7d' }
+                { expiresIn: this.configService.get<string>('refreshTokenExpiresIn') || '7d' }
             );
 
             const newRefreshHash = await bcrypt.hash(newRefresh, 10);
