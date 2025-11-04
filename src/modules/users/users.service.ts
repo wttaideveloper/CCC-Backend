@@ -35,8 +35,16 @@ export class UsersService {
         return toUserResponseDto(savedUser);
     }
 
-    async findAll(): Promise<UserResponseDto[]> {
-        const users = await this.userModel.find().select('-password').lean().exec();
+    async findAll(filters?: { role?: string; status?: string }): Promise<UserResponseDto[]> {
+        const query: any = {};
+        if (filters?.role) {
+            query.role = filters.role;
+        }
+        if (filters?.status) {
+            query.status = filters.status;
+        }
+
+        const users = await this.userModel.find(query).select('-password').lean().exec();
         return users.map((user) => toUserResponseDto(user));
     }
 
@@ -79,20 +87,6 @@ export class UsersService {
     async delete(id: string): Promise<void> {
         const result = await this.userModel.findByIdAndDelete(id).exec();
         if (!result) throw new NotFoundException('User not found');
-    }
-
-    async updatePassword(
-        email: string,
-        password: string,
-    ): Promise<UserResponseDto> {
-        const hashed = await hashPassword(password);
-        const user = await this.userModel
-            .findOneAndUpdate({ email }, { password: hashed }, { new: true })
-            .select('-password')
-            .exec();
-
-        if (!user) throw new NotFoundException('User not found');
-        return toUserResponseDto(user);
     }
 
     async saveRefreshToken(userId: string, token: string): Promise<void> {

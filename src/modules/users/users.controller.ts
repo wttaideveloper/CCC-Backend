@@ -6,6 +6,7 @@ import {
   Param,
   Patch,
   Delete,
+  Query,
   // UseGuards,
 } from '@nestjs/common';
 import { UsersService } from './users.service';
@@ -38,8 +39,12 @@ export class UsersController {
 
   @Get()
   // @Roles(ROLES.DIRECTOR, ROLES.MENTOR, ROLES.FIELD_MENTOR, ROLES.PASTOR)
-  async getAllUsers(): Promise<BaseResponse<UserResponseDto[]>> {
-    const users = await this.usersService.findAll();
+  async getAllUsers(
+    @Query('role') role?: string,
+    @Query('status') status?: string,
+  ): Promise<BaseResponse<UserResponseDto[]>> {
+    const filters = { role, status };
+    const users = await this.usersService.findAll(filters);
     return {
       success: true,
       message: 'Users fetched successfully',
