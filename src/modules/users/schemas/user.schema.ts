@@ -43,8 +43,8 @@ export class User {
     profilePicture?: string;
 
     @Prop({
-        enum: ['new', 'pending', 'accepted'],
-        default: 'new',
+        enum: ['pending', 'accepted', 'rejected'],
+        default: 'pending',
     })
     status: string;
 
