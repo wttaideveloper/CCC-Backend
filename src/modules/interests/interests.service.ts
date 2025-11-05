@@ -20,6 +20,7 @@ import {
 import { InterestMetadataDto } from './dto/interestMetadata.dto';
 import { VALID_USER_APPLICATION_STATUSES, USER_APPLICATION_STATUSES } from '../../common/constants/status.constants';
 import { UsersService } from '../users/users.service';
+import { ROLES } from '../../common/constants/roles.constants';
 
 @Injectable()
 export class InterestService {
@@ -153,13 +154,23 @@ export class InterestService {
 
   async updateUserStatus(
     userId: string,
-    status: 'pending' | 'accepted' | 'rejected',
+    status: string,
   ) {
     const validStatuses = [USER_APPLICATION_STATUSES.PENDING, USER_APPLICATION_STATUSES.ACCEPTED, USER_APPLICATION_STATUSES.REJECTED];
     if (!validStatuses.includes(status as any)) {
       throw new BadRequestException('Invalid status value');
     }
 
+    if (status === USER_APPLICATION_STATUSES.ACCEPTED) {
+      return this.usersService.update(userId, { status, role: ROLES.PASTOR });
+    }
+
     return this.usersService.update(userId, { status });
+  }
+
+  async findById(id: string): Promise<InterestResponseDto> {
+    const interest = await this.interestModel.findById(id).lean().exec();
+    if (!interest) throw new NotFoundException('Interest form not found');
+    return toInterestResponseDto(interest);
   }
 }

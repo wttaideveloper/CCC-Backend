@@ -23,7 +23,7 @@ export class CreateUserDto {
     role?: string;
 
     @IsOptional()
-    @IsEnum(['new', 'pending', 'accepted'])
+    @IsEnum(['pending', 'accepted', 'rejected'])
     status?: string;
 
     @IsOptional()
