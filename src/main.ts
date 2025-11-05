@@ -17,6 +17,11 @@ async function bootstrap() {
   const configService = app.get(ConfigService);
   const nodeEnv = configService.get<string>('nodeEnv', 'development');
   const port = configService.get<number>('port', 3000);
+  const allowedOrigins = configService.get<string[]>('allowedOrigins', [
+    'http://localhost:3000',
+    'http://localhost:3001',
+    'http://localhost:5173'
+  ]);
 
   // HELMET
   app.use(
@@ -33,9 +38,6 @@ async function bootstrap() {
   );
 
   // CORS
-  const allowedOrigins = process.env.ALLOWED_ORIGINS
-    ? process.env.ALLOWED_ORIGINS.split(',')
-    : ['http://localhost:3000', 'http://localhost:3001'];
 
   app.enableCors({
     origin: (origin, callback) => {
@@ -86,7 +88,7 @@ async function bootstrap() {
   );
 
   // FILTERS
-  app.useGlobalFilters(new HttpExceptionFilter());
+  app.useGlobalFilters(new HttpExceptionFilter(configService));
 
   //API PREFIX/VERSIONING
   app.setGlobalPrefix('api/v1', {
