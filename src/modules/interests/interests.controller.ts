@@ -56,12 +56,22 @@ export class InterestController {
     @Patch('request/:userId')
     async updateUserStatus(
         @Param('userId') userId: string,
-        @Body('status') status: 'pending' | 'accepted' | 'rejected',
+        @Body('status') status: string,
     ): Promise<BaseResponse<any>> {
         const data = await this.interestService.updateUserStatus(userId, status);
         return {
             success: true,
             message: 'User status updated successfully',
+            data,
+        };
+    }
+
+    @Get('by-id/:id')
+    async getById(@Param('id') id: string): Promise<BaseResponse<InterestResponseDto>> {
+        const data = await this.interestService.findById(id);
+        return {
+            success: true,
+            message: 'Interest form fetched successfully',
             data,
         };
     }
