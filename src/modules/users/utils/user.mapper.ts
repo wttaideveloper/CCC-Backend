@@ -10,7 +10,12 @@ export function toUserResponseDto(user: UserDocument | any): UserResponseDto {
         lastName: user.lastName,
         username: user.username,
         role: user.role,
+        roleId: user.roleId,
+        profilePicture: user.profilePicture,
+        interestId: user.interestId?.toString(),
         status: user.status,
         isEmailVerified: user.isEmailVerified,
+        createdAt: user.createdAt,
+        updatedAt: user.updatedAt,
     };
 }

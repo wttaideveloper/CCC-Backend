@@ -18,7 +18,7 @@ import {
   TITLES_LIST,
 } from 'src/shared/constants/metadata.constants';
 import { InterestMetadataDto } from './dto/interestMetadata.dto';
-import { VALID_USER_APPLICATION_STATUSES, USER_APPLICATION_STATUSES } from '../../common/constants/status.constants';
+import { VALID_USER_APPLICATION_STATUSES, USER_APPLICATION_STATUSES, VALID_USER_STATUSES, USER_STATUSES } from '../../common/constants/status.constants';
 import { UsersService } from '../users/users.service';
 import { ROLES } from '../../common/constants/roles.constants';
 
@@ -31,35 +31,17 @@ export class InterestService {
   ) { }
 
   async create(dto: CreateInterestDto): Promise<InterestResponseDto> {
-    const interest = await this.interestModel.create(dto);
-    let userId: string | undefined;
-
     try {
-      const createdUser = await this.usersService.create({
-        firstName: dto.firstName,
-        lastName: dto.lastName,
-        email: dto.email,
-        interestId: interest._id,
-      });
+      const interest = await this.interestModel.create(dto);
+      console.log(`Interest form created successfully for email: ${dto.email}, interestId: ${interest._id}`);
 
-      userId = createdUser.id;
-      console.log(`User automatically created for interest form: ${dto.email}, userId: ${userId}`);
-    } catch (error) {
-      if (error instanceof BadRequestException) {
-        console.log(`User already exists for email: ${dto.email}`);
-        try {
-          const existingUser = await this.usersService.findByEmail(dto.email);
-          userId = existingUser._id?.toString();
-        } catch (e) {
-          console.error('Failed to fetch existing user:', e.message);
-        }
-      } else {
-        console.error('Failed to auto-create user:', error.message);
+      return toInterestResponseDto(interest);
+    } catch (error: any) {
+      if (error.code === 11000 && error.keyPattern?.email) {
+        throw new BadRequestException('An interest form with this email already exists');
       }
+      throw error;
     }
-
-    const responseDto = toInterestResponseDto(interest);
-    return { ...responseDto, userId };
   }
 
   async findAll(): Promise<InterestResponseDto[]> {
@@ -103,7 +85,7 @@ export class InterestService {
     return toInterestResponseDto(updatedInterest);
   }
 
-  async getInterestsByStatus(status: string, limit = 10) {
+  async getInterestsByStatus(status: string, limit?: number) {
     if (!VALID_USER_APPLICATION_STATUSES.includes(status as any)) {
       throw new BadRequestException('Invalid status value');
     }
@@ -116,56 +98,104 @@ export class InterestService {
       matchCondition['userDetails.status'] = status;
     }
 
-    return this.interestModel
-      .aggregate([
-        {
-          $lookup: {
-            from: 'users',
-            localField: '_id',
-            foreignField: 'interestId',
-            as: 'userDetails',
-          },
+    const pipeline: any[] = [
+      {
+        $lookup: {
+          from: 'users',
+          localField: '_id',
+          foreignField: 'interestId',
+          as: 'userDetails',
         },
-        { $unwind: { path: '$userDetails', preserveNullAndEmptyArrays: true } },
-        { $match: matchCondition },
-        {
-          $project: {
-            _id: 1,
-            firstName: 1,
-            lastName: 1,
-            email: 1,
-            phoneNumber: 1,
-            profilePicture: 1,
-            createdAt: 1,
-            churchDetails: 1,
-            'userDetails._id': 1,
-            'userDetails.role': 1,
-            'userDetails.roleId': 1,
-            'userDetails.profilePicture': 1,
-            'userDetails.isEmailVerified': 1,
-            'userDetails.status': 1,
-          },
+      },
+      { $unwind: { path: '$userDetails', preserveNullAndEmptyArrays: true } },
+      { $match: matchCondition },
+      {
+        $project: {
+          _id: 1,
+          firstName: 1,
+          lastName: 1,
+          email: 1,
+          phoneNumber: 1,
+          profilePicture: 1,
+          profileInfo: 1,
+          title: 1,
+          createdAt: 1,
+          updatedAt: 1,
+          churchDetails: 1,
+          interests: 1,
+          'userDetails._id': 1,
+          'userDetails.role': 1,
+          'userDetails.roleId': 1,
+          'userDetails.profilePicture': 1,
+          'userDetails.isEmailVerified': 1,
+          'userDetails.status': 1,
         },
-        { $sort: { createdAt: -1 } },
-        { $limit: limit },
-      ])
-      .exec();
+      },
+      { $sort: { createdAt: -1 } },
+    ];
+
+    if (limit && limit > 0) {
+      const safeLimit = Math.min(limit, 100);
+      pipeline.push({ $limit: safeLimit });
+    }
+
+    return this.interestModel.aggregate(pipeline).exec();
   }
 
   async updateUserStatus(
-    userId: string,
+    interestId: string,
     status: string,
   ) {
-    const validStatuses = [USER_APPLICATION_STATUSES.PENDING, USER_APPLICATION_STATUSES.ACCEPTED, USER_APPLICATION_STATUSES.REJECTED];
-    if (!validStatuses.includes(status as any)) {
-      throw new BadRequestException('Invalid status value');
+    if (!VALID_USER_STATUSES.includes(status as any)) {
+      throw new BadRequestException('Invalid status value. Allowed values: pending, accepted, rejected');
     }
 
-    if (status === USER_APPLICATION_STATUSES.ACCEPTED) {
-      return this.usersService.update(userId, { status, role: ROLES.PASTOR });
+    const interest = await this.interestModel.findById(interestId).lean().exec();
+    if (!interest) {
+      throw new NotFoundException('Interest form not found');
     }
 
-    return this.usersService.update(userId, { status });
+    let userId: string;
+
+    if (interest.userId) {
+      try {
+        const existingUser = await this.usersService.findById(interest.userId.toString());
+        userId = existingUser.id;
+
+        const updateData: any = { status };
+        if (status === USER_STATUSES.ACCEPTED) {
+          updateData.role = ROLES.PASTOR;
+        }
+        await this.usersService.update(userId, updateData);
+        console.log(`Updated existing user ${userId} with status: ${status}`);
+
+        return this.usersService.findById(userId);
+      } catch (error) {
+        console.warn(`User ${interest.userId} not found, creating new user for interest ${interestId}`);
+      }
+    }
+
+    const newUser = await this.usersService.create({
+      firstName: interest.firstName,
+      lastName: interest.lastName,
+      email: interest.email,
+      interestId: interest._id,
+      profilePicture: interest.profilePicture,
+      status,
+      role: status === USER_STATUSES.ACCEPTED ? ROLES.PASTOR : ROLES.PENDING,
+    });
+
+    userId = newUser.id;
+    console.log(`Created new user ${userId} from interest form: ${interestId}`);
+
+    await this.interestModel.findByIdAndUpdate(
+      interestId,
+      { userId },
+      { new: true }
+    ).lean().exec();
+    console.log(`Linked interest ${interestId} with user: ${userId}`);
+
+    return this.usersService.findById(userId);
   }
 
   async findById(id: string): Promise<InterestResponseDto> {
