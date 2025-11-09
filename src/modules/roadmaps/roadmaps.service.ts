@@ -21,15 +21,14 @@ export class RoadMapsService {
     ) { }
 
     async create(dto: CreateRoadMapDto): Promise<RoadMapResponseDto> {
-        const existing = await this.roadMapModel.findOne({ name: dto.name }).exec();
+        const existing = await this.roadMapModel.findOne({ name: dto.name }).lean().exec();
         if (existing) {
             throw new BadRequestException(`RoadMap with name '${dto.name}' already exists.`);
         }
 
-        const roadMap = new this.roadMapModel(dto);
-        const savedRoadMap = await roadMap.save();
+        const roadMap = await this.roadMapModel.create(dto);
 
-        return toRoadMapResponseDto(savedRoadMap as RoadMapDocument);
+        return toRoadMapResponseDto(roadMap);
     }
 
     async findAll(status: string, search: string): Promise<RoadMapResponseDto[]> {
@@ -67,7 +66,7 @@ export class RoadMapsService {
             const existing = await this.roadMapModel.findOne({
                 name: dto.name,
                 _id: { $ne: new Types.ObjectId(id) }
-            }).exec();
+            }).lean().exec();
 
             if (existing) {
                 throw new BadRequestException(`RoadMap with name '${dto.name}' already exists.`);
@@ -76,13 +75,14 @@ export class RoadMapsService {
 
         const updatedRoadmap = await this.roadMapModel.findByIdAndUpdate(id, dto, {
             new: true,
-        }).exec();
+            runValidators: true
+        }).lean().exec();
 
         if (!updatedRoadmap) {
             throw new NotFoundException(`RoadMap with ID "${id}" not found`);
         }
 
-        return toRoadMapResponseDto(updatedRoadmap as RoadMapDocument);
+        return toRoadMapResponseDto(updatedRoadmap);
     }
 
     async delete(id: string): Promise<{ _id: string }> {
