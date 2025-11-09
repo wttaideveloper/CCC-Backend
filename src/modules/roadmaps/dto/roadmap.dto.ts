@@ -1,10 +1,19 @@
-import { IsString, IsOptional, IsDateString, IsBoolean, IsEnum, IsArray, ArrayMinSize, ValidateNested, IsNumber, IsMongoId, ValidateIf, IsIn } from 'class-validator';
+import { IsString, IsOptional, IsDateString, IsBoolean, IsEnum, IsArray, ArrayMinSize, ValidateNested, IsNumber, IsMongoId, ValidateIf, IsIn, IsNotEmpty } from 'class-validator';
 import { Type } from 'class-transformer';
 import { PartialType } from '@nestjs/mapped-types';
 
+export enum ExtraType {
+  TEXT_FIELD = 'TEXT_FIELD',
+  TEXT_AREA = 'TEXT_AREA',
+  UPLOAD = 'UPLOAD',
+  DATE_PICKER = 'DATE_PICKER',
+  SECTION = 'SECTION',
+  ASSESSMENT = 'ASSESSMENT',
+}
+
 export class TextFieldExtraDto {
-    @IsIn(['TEXT_FIELD'])
-    type: 'TEXT_FIELD';
+    @IsEnum(ExtraType)
+    type: ExtraType.TEXT_FIELD;
 
     @IsString()
     name: string;
@@ -19,8 +28,8 @@ export class TextFieldExtraDto {
 }
 
 export class TextAreaExtraDto {
-    @IsIn(['TEXT_AREA'])
-    type: 'TEXT_AREA';
+    @IsEnum(ExtraType)
+    type: ExtraType.TEXT_AREA;
 
     @IsString()
     name: string;
@@ -35,18 +44,20 @@ export class TextAreaExtraDto {
 }
 
 export class UploadExtraDto {
-    @IsIn(['UPLOAD'])
-    type: 'UPLOAD';
+    @IsEnum(ExtraType)
+    type: ExtraType.UPLOAD;
 
     @IsString()
+    @IsNotEmpty()
     name: string;
 }
 
 export class DatePickerExtraDto {
-    @IsIn(['DATE_PICKER'])
-    type: 'DATE_PICKER';
+    @IsEnum(ExtraType)
+    type: ExtraType.DATE_PICKER;
 
     @IsString()
+    @IsNotEmpty()
     name: string;
 
     @IsOptional()
@@ -64,10 +75,11 @@ export class DatePickerExtraDto {
 }
 
 export class AssessmentExtraDto {
-    @IsIn(['ASSESSMENT'])
-    type: 'ASSESSMENT';
+    @IsEnum(ExtraType)
+    type: ExtraType.ASSESSMENT;
 
     @IsString()
+    @IsNotEmpty()
     name: string;
 
     @IsOptional()
@@ -81,8 +93,8 @@ export class AssessmentExtraDto {
 }
 
 export class SectionExtraDto {
-    @IsIn(['SECTION'])
-    type: 'SECTION';
+    @IsEnum(ExtraType)
+    type: ExtraType.SECTION;
 
     @IsString()
     name: string;
@@ -106,6 +118,7 @@ export class SectionExtraDto {
                 { value: AssessmentExtraDto, name: 'ASSESSMENT' },
             ],
         },
+        keepDiscriminatorProperty: true,
     })
     sections?: (TextFieldExtraDto | TextAreaExtraDto | UploadExtraDto | DatePickerExtraDto | AssessmentExtraDto)[];
 }
@@ -180,6 +193,7 @@ export class NestedRoadMapItemDto {
                 { value: AssessmentExtraDto, name: 'ASSESSMENT' },
             ],
         },
+        keepDiscriminatorProperty: true,
     })
     extras?: ExtraItemDto[];
 }
@@ -242,11 +256,13 @@ export class CreateRoadMapDto {
                 { value: AssessmentExtraDto, name: 'ASSESSMENT' },
             ],
         },
+        keepDiscriminatorProperty: true,
     })
     extras?: ExtraItemDto[];
 
     @IsOptional()
-    @IsString()
+    @IsArray()
+    @IsString({ each: true })
     divisions?: string[];
 
     @IsOptional()
