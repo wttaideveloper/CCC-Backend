@@ -5,6 +5,8 @@ import { PartialType } from '@nestjs/mapped-types';
 export enum ExtraType {
   TEXT_FIELD = 'TEXT_FIELD',
   TEXT_AREA = 'TEXT_AREA',
+  TEXT_DISPLAY = 'TEXT_DISPLAY',
+  CHECKBOX = 'CHECKBOX',
   UPLOAD = 'UPLOAD',
   DATE_PICKER = 'DATE_PICKER',
   SECTION = 'SECTION',
@@ -43,6 +45,29 @@ export class TextAreaExtraDto {
     buttonName?: string;
 }
 
+export class TestDisplayExtraDto {
+    @IsEnum(ExtraType)
+    type: ExtraType.TEXT_DISPLAY;
+
+    @IsString()
+    name: string;
+}
+
+export class CheckboxExtraDto {
+    @IsEnum(ExtraType)
+    type: ExtraType.CHECKBOX;
+
+    @IsString()
+    name: string;
+
+    @IsBoolean()
+    haveButton: boolean;
+
+    @IsOptional()
+    @IsString()
+    buttonName?: string;
+}
+
 export class UploadExtraDto {
     @IsEnum(ExtraType)
     type: ExtraType.UPLOAD;
@@ -66,8 +91,9 @@ export class DatePickerExtraDto {
 
     @IsOptional()
     @IsArray()
-    @IsString({ each: true })
-    checkboxes?: string[];
+    @ValidateNested({ each: true })
+    @Type(() => CheckboxExtraDto)
+    checkboxes?: CheckboxExtraDto[];
 
     @IsOptional()
     @IsString()
@@ -88,8 +114,9 @@ export class AssessmentExtraDto {
 
     @IsOptional()
     @IsArray()
-    @IsString({ each: true })
-    checkboxes?: string[];
+    @ValidateNested({ each: true })
+    @Type(() => CheckboxExtraDto)
+    checkboxes?: CheckboxExtraDto[];
 }
 
 export class SectionExtraDto {
@@ -101,8 +128,9 @@ export class SectionExtraDto {
 
     @IsOptional()
     @IsArray()
-    @IsString({ each: true })
-    checkboxes?: string[];
+    @ValidateNested({ each: true })
+    @Type(() => CheckboxExtraDto)
+    checkboxes?: CheckboxExtraDto[];
 
     @IsOptional()
     @IsArray()
@@ -113,6 +141,8 @@ export class SectionExtraDto {
             subTypes: [
                 { value: TextFieldExtraDto, name: 'TEXT_FIELD' },
                 { value: TextAreaExtraDto, name: 'TEXT_AREA' },
+                { value: TestDisplayExtraDto, name: 'TEXT_DISPLAY' },
+                { value: CheckboxExtraDto, name: 'CHECKBOX' },
                 { value: UploadExtraDto, name: 'UPLOAD' },
                 { value: DatePickerExtraDto, name: 'DATE_PICKER' },
                 { value: AssessmentExtraDto, name: 'ASSESSMENT' },
@@ -123,7 +153,7 @@ export class SectionExtraDto {
     sections?: (TextFieldExtraDto | TextAreaExtraDto | UploadExtraDto | DatePickerExtraDto | AssessmentExtraDto)[];
 }
 
-export type ExtraItemDto = TextFieldExtraDto | TextAreaExtraDto | UploadExtraDto | DatePickerExtraDto | SectionExtraDto | AssessmentExtraDto;
+export type ExtraItemDto = TextFieldExtraDto | TextAreaExtraDto | TestDisplayExtraDto | CheckboxExtraDto | UploadExtraDto | DatePickerExtraDto | SectionExtraDto | AssessmentExtraDto;
 
 export class NestedRoadMapItemDto {
 
@@ -187,6 +217,8 @@ export class NestedRoadMapItemDto {
             subTypes: [
                 { value: TextFieldExtraDto, name: 'TEXT_FIELD' },
                 { value: TextAreaExtraDto, name: 'TEXT_AREA' },
+                { value: TestDisplayExtraDto, name: 'TEXT_DISPLAY' },
+                { value: CheckboxExtraDto, name: 'CHECKBOX' },
                 { value: UploadExtraDto, name: 'UPLOAD' },
                 { value: DatePickerExtraDto, name: 'DATE_PICKER' },
                 { value: SectionExtraDto, name: 'SECTION' },
@@ -250,6 +282,8 @@ export class CreateRoadMapDto {
             subTypes: [
                 { value: TextFieldExtraDto, name: 'TEXT_FIELD' },
                 { value: TextAreaExtraDto, name: 'TEXT_AREA' },
+                { value: TestDisplayExtraDto, name: 'TEXT_DISPLAY' },
+                { value: CheckboxExtraDto, name: 'CHECKBOX' },
                 { value: UploadExtraDto, name: 'UPLOAD' },
                 { value: DatePickerExtraDto, name: 'DATE_PICKER' },
                 { value: SectionExtraDto, name: 'SECTION' },
