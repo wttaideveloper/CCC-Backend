@@ -44,12 +44,12 @@ export class UsersService {
             query.status = filters.status;
         }
 
-        const users = await this.userModel.find(query).select('-password').lean().exec();
+        const users = await this.userModel.find(query).select('-password -refreshToken').lean().exec();
         return users.map((user) => toUserResponseDto(user));
     }
 
     async findById(id: string): Promise<UserResponseDto> {
-        const user = await this.userModel.findById(id).select('-password').lean().exec();
+        const user = await this.userModel.findById(id).select('-password -refreshToken').lean().exec();
         if (!user) throw new NotFoundException('User not found');
         return toUserResponseDto(user);
     }
@@ -61,7 +61,7 @@ export class UsersService {
     }
 
     async findByRole(role: string): Promise<UserResponseDto[]> {
-        const users = await this.userModel.find({ role }).lean().exec();
+        const users = await this.userModel.find({ role }).select('-password -refreshToken').lean().exec();
         if (!users || users.length === 0)
             throw new NotFoundException('User not found');
         return users.map((user) => toUserResponseDto(user));
@@ -78,7 +78,7 @@ export class UsersService {
 
         const updated = await this.userModel
             .findByIdAndUpdate(id, dataToUpdate, { new: true, runValidators: true })
-            .select('-password')
+            .select('-password -refreshToken')
             .exec();
         if (!updated) throw new NotFoundException('User not found');
         return toUserResponseDto(updated);

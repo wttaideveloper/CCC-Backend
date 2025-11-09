@@ -9,23 +9,23 @@ import {
   Post,
   HttpCode,
   HttpStatus,
-  UseGuards,
+  // UseGuards,
 } from '@nestjs/common';
 import { CreateAssessmentDto, SectionDto } from './dto/assessment.dto';
 import { Assessment } from './schemas/assessment.schema';
 import { AssessmentService } from './assessment.service';
-import { JwtAuthGuard, RolesGuard } from '../../common/guards';
-import { ROLES } from '../../common/constants/roles.constants';
-import { Roles } from '../../common/decorators';
+// import { JwtAuthGuard, RolesGuard } from '../../common/guards';
+// import { ROLES } from '../../common/constants/roles.constants';
+// import { Roles } from '../../common/decorators';
 import { ParseMongoIdPipe } from '../../common/pipes/parse-mongo-id.pipe';
 
 @Controller('assessment')
-@UseGuards(JwtAuthGuard, RolesGuard)
+// @UseGuards(JwtAuthGuard, RolesGuard)
 export class AssessmentController {
   constructor(private readonly assessmentService: AssessmentService) {}
 
   @Post()
-  @Roles(ROLES.DIRECTOR, ROLES.MENTOR)
+  // @Roles(ROLES.DIRECTOR, ROLES.MENTOR)
   @HttpCode(HttpStatus.CREATED)
   async create(@Body() dto: CreateAssessmentDto): Promise<Assessment> {
     return this.assessmentService.create(dto);
@@ -44,7 +44,7 @@ export class AssessmentController {
   }
 
   @Delete(':id')
-  @Roles(ROLES.DIRECTOR, ROLES.MENTOR)
+  // @Roles(ROLES.DIRECTOR, ROLES.MENTOR)
   async deleteAssessment(@Param('id', ParseMongoIdPipe) id: string) {
     const deleted = await this.assessmentService.deleteAssessment(id);
     if (!deleted) throw new NotFoundException('Assessment not found');
@@ -52,7 +52,7 @@ export class AssessmentController {
   }
 
   @Patch(':id/instructions')
-  @Roles(ROLES.DIRECTOR, ROLES.MENTOR)
+  // @Roles(ROLES.DIRECTOR, ROLES.MENTOR)
   async updateInstructions(
     @Param('id', ParseMongoIdPipe) id: string,
     @Body('instructions') instructions: string[],
@@ -61,7 +61,7 @@ export class AssessmentController {
   }
 
   @Patch(':id/sections')
-  @Roles(ROLES.DIRECTOR, ROLES.MENTOR)
+  // @Roles(ROLES.DIRECTOR, ROLES.MENTOR)
   async updateSections(
     @Param('id', ParseMongoIdPipe) id: string,
     @Body('sections') sections: SectionDto[],
@@ -70,7 +70,7 @@ export class AssessmentController {
   }
 
   @Post(':assessmentId/assign')
-  @Roles(ROLES.DIRECTOR, ROLES.MENTOR)
+  // @Roles(ROLES.DIRECTOR, ROLES.MENTOR)
   async assignAssessment(
     @Param('assessmentId', ParseMongoIdPipe) assessmentId: string,
     @Body('userIds') userIds: string[],

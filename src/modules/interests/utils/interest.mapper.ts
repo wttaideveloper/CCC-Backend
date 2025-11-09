@@ -18,10 +18,12 @@ export function toInterestResponseDto(interest: InterestDocument | any): Interes
 
     return {
         id: interest._id?.toString() || String(interest._id),
+        profileInfo: interest.profileInfo,
         firstName: interest.firstName,
         lastName: interest.lastName,
         phoneNumber: interest.phoneNumber,
         email: interest.email,
+        profilePicture: interest.profilePicture,
         churchDetails: (interest.churchDetails || []).map(mapChurchDetails),
         title: interest.title,
         conference: interest.conference,
@@ -29,5 +31,6 @@ export function toInterestResponseDto(interest: InterestDocument | any): Interes
         currentCommunityProjects: interest.currentCommunityProjects,
         interests: interest.interests,
         comments: interest.comments,
+        userId: interest.userId?.toString(),
     };
 }

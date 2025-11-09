@@ -6,7 +6,7 @@ import { OtpService } from './otp.service';
 import * as bcrypt from 'bcrypt';
 import { ConfigService } from '@nestjs/config';
 import { LoginResponseDto } from './dto/login.dto';
-import { UserResponseDto } from '../users/dto/user-response.dto';
+import { toUserResponseDto } from '../users/utils/user.mapper';
 
 @Injectable()
 export class AuthService {
@@ -50,16 +50,7 @@ export class AuthService {
         const refreshHash = await bcrypt.hash(refreshToken, 10);
         await this.usersService.saveRefreshToken(user._id!.toString(), refreshHash);
 
-        const userResponseDto: UserResponseDto = {
-            id: user._id!.toString(),
-            email: user.email,
-            firstName: user.firstName,
-            lastName: user.lastName,
-            username: user.username,
-            role: user.role,
-            status: user.status,
-            isEmailVerified: user.isEmailVerified,
-        };
+        const userResponseDto = toUserResponseDto(user);
 
         return { accessToken, refreshToken, user: userResponseDto };
     }
@@ -155,16 +146,7 @@ export class AuthService {
             const newRefreshHash = await bcrypt.hash(newRefresh, 10);
             await this.usersService.saveRefreshToken(user._id!.toString(), newRefreshHash);
 
-            const userResponseDto: UserResponseDto = {
-                id: user._id!.toString(),
-                email: user.email,
-                firstName: user.firstName,
-                lastName: user.lastName,
-                username: user.username,
-                role: user.role,
-                status: user.status,
-                isEmailVerified: user.isEmailVerified,
-            };
+            const userResponseDto = toUserResponseDto(user);
 
             return { accessToken: newAccess, refreshToken: newRefresh, user: userResponseDto };
         } catch (err) {

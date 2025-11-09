@@ -44,7 +44,7 @@ export class InterestController {
         @Query('status') status: string,
         @Query('limit') limit?: string,
     ): Promise<BaseResponse<any>> {
-        const parsedLimit = limit ? parseInt(limit, 10) : 10;
+        const parsedLimit = limit ? parseInt(limit, 10) : undefined;
         const data = await this.interestService.getInterestsByStatus(status, parsedLimit);
         return {
             success: true,
@@ -53,12 +53,12 @@ export class InterestController {
         };
     }
 
-    @Patch('request/:userId')
+    @Patch('request/:interestId')
     async updateUserStatus(
-        @Param('userId') userId: string,
+        @Param('interestId') interestId: string,
         @Body('status') status: string,
     ): Promise<BaseResponse<any>> {
-        const data = await this.interestService.updateUserStatus(userId, status);
+        const data = await this.interestService.updateUserStatus(interestId, status);
         return {
             success: true,
             message: 'User status updated successfully',
