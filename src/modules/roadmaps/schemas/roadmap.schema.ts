@@ -2,6 +2,100 @@ import { Prop, Schema, SchemaFactory } from "@nestjs/mongoose";
 import { Document, Types } from "mongoose";
 import { VALID_ROADMAP_STATUSES, ROADMAP_STATUSES } from '../../../common/constants/status.constants';
 
+@Schema({ _id: false })
+export class TextFieldExtra {
+    @Prop({ required: true, enum: ['TEXT_FIELD'] })
+    type: string;
+
+    @Prop({ required: true })
+    name: string;
+
+    @Prop()
+    placeHolder?: string;
+
+    @Prop()
+    buttonName?: string;
+}
+
+@Schema({ _id: false })
+export class TextAreaExtra {
+    @Prop({ required: true, enum: ['TEXT_AREA'] })
+    type: string;
+
+    @Prop({ required: true })
+    name: string;
+
+    @Prop()
+    placeHolder?: string;
+
+    @Prop()
+    buttonName?: string;
+}
+
+@Schema({ _id: false })
+export class UploadExtra {
+    @Prop({ required: true, enum: ['UPLOAD'] })
+    type: string;
+
+    @Prop({ required: true })
+    name: string;
+}
+
+@Schema({ _id: false })
+export class DatePickerExtra {
+    @Prop({ required: true, enum: ['DATE_PICKER'] })
+    type: string;
+
+    @Prop({ required: true })
+    name: string;
+
+    @Prop()
+    date?: string;
+
+    @Prop({ type: [String], default: [] })
+    checkboxes?: string[];
+
+    @Prop()
+    buttonName?: string;
+}
+
+@Schema({ _id: false })
+export class AssessmentExtra {
+    @Prop({ required: true, enum: ['ASSESSMENT'] })
+    type: string;
+
+    @Prop({ required: true })
+    name: string;
+
+    @Prop()
+    buttonName?: string;
+
+    @Prop({ type: [String], default: [] })
+    checkboxes?: string[];
+}
+
+@Schema({ _id: false })
+export class SectionExtra {
+    @Prop({ required: true, enum: ['SECTION'] })
+    type: string;
+
+    @Prop({ required: true })
+    name: string;
+
+    @Prop({ type: [String], default: [] })
+    checkboxes?: string[];
+
+    @Prop({ type: [Types.Map], default: [] })
+    sections?: Types.Array<any>;
+}
+
+export const TextFieldExtraSchema = SchemaFactory.createForClass(TextFieldExtra);
+export const TextAreaExtraSchema = SchemaFactory.createForClass(TextAreaExtra);
+export const UploadExtraSchema = SchemaFactory.createForClass(UploadExtra);
+export const DatePickerExtraSchema = SchemaFactory.createForClass(DatePickerExtra);
+export const AssessmentExtraSchema = SchemaFactory.createForClass(AssessmentExtra);
+export const SectionExtraSchema = SchemaFactory.createForClass(SectionExtra);
+
 @Schema()
 export class NestedRoadMapItem {
     readonly _id?: Types.ObjectId;
@@ -42,8 +136,8 @@ export class NestedRoadMapItem {
     @Prop({ default: 0, type: Number })
     totalSteps: number;
 
-    @Prop({ type: Object })
-    extras: Object;
+    @Prop({ type: [Types.Map], default: [] })
+    extras?: Types.Array<any>;
 }
 
 export const NestedRoadMapItemSchema = SchemaFactory.createForClass(NestedRoadMapItem);
@@ -88,8 +182,8 @@ export class RoadMap {
     @Prop({ type: [Date], default: [] })
     meetings: Date[];
 
-    @Prop({ enum: ['church', 'pastor'], default: 'pastor' })
-    division: string;
+    @Prop({ default: [] })
+    divisions: string[];
 
     @Prop({ default: false })
     haveNextedRoadMaps: boolean;
@@ -103,8 +197,8 @@ export class RoadMap {
     @Prop({ default: 0, type: Number })
     totalSteps: number;
 
-    @Prop({ type: Object })
-    extras?: Object;
+    @Prop({ type: [Types.Map], default: [] })
+    extras?: Types.Array<any>;
 
     @Prop({ type: [NestedRoadMapItemSchema], default: [] })
     roadmaps: Types.Array<NestedRoadMapItem>;

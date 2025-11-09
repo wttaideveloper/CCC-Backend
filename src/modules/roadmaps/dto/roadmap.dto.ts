@@ -1,6 +1,116 @@
-import { IsString, IsOptional, IsDateString, IsBoolean, IsEnum, IsArray, ArrayMinSize, ValidateNested, IsNumber, IsMongoId } from 'class-validator';
+import { IsString, IsOptional, IsDateString, IsBoolean, IsEnum, IsArray, ArrayMinSize, ValidateNested, IsNumber, IsMongoId, ValidateIf, IsIn } from 'class-validator';
 import { Type } from 'class-transformer';
 import { PartialType } from '@nestjs/mapped-types';
+
+export class TextFieldExtraDto {
+    @IsIn(['TEXT_FIELD'])
+    type: 'TEXT_FIELD';
+
+    @IsString()
+    name: string;
+
+    @IsOptional()
+    @IsString()
+    placeHolder?: string;
+
+    @IsOptional()
+    @IsString()
+    buttonName?: string;
+}
+
+export class TextAreaExtraDto {
+    @IsIn(['TEXT_AREA'])
+    type: 'TEXT_AREA';
+
+    @IsString()
+    name: string;
+
+    @IsOptional()
+    @IsString()
+    placeHolder?: string;
+
+    @IsOptional()
+    @IsString()
+    buttonName?: string;
+}
+
+export class UploadExtraDto {
+    @IsIn(['UPLOAD'])
+    type: 'UPLOAD';
+
+    @IsString()
+    name: string;
+}
+
+export class DatePickerExtraDto {
+    @IsIn(['DATE_PICKER'])
+    type: 'DATE_PICKER';
+
+    @IsString()
+    name: string;
+
+    @IsOptional()
+    @IsString()
+    date?: string;
+
+    @IsOptional()
+    @IsArray()
+    @IsString({ each: true })
+    checkboxes?: string[];
+
+    @IsOptional()
+    @IsString()
+    buttonName?: string;
+}
+
+export class AssessmentExtraDto {
+    @IsIn(['ASSESSMENT'])
+    type: 'ASSESSMENT';
+
+    @IsString()
+    name: string;
+
+    @IsOptional()
+    @IsString()
+    buttonName?: string;
+
+    @IsOptional()
+    @IsArray()
+    @IsString({ each: true })
+    checkboxes?: string[];
+}
+
+export class SectionExtraDto {
+    @IsIn(['SECTION'])
+    type: 'SECTION';
+
+    @IsString()
+    name: string;
+
+    @IsOptional()
+    @IsArray()
+    @IsString({ each: true })
+    checkboxes?: string[];
+
+    @IsOptional()
+    @IsArray()
+    @ValidateNested({ each: true })
+    @Type(() => Object, {
+        discriminator: {
+            property: 'type',
+            subTypes: [
+                { value: TextFieldExtraDto, name: 'TEXT_FIELD' },
+                { value: TextAreaExtraDto, name: 'TEXT_AREA' },
+                { value: UploadExtraDto, name: 'UPLOAD' },
+                { value: DatePickerExtraDto, name: 'DATE_PICKER' },
+                { value: AssessmentExtraDto, name: 'ASSESSMENT' },
+            ],
+        },
+    })
+    sections?: (TextFieldExtraDto | TextAreaExtraDto | UploadExtraDto | DatePickerExtraDto | AssessmentExtraDto)[];
+}
+
+export type ExtraItemDto = TextFieldExtraDto | TextAreaExtraDto | UploadExtraDto | DatePickerExtraDto | SectionExtraDto | AssessmentExtraDto;
 
 export class NestedRoadMapItemDto {
 
@@ -19,9 +129,9 @@ export class NestedRoadMapItemDto {
     @IsString()
     description?: string;
 
-    @IsEnum(['due', 'not started', 'completed'])
+    @IsEnum(['in progress', 'not started', 'completed'])
     @IsOptional()
-    status?: 'due' | 'not started' | 'completed';
+    status?: 'in progress' | 'not started' | 'completed';
 
     @IsString()
     duration: string;
@@ -56,7 +166,22 @@ export class NestedRoadMapItemDto {
     totalSteps?: number;
 
     @IsOptional()
-    extras?: Record<string, any>;
+    @IsArray()
+    @ValidateNested({ each: true })
+    @Type(() => Object, {
+        discriminator: {
+            property: 'type',
+            subTypes: [
+                { value: TextFieldExtraDto, name: 'TEXT_FIELD' },
+                { value: TextAreaExtraDto, name: 'TEXT_AREA' },
+                { value: UploadExtraDto, name: 'UPLOAD' },
+                { value: DatePickerExtraDto, name: 'DATE_PICKER' },
+                { value: SectionExtraDto, name: 'SECTION' },
+                { value: AssessmentExtraDto, name: 'ASSESSMENT' },
+            ],
+        },
+    })
+    extras?: ExtraItemDto[];
 }
 
 export class CreateRoadMapDto {
@@ -74,9 +199,9 @@ export class CreateRoadMapDto {
     @IsString()
     description?: string;
 
-    @IsEnum(['due', 'not started', 'completed'])
+    @IsEnum(['in progress', 'not started', 'completed'])
     @IsOptional()
-    status?: 'due' | 'not started' | 'completed';
+    status?: 'in progress' | 'not started' | 'completed';
 
     @IsString()
     duration: string;
@@ -103,11 +228,26 @@ export class CreateRoadMapDto {
     meetings?: Date[];
 
     @IsOptional()
-    extras?: Record<string, any>;
+    @IsArray()
+    @ValidateNested({ each: true })
+    @Type(() => Object, {
+        discriminator: {
+            property: 'type',
+            subTypes: [
+                { value: TextFieldExtraDto, name: 'TEXT_FIELD' },
+                { value: TextAreaExtraDto, name: 'TEXT_AREA' },
+                { value: UploadExtraDto, name: 'UPLOAD' },
+                { value: DatePickerExtraDto, name: 'DATE_PICKER' },
+                { value: SectionExtraDto, name: 'SECTION' },
+                { value: AssessmentExtraDto, name: 'ASSESSMENT' },
+            ],
+        },
+    })
+    extras?: ExtraItemDto[];
 
     @IsOptional()
     @IsString()
-    division: string;
+    divisions?: string[];
 
     @IsOptional()
     @IsString()
@@ -143,13 +283,13 @@ export class RoadMapResponseDto {
     completedOn?: Date;
     imageUrl?: string;
     meetings?: Date[];
-    extras?: Record<string, any>;
-    division: string;
+    extras?: ExtraItemDto[];
+    divisions?: string[];
     haveNextedRoadMaps: boolean;
     phase?: string;
     assesmentId?: string;
     totalSteps?: number;
     roadmaps: NestedRoadMapItemDto[];
-    // createdAt: Date;
-    // updatedAt: Date;
+    createdAt?: Date;
+    updatedAt?: Date;
 }
