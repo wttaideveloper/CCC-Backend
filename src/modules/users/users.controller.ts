@@ -7,13 +7,14 @@ import {
   Patch,
   Delete,
   Query,
+  NotFoundException,
   // UseGuards,
 } from '@nestjs/common';
 import { UsersService } from './users.service';
 import { CreateUserDto } from './dto/create-user.dto';
 import { UpdateUserDto } from './dto/update-user.dto';
 import { BaseResponse } from '../../shared/interfaces/base-response.interface';
-import { UserResponseDto } from './dto/user-response.dto';
+import { AssignMentorDto, UserResponseDto } from './dto/user-response.dto';
 // import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
 // import { RolesGuard } from '../../common/guards/roles.guard';
 // import { Roles } from '../../common/decorators/roles.decorator';
@@ -62,6 +63,31 @@ export class UsersController {
       success: true,
       message: 'User status fetched successfully',
       data: { status: userStatus },
+    };
+  }
+
+  @Post(':userId/assign-mentor')
+  async assignMentor(
+    @Param('userId') userId: string,
+    @Body() dto: AssignMentorDto,
+  ) {
+    const user = await this.usersService.assignMentor(userId, dto);
+    if (!user) throw new NotFoundException('User not found');
+
+    return {
+      success: true,
+      message: 'Mentor assigned successfully',
+      data: user,
+    };
+  }
+
+  @Get(':userId/mentors')
+  async getMentorList(@Param('userId') userId: string) {
+    const mentors = await this.usersService.getMentorList(userId);
+    return {
+      success: true,
+      message: 'Mentor list fetched successfully',
+      data: mentors,
     };
   }
 

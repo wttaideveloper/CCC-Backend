@@ -1,4 +1,4 @@
-import { IsString, IsEmail, IsBoolean, IsOptional, IsDate } from 'class-validator';
+import { IsString, IsEmail, IsBoolean, IsOptional, IsDate, IsMongoId } from 'class-validator';
 
 export class UserResponseDto {
     @IsString()
@@ -42,4 +42,9 @@ export class UserResponseDto {
 
     @IsDate()
     updatedAt: Date;
+}
+
+export class AssignMentorDto {
+    @IsMongoId()
+    mentorId: string;
 }

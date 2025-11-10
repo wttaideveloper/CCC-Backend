@@ -10,6 +10,8 @@ import { CreateAssessmentDto, SectionDto } from './dto/assessment.dto';
 import { User, UserDocument } from '../users/schemas/user.schema';
 import { ASSESSMENT_ASSIGNMENT_STATUSES } from '../../common/constants/status.constants';
 import { UserAnswer } from './schemas/answer.schema';
+import { SubmitSectionAnswersDto } from './dto/submit-section-answers.dto';
+import { SubmitPreSurveyDto } from './dto/submit-pre-survey.dto';
 
 @Injectable()
 export class AssessmentService {
@@ -20,7 +22,7 @@ export class AssessmentService {
     private readonly userModel: Model<UserDocument>,
     @InjectModel(UserAnswer.name)
     private readonly userAnswerModel: Model<UserAnswer>,
-  ) {}
+  ) { }
 
   async create(dto: CreateAssessmentDto): Promise<Assessment> {
     const newAssessment = await this.assessmentModel.create({
@@ -223,8 +225,8 @@ export class AssessmentService {
       },
       { new: true },
     )
-    .lean()
-    .exec();
+      .lean()
+      .exec();
 
     if (updated) return updated;
 
@@ -248,8 +250,8 @@ export class AssessmentService {
       },
       { upsert: true, new: true },
     )
-    .lean()
-    .exec();
+      .lean()
+      .exec();
 
     return result;
   }
@@ -277,5 +279,80 @@ export class AssessmentService {
       );
 
     return result;
+  }
+
+  // Submit Pre-Survey Answers
+  async submitPreSurvey(assessmentId: string, dto: SubmitPreSurveyDto) {
+    const { userId, preSurveyAnswers } = dto;
+
+    if (!Types.ObjectId.isValid(assessmentId)) {
+      throw new BadRequestException('Invalid assessment ID format');
+    }
+    if (!Types.ObjectId.isValid(userId)) {
+      throw new BadRequestException('Invalid user ID format');
+    }
+
+    const assessment = await this.assessmentModel.findById(assessmentId).lean();
+    if (!assessment) throw new NotFoundException('Assessment not found');
+
+    if (assessment.type !== 'CMA') {
+      throw new BadRequestException('PreSurvey is only applicable for CMA assessments');
+    }
+
+    const updated = await this.userAnswerModel.findOneAndUpdate(
+      {
+        assessmentId: new Types.ObjectId(assessmentId),
+        userId: new Types.ObjectId(userId),
+      },
+      {
+        $set: {
+          preSurveyAnswers,
+          preSurveySubmittedAt: new Date(),
+        },
+      },
+      { new: true, upsert: true },
+    );
+
+    return updated;
+  }
+
+  // Submit Section Answers
+  async submitSectionAnswers(assessmentId: string, dto: SubmitSectionAnswersDto) {
+    const { userId, answers } = dto;
+
+    if (!Types.ObjectId.isValid(assessmentId)) {
+      throw new BadRequestException('Invalid assessment ID format');
+    }
+    if (!Types.ObjectId.isValid(userId)) {
+      throw new BadRequestException('Invalid user ID format');
+    }
+
+    const assessment = await this.assessmentModel.findById(assessmentId).lean();
+    if (!assessment) throw new NotFoundException('Assessment not found');
+
+    const sectionEntries = answers.map((section) => ({
+      sectionId: new Types.ObjectId(section.sectionId),
+      layers: section.layers.map((layer) => ({
+        layerId: new Types.ObjectId(layer.layerId),
+        selectedChoice: layer.selectedChoice,
+        answeredAt: new Date(),
+      })),
+    }));
+
+    const updated = await this.userAnswerModel.findOneAndUpdate(
+      {
+        assessmentId: new Types.ObjectId(assessmentId),
+        userId: new Types.ObjectId(userId),
+      },
+      {
+        $set: {
+          sections: sectionEntries,
+          submittedAt: new Date(),
+        },
+      },
+      { new: true, upsert: true },
+    );
+
+    return updated;
   }
 }

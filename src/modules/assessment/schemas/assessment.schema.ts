@@ -1,6 +1,12 @@
 import { Prop, Schema, SchemaFactory } from '@nestjs/mongoose';
 import { Document, Types } from 'mongoose';
-import { VALID_ASSESSMENT_ASSIGNMENT_STATUSES, ASSESSMENT_ASSIGNMENT_STATUSES } from '../../../common/constants/status.constants';
+import {
+  VALID_ASSESSMENT_ASSIGNMENT_STATUSES,
+  ASSESSMENT_ASSIGNMENT_STATUSES,
+  VALID_ASSESSMENT_TYPES,
+} from '../../../common/constants/status.constants';
+
+import type { AssessmentType } from '../../../common/constants/status.constants';
 
 @Schema()
 export class Choice {
@@ -8,6 +14,28 @@ export class Choice {
   text: string;
 }
 export const ChoiceSchema = SchemaFactory.createForClass(Choice);
+
+@Schema()
+export class PreSurveyQuestion {
+  @Prop({ required: true })
+  text: string;
+
+  @Prop({
+    type: String,
+    required: true,
+    enum: ['text', 'number', 'date', 'select'],
+  })
+  type: string;
+
+  @Prop()
+  placeholder?: string;
+
+  @Prop({ required: true })
+  required: boolean;
+}
+
+export const PreSurveyQuestionSchema =
+  SchemaFactory.createForClass(PreSurveyQuestion);
 
 @Schema()
 export class Layer {
@@ -76,6 +104,30 @@ export class Assessment {
 
   @Prop({ type: [AssignmentSchema], default: [] })
   assignments: AssignTo[];
+
+  @Prop({
+    type: String,
+    enum: VALID_ASSESSMENT_TYPES,
+    required: true,
+  })
+  type: AssessmentType;
+
+  @Prop({
+    type: [PreSurveyQuestionSchema],
+    required: false,
+    validate: {
+      validator: function (this: Assessment, value: any) {
+        if (this.type === 'CMA')
+          return Array.isArray(value) && value.length > 0;
+        return !value || value.length === 0;
+      },
+      message: (props) =>
+        props.value && props.value.length > 0
+          ? 'preSurvey is only allowed for CMA assessments.'
+          : 'CMA assessments must include preSurvey questions.',
+    },
+  })
+  preSurvey?: PreSurveyQuestion[];
 }
 
 export const AssessmentSchema = SchemaFactory.createForClass(Assessment);
@@ -87,3 +139,6 @@ AssessmentSchema.index({ 'assignments.userId': 1, 'assignments.status': 1 });
 AssessmentSchema.index({ name: 1 });
 AssessmentSchema.index({ createdAt: 1 });
 AssessmentSchema.index({ 'assignments.status': 1, createdAt: -1 });
+AssessmentSchema.index({ type: 1 });
+AssessmentSchema.index({ type: 1, createdAt: -1 });
+AssessmentSchema.index({ type: 1, 'assignments.status': 1 });

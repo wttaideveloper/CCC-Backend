@@ -173,16 +173,21 @@ export const VALID_AWARD_STATUSES = [
   AWARD_STATUSES.REVOKED,
 ] as const;
 
-export type RoadMapStatus = typeof VALID_ROADMAP_STATUSES[number];
-export type ScholarshipType = typeof VALID_SCHOLARSHIP_TYPES[number];
-export type ScholarshipStatus = typeof VALID_SCHOLARSHIP_STATUSES[number];
-export type AppointmentStatus = typeof VALID_APPOINTMENT_STATUSES[number];
-export type AppointmentPlatform = typeof VALID_APPOINTMENT_PLATFORMS[number];
-export type QueryStatus = typeof VALID_QUERY_STATUSES[number];
-export type UserRole = typeof VALID_USER_ROLES[number];
-export type OtpPurpose = typeof VALID_OTP_PURPOSES[number];
-export type UserStatus = typeof VALID_USER_STATUSES[number];
-export type UserApplicationStatus = typeof VALID_USER_APPLICATION_STATUSES[number];
-export type AssessmentAssignmentStatus = typeof VALID_ASSESSMENT_ASSIGNMENT_STATUSES[number];
-export type ProgressStatus = typeof VALID_PROGRESS_STATUSES[number];
-export type AwardStatus = typeof VALID_AWARD_STATUSES[number];
+export const VALID_ASSESSMENT_TYPES = ['CMA', 'PMP'] as const;
+
+export type AssessmentType = (typeof VALID_ASSESSMENT_TYPES)[number];
+export type RoadMapStatus = (typeof VALID_ROADMAP_STATUSES)[number];
+export type ScholarshipType = (typeof VALID_SCHOLARSHIP_TYPES)[number];
+export type ScholarshipStatus = (typeof VALID_SCHOLARSHIP_STATUSES)[number];
+export type AppointmentStatus = (typeof VALID_APPOINTMENT_STATUSES)[number];
+export type AppointmentPlatform = (typeof VALID_APPOINTMENT_PLATFORMS)[number];
+export type QueryStatus = (typeof VALID_QUERY_STATUSES)[number];
+export type UserRole = (typeof VALID_USER_ROLES)[number];
+export type OtpPurpose = (typeof VALID_OTP_PURPOSES)[number];
+export type UserStatus = (typeof VALID_USER_STATUSES)[number];
+export type UserApplicationStatus =
+  (typeof VALID_USER_APPLICATION_STATUSES)[number];
+export type AssessmentAssignmentStatus =
+  (typeof VALID_ASSESSMENT_ASSIGNMENT_STATUSES)[number];
+export type ProgressStatus = (typeof VALID_PROGRESS_STATUSES)[number];
+export type AwardStatus = (typeof VALID_AWARD_STATUSES)[number];
