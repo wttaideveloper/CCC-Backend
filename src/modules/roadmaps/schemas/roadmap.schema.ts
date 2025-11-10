@@ -168,10 +168,6 @@ export class NestedRoadMapItem {
 
 export const NestedRoadMapItemSchema = SchemaFactory.createForClass(NestedRoadMapItem);
 
-export type RoadMapDocument = Document<unknown, {}, RoadMap> & RoadMap & {
-    _id: Types.ObjectId;
-};
-
 @Schema({ timestamps: true })
 export class RoadMap {
 
@@ -231,6 +227,10 @@ export class RoadMap {
 }
 
 export const RoadMapSchema = SchemaFactory.createForClass(RoadMap);
+
+export type RoadMapDocument = Document<unknown, {}, RoadMap> & RoadMap & {
+    _id: Types.ObjectId;
+};
 
 RoadMapSchema.index({ name: 1 });
 RoadMapSchema.index({ status: 1 });

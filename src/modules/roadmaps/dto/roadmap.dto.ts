@@ -320,6 +320,78 @@ export class CreateRoadMapDto {
 
 export class UpdateRoadMapDto extends PartialType(CreateRoadMapDto) { }
 
+export class UpdateNestedRoadMapItemDto {
+    @IsOptional()
+    @IsString()
+    name?: string;
+
+    @IsOptional()
+    @IsString()
+    roadMapDetails?: string;
+
+    @IsOptional()
+    @IsString()
+    description?: string;
+
+    @IsOptional()
+    @IsEnum(['in progress', 'not started', 'completed'])
+    status?: 'in progress' | 'not started' | 'completed';
+
+    @IsOptional()
+    @IsString()
+    duration?: string;
+
+    @IsOptional()
+    @IsDateString()
+    startDate?: Date;
+
+    @IsOptional()
+    @IsDateString()
+    endDate?: Date;
+
+    @IsOptional()
+    @IsDateString()
+    completedOn?: Date;
+
+    @IsOptional()
+    @IsString()
+    imageUrl?: string;
+
+    @IsOptional()
+    @IsArray()
+    @IsDateString({}, { each: true })
+    meetings?: Date[];
+
+    @IsOptional()
+    @IsString()
+    phase?: string;
+
+    @IsOptional()
+    @IsNumber()
+    totalSteps?: number;
+
+    @IsOptional()
+    @IsArray()
+    @ValidateNested({ each: true })
+    @Type(() => Object, {
+        discriminator: {
+            property: 'type',
+            subTypes: [
+                { value: TextFieldExtraDto, name: 'TEXT_FIELD' },
+                { value: TextAreaExtraDto, name: 'TEXT_AREA' },
+                { value: TestDisplayExtraDto, name: 'TEXT_DISPLAY' },
+                { value: CheckboxExtraDto, name: 'CHECKBOX' },
+                { value: UploadExtraDto, name: 'UPLOAD' },
+                { value: DatePickerExtraDto, name: 'DATE_PICKER' },
+                { value: SectionExtraDto, name: 'SECTION' },
+                { value: AssessmentExtraDto, name: 'ASSESSMENT' },
+            ],
+        },
+        keepDiscriminatorProperty: true,
+    })
+    extras?: ExtraItemDto[];
+}
+
 export class RoadMapResponseDto {
     _id: string;
     type: string;

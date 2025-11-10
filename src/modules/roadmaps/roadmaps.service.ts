@@ -3,7 +3,7 @@ import { InjectModel } from '@nestjs/mongoose';
 import { Model, Types } from 'mongoose';
 import { RoadMap, RoadMapDocument } from './schemas/roadmap.schema';
 import { CommentItem, Comments, CommentsDocument } from './schemas/comments.schema';
-import { CreateRoadMapDto, RoadMapResponseDto, UpdateRoadMapDto } from './dto/roadmap.dto';
+import { CreateRoadMapDto, RoadMapResponseDto, UpdateRoadMapDto, UpdateNestedRoadMapItemDto } from './dto/roadmap.dto';
 import { toRoadMapResponseDto } from './utils/roadmaps.mapper';
 import { Queries, QueriesDocument, QueryItem } from './schemas/queries.schema';
 import { AddCommentDto, CommentsThreadResponseDto } from './dto/comments.dto';
@@ -11,6 +11,9 @@ import { CreateQueryDto, QueriesThreadResponseDto, ReplyQueryDto } from './dto/q
 import { toCommentsThreadResponseDto } from './utils/comments.mapper';
 import { toQueriesThreadResponseDto } from './utils/queries.mapper';
 import { VALID_ROADMAP_STATUSES, ROADMAP_STATUSES, QUERY_STATUSES } from '../../common/constants/status.constants';
+import { Extras, ExtrasDocument } from './schemas/extras.schema';
+import { CreateExtrasDto, UpdateExtrasDto, ExtrasResponseDto } from './dto/extras.dto';
+import { toExtrasResponseDto } from './utils/extras.mapper';
 
 @Injectable()
 export class RoadMapsService {
@@ -18,6 +21,7 @@ export class RoadMapsService {
         @InjectModel(RoadMap.name) private roadMapModel: Model<RoadMapDocument>,
         @InjectModel(Comments.name) private commentsModel: Model<CommentsDocument>,
         @InjectModel(Queries.name) private queriesModel: Model<QueriesDocument>,
+        @InjectModel(Extras.name) private extrasModel: Model<ExtrasDocument>,
     ) { }
 
     async create(dto: CreateRoadMapDto): Promise<RoadMapResponseDto> {
@@ -27,7 +31,6 @@ export class RoadMapsService {
         }
 
         const roadMap = await this.roadMapModel.create(dto);
-
         return toRoadMapResponseDto(roadMap);
     }
 
@@ -47,7 +50,6 @@ export class RoadMapsService {
         }
 
         const roadmaps = await this.roadMapModel.find(query).lean().exec();
-
         return roadmaps.map(rm => toRoadMapResponseDto(rm as any));
     }
 
@@ -260,5 +262,132 @@ export class RoadMapsService {
         }
 
         return toQueriesThreadResponseDto(updatedThread as any);
+    }
+
+    async updateNestedRoadMapItem(roadMapId: string, nestedItemId: string, dto: UpdateNestedRoadMapItemDto): Promise<RoadMapResponseDto> {
+        const updateFields: any = {};
+
+        Object.keys(dto).forEach(key => {
+            if (dto[key] !== undefined) {
+                updateFields[`roadmaps.$.${key}`] = dto[key];
+            }
+        });
+
+        const updatedRoadmap = await this.roadMapModel.findOneAndUpdate(
+            {
+                _id: new Types.ObjectId(roadMapId),
+                'roadmaps._id': new Types.ObjectId(nestedItemId)
+            },
+            { $set: updateFields },
+            { new: true, runValidators: true }
+        )
+            .lean()
+            .exec();
+
+        if (!updatedRoadmap) {
+            throw new NotFoundException(`RoadMap with ID "${roadMapId}" or nested item with ID "${nestedItemId}" not found`);
+        }
+
+        return toRoadMapResponseDto(updatedRoadmap);
+    }
+
+    async getExtras(roadMapId: string, userId: string, nestedRoadMapItemId?: string): Promise<ExtrasResponseDto | null> {
+        const query: any = {
+            roadMapId: new Types.ObjectId(roadMapId),
+            userId: new Types.ObjectId(userId),
+        };
+
+        if (nestedRoadMapItemId) {
+            query.nestedRoadMapItemId = new Types.ObjectId(nestedRoadMapItemId);
+        } else {
+            query.$or = [
+                { nestedRoadMapItemId: null },
+                { nestedRoadMapItemId: { $exists: false } }
+            ];
+        }
+
+        const extras = await this.extrasModel.findOne(query).lean().exec();
+        return extras ? toExtrasResponseDto(extras as any) : null;
+    }
+
+    async saveExtras(roadMapId: string, dto: CreateExtrasDto): Promise<ExtrasResponseDto> {
+        const roadMapObjectId = new Types.ObjectId(roadMapId);
+        const userObjectId = new Types.ObjectId(dto.userId);
+        const nestedRoadMapItemObjectId = dto.nestedRoadMapItemId
+            ? new Types.ObjectId(dto.nestedRoadMapItemId)
+            : null;
+
+        const updatedExtras = await this.extrasModel.findOneAndUpdate(
+            {
+                roadMapId: roadMapObjectId,
+                userId: userObjectId,
+                nestedRoadMapItemId: nestedRoadMapItemObjectId
+            },
+            {
+                $set: { extras: dto.extras || [] },
+                $setOnInsert: {
+                    roadMapId: roadMapObjectId,
+                    userId: userObjectId,
+                    nestedRoadMapItemId: nestedRoadMapItemObjectId
+                }
+            },
+            { new: true, upsert: true, runValidators: true }
+        )
+            .lean()
+            .exec();
+
+        return toExtrasResponseDto(updatedExtras as any);
+    }
+
+    async updateExtras(roadMapId: string, userId: string, dto: UpdateExtrasDto, nestedRoadMapItemId?: string): Promise<ExtrasResponseDto> {
+        const query: any = {
+            roadMapId: new Types.ObjectId(roadMapId),
+            userId: new Types.ObjectId(userId),
+        };
+
+        if (nestedRoadMapItemId) {
+            query.nestedRoadMapItemId = new Types.ObjectId(nestedRoadMapItemId);
+        } else {
+            query.$or = [
+                { nestedRoadMapItemId: null },
+                { nestedRoadMapItemId: { $exists: false } }
+            ];
+        }
+
+        const updatedExtras = await this.extrasModel.findOneAndUpdate(
+            query,
+            { $set: { extras: dto.extras } },
+            { new: true, runValidators: true }
+        )
+            .lean()
+            .exec();
+
+        if (!updatedExtras) {
+            throw new NotFoundException(`Extras not found for user ${userId} and roadmap ${roadMapId}`);
+        }
+
+        return toExtrasResponseDto(updatedExtras as any);
+    }
+
+    async deleteExtras(roadMapId: string, userId: string, nestedRoadMapItemId?: string): Promise<{ message: string }> {
+        const query: any = {
+            roadMapId: new Types.ObjectId(roadMapId),
+            userId: new Types.ObjectId(userId),
+        };
+
+        if (nestedRoadMapItemId) {
+            query.nestedRoadMapItemId = new Types.ObjectId(nestedRoadMapItemId);
+        } else {
+            query.$or = [
+                { nestedRoadMapItemId: null },
+                { nestedRoadMapItemId: { $exists: false } }
+            ];
+        }
+
+        const result = await this.extrasModel.findOneAndDelete(query).lean().exec();
+        if (!result) {
+            throw new NotFoundException(`Extras not found for user ${userId} and roadmap ${roadMapId}`);
+        }
+        return { message: 'Extras deleted successfully' };
     }
 }
