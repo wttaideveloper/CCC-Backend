@@ -18,11 +18,13 @@ import { AssessmentService } from './assessment.service';
 // import { ROLES } from '../../common/constants/roles.constants';
 // import { Roles } from '../../common/decorators';
 import { ParseMongoIdPipe } from '../../common/pipes/parse-mongo-id.pipe';
+import { SubmitSectionAnswersDto } from './dto/submit-section-answers.dto';
+import { SubmitPreSurveyDto } from './dto/submit-pre-survey.dto';
 
 @Controller('assessment')
 // @UseGuards(JwtAuthGuard, RolesGuard)
 export class AssessmentController {
-  constructor(private readonly assessmentService: AssessmentService) {}
+  constructor(private readonly assessmentService: AssessmentService) { }
 
   @Post()
   // @Roles(ROLES.DIRECTOR, ROLES.MENTOR)
@@ -137,6 +139,40 @@ export class AssessmentController {
     return {
       success: true,
       message: 'User answers fetched successfully',
+      data: result,
+    };
+  }
+
+  // Submit Pre-Survey Answers
+  @Post(':assessmentId/pre-survey')
+  async submitPreSurvey(
+    @Param('assessmentId') assessmentId: string,
+    @Body() dto: SubmitPreSurveyDto,
+  ) {
+    const result = await this.assessmentService.submitPreSurvey(
+      assessmentId,
+      dto,
+    );
+    return {
+      success: true,
+      message: 'Pre-survey answers submitted successfully',
+      data: result,
+    };
+  }
+
+  // Submit Section Answers
+  @Post(':assessmentId/answers')
+  async submitSectionAnswers(
+    @Param('assessmentId') assessmentId: string,
+    @Body() dto: SubmitSectionAnswersDto,
+  ) {
+    const result = await this.assessmentService.submitSectionAnswers(
+      assessmentId,
+      dto,
+    );
+    return {
+      success: true,
+      message: 'Section answers submitted successfully',
       data: result,
     };
   }
