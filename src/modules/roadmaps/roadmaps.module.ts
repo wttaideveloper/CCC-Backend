@@ -5,7 +5,7 @@ import { RoadMapsController } from './roadmaps.controller';
 import { RoadMap, RoadMapSchema } from './schemas/roadmap.schema';
 import { Comments, CommentsSchema } from './schemas/comments.schema';
 import { Queries, QueriesSchema } from './schemas/queries.schema';
-// import { Notes, NoteSchema } from './schemas/comments.schema';
+import { Extras, ExtrasSchema } from './schemas/extras.schema';
 
 @Module({
     imports: [
@@ -13,7 +13,7 @@ import { Queries, QueriesSchema } from './schemas/queries.schema';
             { name: RoadMap.name, schema: RoadMapSchema },
             { name: Comments.name, schema: CommentsSchema },
             { name: Queries.name, schema: QueriesSchema },
-            // { name: Notes.name, schema: NoteSchema },
+            { name: Extras.name, schema: ExtrasSchema },
         ]),
     ],
     controllers: [RoadMapsController],

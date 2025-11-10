@@ -7,6 +7,7 @@ import {
   Logger,
   Inject,
   Optional,
+  BadRequestException,
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { Request, Response } from 'express';
@@ -28,6 +29,7 @@ export class HttpExceptionFilter implements ExceptionFilter {
     let message: string | string[] = 'Internal server error';
     let error = 'Internal Server Error';
 
+    // Handle HTTP exceptions (thrown by NestJS or manually)
     if (exception instanceof HttpException) {
       status = exception.getStatus();
       const exceptionResponse = exception.getResponse();
@@ -38,6 +40,18 @@ export class HttpExceptionFilter implements ExceptionFilter {
       } else {
         message = exceptionResponse as string;
       }
+    }
+    // Handle MongoDB/Mongoose errors
+    else if (this.isMongoError(exception)) {
+      const mongoError = this.handleMongoError(exception as any);
+      status = mongoError.status;
+      message = mongoError.message;
+      error = mongoError.error;
+    }
+    // Handle generic errors
+    else if (exception instanceof Error) {
+      message = exception.message || 'An unexpected error occurred';
+      error = exception.name || 'Error';
     }
 
     // Log error with details
@@ -78,5 +92,71 @@ export class HttpExceptionFilter implements ExceptionFilter {
         ? { stack: exception.stack }
         : {}),
     });
+  }
+
+  /**
+   * Check if error is a MongoDB/Mongoose error
+   */
+  private isMongoError(exception: any): boolean {
+    return (
+      exception.name === 'MongoError' ||
+      exception.name === 'MongoServerError' ||
+      exception.name === 'ValidationError' ||
+      exception.name === 'CastError' ||
+      exception.name === 'DocumentNotFoundError' ||
+      exception.code === 11000 ||
+      exception.code === 11001
+    );
+  }
+
+  /**
+   * Handle MongoDB/Mongoose specific errors
+   */
+  private handleMongoError(exception: any): { status: number; message: string | string[]; error: string } {
+    // Duplicate key error
+    if (exception.code === 11000 || exception.code === 11001) {
+      const field = Object.keys(exception.keyPattern || {})[0] || 'field';
+      const value = exception.keyValue?.[field] || 'unknown';
+      return {
+        status: HttpStatus.CONFLICT,
+        message: `Duplicate value for ${field}: '${value}' already exists`,
+        error: 'Duplicate Key Error',
+      };
+    }
+
+    // Validation error
+    if (exception.name === 'ValidationError') {
+      const messages = Object.values(exception.errors || {}).map((err: any) => err.message);
+      return {
+        status: HttpStatus.BAD_REQUEST,
+        message: messages.length > 0 ? messages : 'Validation failed',
+        error: 'Validation Error',
+      };
+    }
+
+    // Cast error (invalid ObjectId, etc.)
+    if (exception.name === 'CastError') {
+      return {
+        status: HttpStatus.BAD_REQUEST,
+        message: `Invalid ${exception.kind || 'value'} for ${exception.path}: '${exception.value}'`,
+        error: 'Cast Error',
+      };
+    }
+
+    // Document not found
+    if (exception.name === 'DocumentNotFoundError') {
+      return {
+        status: HttpStatus.NOT_FOUND,
+        message: 'Document not found',
+        error: 'Not Found',
+      };
+    }
+
+    // Generic MongoDB error
+    return {
+      status: HttpStatus.INTERNAL_SERVER_ERROR,
+      message: exception.message || 'Database error occurred',
+      error: 'Database Error',
+    };
   }
 }

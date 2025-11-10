@@ -11,13 +11,14 @@ import {
 } from '@nestjs/common';
 import { RoadMapsService } from './roadmaps.service';
 import { BaseResponse } from 'src/shared/interfaces/base-response.interface';
-import { RoadMapResponseDto, CreateRoadMapDto, UpdateRoadMapDto } from './dto/roadmap.dto';
+import { RoadMapResponseDto, CreateRoadMapDto, UpdateRoadMapDto, UpdateNestedRoadMapItemDto } from './dto/roadmap.dto';
 import { AddCommentDto, CommentsThreadResponseDto } from './dto/comments.dto';
 import {
     CreateQueryDto,
     QueriesThreadResponseDto,
     ReplyQueryDto,
 } from './dto/queries.dto';
+import { CreateExtrasDto, UpdateExtrasDto, ExtrasResponseDto } from './dto/extras.dto';
 import { ParseMongoIdPipe } from 'src/common/pipes/parse-mongo-id.pipe';
 // import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
 // import { RolesGuard } from '../../common/guards/roles.guard';
@@ -105,6 +106,25 @@ export class RoadMapsController {
         };
     }
 
+    @Patch(':roadMapId/nested/:nestedItemId')
+    // @Roles(ROLES.DIRECTOR, ROLES.MENTOR)
+    async updateNestedRoadMapItem(
+        @Param('roadMapId', ParseMongoIdPipe) roadMapId: string,
+        @Param('nestedItemId', ParseMongoIdPipe) nestedItemId: string,
+        @Body() dto: UpdateNestedRoadMapItemDto,
+    ): Promise<BaseResponse<RoadMapResponseDto>> {
+        const roadmap = await this.roadMapsService.updateNestedRoadMapItem(
+            roadMapId,
+            nestedItemId,
+            dto,
+        );
+        return {
+            success: true,
+            message: 'Nested roadmap item updated successfully',
+            data: roadmap,
+        };
+    }
+
     @Post(':roadMapId/comments')
     async addComment(
         @Param('roadMapId', ParseMongoIdPipe) roadMapId: string,
@@ -180,6 +200,75 @@ export class RoadMapsController {
             success: true,
             message: 'Query replied successfully',
             data: thread,
+        };
+    }
+
+    @Get(':roadMapId/extras')
+    async getExtras(
+        @Param('roadMapId', ParseMongoIdPipe) roadMapId: string,
+        @Query('userId', ParseMongoIdPipe) userId: string,
+        @Query('nestedRoadMapItemId') nestedRoadMapItemId?: string,
+    ): Promise<BaseResponse<ExtrasResponseDto | null>> {
+        const extras = await this.roadMapsService.getExtras(
+            roadMapId,
+            userId,
+            nestedRoadMapItemId,
+        );
+        return {
+            success: true,
+            message: extras ? 'Extras fetched successfully' : 'No extras found',
+            data: extras,
+        };
+    }
+
+    @Post(':roadMapId/extras')
+    async saveExtras(
+        @Param('roadMapId', ParseMongoIdPipe) roadMapId: string,
+        @Body() dto: CreateExtrasDto,
+    ): Promise<BaseResponse<ExtrasResponseDto>> {
+        const extras = await this.roadMapsService.saveExtras(roadMapId, dto);
+        return {
+            success: true,
+            message: 'Extras saved successfully',
+            data: extras,
+        };
+    }
+
+    @Patch(':roadMapId/extras')
+    async updateExtras(
+        @Param('roadMapId', ParseMongoIdPipe) roadMapId: string,
+        @Query('userId', ParseMongoIdPipe) userId: string,
+        @Query('nestedRoadMapItemId') nestedRoadMapItemId: string | undefined,
+        @Body() dto: UpdateExtrasDto,
+    ): Promise<BaseResponse<ExtrasResponseDto>> {
+        const extras = await this.roadMapsService.updateExtras(
+            roadMapId,
+            userId,
+            dto,
+            nestedRoadMapItemId,
+        );
+        return {
+            success: true,
+            message: 'Extras updated successfully',
+            data: extras,
+        };
+    }
+
+    @Delete(':roadMapId/extras')
+    async deleteExtras(
+        @Param('roadMapId', ParseMongoIdPipe) roadMapId: string,
+        @Query('userId', ParseMongoIdPipe) userId: string,
+        @Query('nestedRoadMapItemId') nestedRoadMapItemId?: string,
+    ): Promise<BaseResponse<{ message: string }>> {
+        const result = await this.roadMapsService.deleteExtras(
+            roadMapId,
+            userId,
+            nestedRoadMapItemId,
+        );
+        return {
+            success: true,
+            message: 'Extras deleted successfully',
+            data: result,
         };
     }
 }
