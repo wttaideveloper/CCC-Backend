@@ -33,6 +33,30 @@ export class TextAreaExtra {
 }
 
 @Schema({ _id: false })
+export class TextDisplayExtra {
+    @Prop({ required: true, enum: ['TEXT_DISPLAY'] })
+    type: string;
+
+    @Prop({ required: true })
+    name: string;
+}
+
+@Schema({ _id: false })
+export class CheckboxExtra {
+    @Prop({ required: true, enum: ['CHECKBOX'] })
+    type: string;
+
+    @Prop({ required: true })
+    name: string;
+
+    @Prop({ required: true })
+    haveButton: boolean;
+
+    @Prop()
+    buttonName?: string;
+}
+
+@Schema({ _id: false })
 export class UploadExtra {
     @Prop({ required: true, enum: ['UPLOAD'] })
     type: string;
@@ -52,8 +76,8 @@ export class DatePickerExtra {
     @Prop()
     date?: string;
 
-    @Prop({ type: [String], default: [] })
-    checkboxes?: string[];
+    @Prop({ type: [Types.Map], default: [] })
+    checkboxes?: Types.Array<any>;
 
     @Prop()
     buttonName?: string;
@@ -70,8 +94,8 @@ export class AssessmentExtra {
     @Prop()
     buttonName?: string;
 
-    @Prop({ type: [String], default: [] })
-    checkboxes?: string[];
+    @Prop({ type: [Types.Map], default: [] })
+    checkboxes?: Types.Array<any>;
 }
 
 @Schema({ _id: false })
@@ -82,8 +106,8 @@ export class SectionExtra {
     @Prop({ required: true })
     name: string;
 
-    @Prop({ type: [String], default: [] })
-    checkboxes?: string[];
+    @Prop({ type: [Types.Map], default: [] })
+    checkboxes?: Types.Array<any>;
 
     @Prop({ type: [Types.Map], default: [] })
     sections?: Types.Array<any>;
@@ -91,6 +115,8 @@ export class SectionExtra {
 
 export const TextFieldExtraSchema = SchemaFactory.createForClass(TextFieldExtra);
 export const TextAreaExtraSchema = SchemaFactory.createForClass(TextAreaExtra);
+export const TextDisplayExtraSchema = SchemaFactory.createForClass(TextDisplayExtra);
+export const CheckboxExtraSchema = SchemaFactory.createForClass(CheckboxExtra);
 export const UploadExtraSchema = SchemaFactory.createForClass(UploadExtra);
 export const DatePickerExtraSchema = SchemaFactory.createForClass(DatePickerExtra);
 export const AssessmentExtraSchema = SchemaFactory.createForClass(AssessmentExtra);

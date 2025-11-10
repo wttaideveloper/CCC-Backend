@@ -1,10 +1,21 @@
-import { IsString, IsOptional, IsDateString, IsBoolean, IsEnum, IsArray, ArrayMinSize, ValidateNested, IsNumber, IsMongoId, ValidateIf, IsIn } from 'class-validator';
+import { IsString, IsOptional, IsDateString, IsBoolean, IsEnum, IsArray, ArrayMinSize, ValidateNested, IsNumber, IsMongoId, ValidateIf, IsIn, IsNotEmpty } from 'class-validator';
 import { Type } from 'class-transformer';
 import { PartialType } from '@nestjs/mapped-types';
 
+export enum ExtraType {
+  TEXT_FIELD = 'TEXT_FIELD',
+  TEXT_AREA = 'TEXT_AREA',
+  TEXT_DISPLAY = 'TEXT_DISPLAY',
+  CHECKBOX = 'CHECKBOX',
+  UPLOAD = 'UPLOAD',
+  DATE_PICKER = 'DATE_PICKER',
+  SECTION = 'SECTION',
+  ASSESSMENT = 'ASSESSMENT',
+}
+
 export class TextFieldExtraDto {
-    @IsIn(['TEXT_FIELD'])
-    type: 'TEXT_FIELD';
+    @IsEnum(ExtraType)
+    type: ExtraType.TEXT_FIELD;
 
     @IsString()
     name: string;
@@ -19,8 +30,8 @@ export class TextFieldExtraDto {
 }
 
 export class TextAreaExtraDto {
-    @IsIn(['TEXT_AREA'])
-    type: 'TEXT_AREA';
+    @IsEnum(ExtraType)
+    type: ExtraType.TEXT_AREA;
 
     @IsString()
     name: string;
@@ -34,19 +45,44 @@ export class TextAreaExtraDto {
     buttonName?: string;
 }
 
-export class UploadExtraDto {
-    @IsIn(['UPLOAD'])
-    type: 'UPLOAD';
+export class TestDisplayExtraDto {
+    @IsEnum(ExtraType)
+    type: ExtraType.TEXT_DISPLAY;
 
     @IsString()
     name: string;
 }
 
-export class DatePickerExtraDto {
-    @IsIn(['DATE_PICKER'])
-    type: 'DATE_PICKER';
+export class CheckboxExtraDto {
+    @IsEnum(ExtraType)
+    type: ExtraType.CHECKBOX;
 
     @IsString()
+    name: string;
+
+    @IsBoolean()
+    haveButton: boolean;
+
+    @IsOptional()
+    @IsString()
+    buttonName?: string;
+}
+
+export class UploadExtraDto {
+    @IsEnum(ExtraType)
+    type: ExtraType.UPLOAD;
+
+    @IsString()
+    @IsNotEmpty()
+    name: string;
+}
+
+export class DatePickerExtraDto {
+    @IsEnum(ExtraType)
+    type: ExtraType.DATE_PICKER;
+
+    @IsString()
+    @IsNotEmpty()
     name: string;
 
     @IsOptional()
@@ -55,8 +91,9 @@ export class DatePickerExtraDto {
 
     @IsOptional()
     @IsArray()
-    @IsString({ each: true })
-    checkboxes?: string[];
+    @ValidateNested({ each: true })
+    @Type(() => CheckboxExtraDto)
+    checkboxes?: CheckboxExtraDto[];
 
     @IsOptional()
     @IsString()
@@ -64,10 +101,11 @@ export class DatePickerExtraDto {
 }
 
 export class AssessmentExtraDto {
-    @IsIn(['ASSESSMENT'])
-    type: 'ASSESSMENT';
+    @IsEnum(ExtraType)
+    type: ExtraType.ASSESSMENT;
 
     @IsString()
+    @IsNotEmpty()
     name: string;
 
     @IsOptional()
@@ -76,21 +114,23 @@ export class AssessmentExtraDto {
 
     @IsOptional()
     @IsArray()
-    @IsString({ each: true })
-    checkboxes?: string[];
+    @ValidateNested({ each: true })
+    @Type(() => CheckboxExtraDto)
+    checkboxes?: CheckboxExtraDto[];
 }
 
 export class SectionExtraDto {
-    @IsIn(['SECTION'])
-    type: 'SECTION';
+    @IsEnum(ExtraType)
+    type: ExtraType.SECTION;
 
     @IsString()
     name: string;
 
     @IsOptional()
     @IsArray()
-    @IsString({ each: true })
-    checkboxes?: string[];
+    @ValidateNested({ each: true })
+    @Type(() => CheckboxExtraDto)
+    checkboxes?: CheckboxExtraDto[];
 
     @IsOptional()
     @IsArray()
@@ -101,16 +141,19 @@ export class SectionExtraDto {
             subTypes: [
                 { value: TextFieldExtraDto, name: 'TEXT_FIELD' },
                 { value: TextAreaExtraDto, name: 'TEXT_AREA' },
+                { value: TestDisplayExtraDto, name: 'TEXT_DISPLAY' },
+                { value: CheckboxExtraDto, name: 'CHECKBOX' },
                 { value: UploadExtraDto, name: 'UPLOAD' },
                 { value: DatePickerExtraDto, name: 'DATE_PICKER' },
                 { value: AssessmentExtraDto, name: 'ASSESSMENT' },
             ],
         },
+        keepDiscriminatorProperty: true,
     })
     sections?: (TextFieldExtraDto | TextAreaExtraDto | UploadExtraDto | DatePickerExtraDto | AssessmentExtraDto)[];
 }
 
-export type ExtraItemDto = TextFieldExtraDto | TextAreaExtraDto | UploadExtraDto | DatePickerExtraDto | SectionExtraDto | AssessmentExtraDto;
+export type ExtraItemDto = TextFieldExtraDto | TextAreaExtraDto | TestDisplayExtraDto | CheckboxExtraDto | UploadExtraDto | DatePickerExtraDto | SectionExtraDto | AssessmentExtraDto;
 
 export class NestedRoadMapItemDto {
 
@@ -174,12 +217,15 @@ export class NestedRoadMapItemDto {
             subTypes: [
                 { value: TextFieldExtraDto, name: 'TEXT_FIELD' },
                 { value: TextAreaExtraDto, name: 'TEXT_AREA' },
+                { value: TestDisplayExtraDto, name: 'TEXT_DISPLAY' },
+                { value: CheckboxExtraDto, name: 'CHECKBOX' },
                 { value: UploadExtraDto, name: 'UPLOAD' },
                 { value: DatePickerExtraDto, name: 'DATE_PICKER' },
                 { value: SectionExtraDto, name: 'SECTION' },
                 { value: AssessmentExtraDto, name: 'ASSESSMENT' },
             ],
         },
+        keepDiscriminatorProperty: true,
     })
     extras?: ExtraItemDto[];
 }
@@ -236,17 +282,21 @@ export class CreateRoadMapDto {
             subTypes: [
                 { value: TextFieldExtraDto, name: 'TEXT_FIELD' },
                 { value: TextAreaExtraDto, name: 'TEXT_AREA' },
+                { value: TestDisplayExtraDto, name: 'TEXT_DISPLAY' },
+                { value: CheckboxExtraDto, name: 'CHECKBOX' },
                 { value: UploadExtraDto, name: 'UPLOAD' },
                 { value: DatePickerExtraDto, name: 'DATE_PICKER' },
                 { value: SectionExtraDto, name: 'SECTION' },
                 { value: AssessmentExtraDto, name: 'ASSESSMENT' },
             ],
         },
+        keepDiscriminatorProperty: true,
     })
     extras?: ExtraItemDto[];
 
     @IsOptional()
-    @IsString()
+    @IsArray()
+    @IsString({ each: true })
     divisions?: string[];
 
     @IsOptional()
