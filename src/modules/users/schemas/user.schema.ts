@@ -2,61 +2,68 @@ import { Prop, Schema, SchemaFactory } from '@nestjs/mongoose';
 import { Document, Types } from 'mongoose';
 import { nanoid } from 'nanoid';
 import { ROLES } from '../../../common/constants/roles.constants';
-import { USER_STATUSES, VALID_USER_STATUSES } from '../../../common/constants/status.constants';
+import {
+  USER_STATUSES,
+  VALID_USER_STATUSES,
+} from '../../../common/constants/status.constants';
 
-export type UserDocument = Document<unknown, {}, User> & User & {
+export type UserDocument = Document<unknown, {}, User> &
+  User & {
     _id: Types.ObjectId;
-};
+  };
 
 const VALID_ROLES = Object.values(ROLES);
 
 @Schema({ timestamps: true })
 export class User {
-    readonly _id?: Types.ObjectId;
+  readonly _id?: Types.ObjectId;
 
-    @Prop({ type: Types.ObjectId, ref: 'Interest' })
-    interestId?: Types.ObjectId;
+  @Prop({ type: Types.ObjectId, ref: 'Interest' })
+  interestId?: Types.ObjectId;
 
-    @Prop({ required: true })
-    firstName: string;
+  @Prop({ required: true })
+  firstName: string;
 
-    @Prop({ required: true })
-    lastName: string;
+  @Prop({ required: true })
+  lastName: string;
 
-    @Prop({ required: true, unique: true })
-    email: string;
+  @Prop({ required: true, unique: true })
+  email: string;
 
-    @Prop({ unique: true, sparse: true })
-    username?: string;
+  @Prop({ unique: true, sparse: true })
+  username?: string;
 
-    @Prop()
-    password?: string;
+  @Prop()
+  password?: string;
 
-    @Prop({ enum: VALID_ROLES, default: ROLES.PENDING })
-    role: string;
+  @Prop({ enum: VALID_ROLES, default: ROLES.PENDING })
+  role: string;
 
-    @Prop({
-        required: true,
-        unique: true,
-        default: () => nanoid(),
-        index: true
-    })
-    roleId: string;
+  @Prop({
+    required: true,
+    unique: true,
+    default: () => nanoid(),
+    index: true,
+  })
+  roleId: string;
 
-    @Prop()
-    profilePicture?: string;
+  @Prop()
+  profilePicture?: string;
 
-    @Prop({
-        enum: VALID_USER_STATUSES,
-        default: USER_STATUSES.PENDING,
-    })
-    status: string;
+  @Prop({
+    enum: VALID_USER_STATUSES,
+    default: USER_STATUSES.PENDING,
+  })
+  status: string;
 
-    @Prop({ default: false })
-    isEmailVerified: boolean;
+  @Prop({ default: false })
+  isEmailVerified: boolean;
 
-    @Prop()
-    refreshToken?: string;
+  @Prop()
+  refreshToken?: string;
+
+  @Prop({ type: [{ type: Types.ObjectId, ref: 'User' }], default: [] })
+  assignedMentor: Types.ObjectId[];
 }
 
 export const UserSchema = SchemaFactory.createForClass(User);

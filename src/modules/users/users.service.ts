@@ -4,13 +4,13 @@ import {
     NotFoundException,
 } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
-import { Model } from 'mongoose';
+import { Model, Types } from 'mongoose';
 import { User, UserDocument } from './schemas/user.schema';
 import { CreateUserDto } from './dto/create-user.dto';
 import { UpdateUserDto } from './dto/update-user.dto';
 import { hashPassword } from '../../common/utils/bcrypt.util';
 import { toUserResponseDto } from './utils/user.mapper';
-import { UserResponseDto } from './dto/user-response.dto';
+import { AssignMentorDto, UserResponseDto } from './dto/user-response.dto';
 
 @Injectable()
 export class UsersService {
@@ -103,5 +103,32 @@ export class UsersService {
             throw new NotFoundException('User not found');
         }
         return user.status;
+    }
+
+    async assignMentor(userId: string, dto: AssignMentorDto) {
+        const user = await this.userModel.findById(userId);
+        if (!user) throw new NotFoundException('User not found');
+
+        const mentor = await this.userModel.findById(dto.mentorId);
+        if (!mentor) throw new NotFoundException('Mentor not found');
+
+        const alreadyAssigned = user.assignedMentor.some(
+            (m) => m.toString() === dto.mentorId,
+        );
+        if (alreadyAssigned) return user;
+
+        user.assignedMentor.push(new Types.ObjectId(dto.mentorId));
+        await user.save();
+
+        return user;
+    }
+
+    async getMentorList(userId: string) {
+        const user = await this.userModel
+            .findById(userId)
+            .populate('assignedMentor', 'name email role');
+        if (!user) throw new NotFoundException('User not found');
+
+        return user.assignedMentor;
     }
 }
