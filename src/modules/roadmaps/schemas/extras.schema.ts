@@ -1,5 +1,5 @@
 import { Prop, Schema, SchemaFactory } from '@nestjs/mongoose';
-import { Document, Types } from 'mongoose';
+import { Document, Types, Schema as MongooseSchema } from 'mongoose';
 
 @Schema({ timestamps: true })
 export class Extras {
@@ -12,8 +12,8 @@ export class Extras {
     @Prop({ type: Types.ObjectId, ref: 'NestedRoadMapItem', required: false })
     nestedRoadMapItemId?: Types.ObjectId;
 
-    @Prop({ type: [Types.Map], default: [] })
-    extras: Types.Array<any>;
+    @Prop({ type: [MongooseSchema.Types.Mixed], default: [] })
+    extras: any[];
 
     createdAt?: Date;
     updatedAt?: Date;

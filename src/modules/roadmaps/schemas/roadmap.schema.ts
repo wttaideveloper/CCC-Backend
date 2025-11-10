@@ -1,5 +1,5 @@
 import { Prop, Schema, SchemaFactory } from "@nestjs/mongoose";
-import { Document, Types } from "mongoose";
+import { Document, Types, Schema as MongooseSchema } from "mongoose";
 import { VALID_ROADMAP_STATUSES, ROADMAP_STATUSES } from '../../../common/constants/status.constants';
 
 @Schema({ _id: false })
@@ -76,8 +76,8 @@ export class DatePickerExtra {
     @Prop()
     date?: string;
 
-    @Prop({ type: [Types.Map], default: [] })
-    checkboxes?: Types.Array<any>;
+    @Prop({ type: [MongooseSchema.Types.Mixed], default: [] })
+    checkboxes?: any[];
 
     @Prop()
     buttonName?: string;
@@ -94,8 +94,8 @@ export class AssessmentExtra {
     @Prop()
     buttonName?: string;
 
-    @Prop({ type: [Types.Map], default: [] })
-    checkboxes?: Types.Array<any>;
+    @Prop({ type: [MongooseSchema.Types.Mixed], default: [] })
+    checkboxes?: any[];
 }
 
 @Schema({ _id: false })
@@ -106,11 +106,11 @@ export class SectionExtra {
     @Prop({ required: true })
     name: string;
 
-    @Prop({ type: [Types.Map], default: [] })
-    checkboxes?: Types.Array<any>;
+    @Prop({ type: [MongooseSchema.Types.Mixed], default: [] })
+    checkboxes?: any[];
 
-    @Prop({ type: [Types.Map], default: [] })
-    sections?: Types.Array<any>;
+    @Prop({ type: [MongooseSchema.Types.Mixed], default: [] })
+    sections?: any[];
 }
 
 export const TextFieldExtraSchema = SchemaFactory.createForClass(TextFieldExtra);
@@ -162,8 +162,8 @@ export class NestedRoadMapItem {
     @Prop({ default: 0, type: Number })
     totalSteps: number;
 
-    @Prop({ type: [Types.Map], default: [] })
-    extras?: Types.Array<any>;
+    @Prop({ type: [MongooseSchema.Types.Mixed], default: [] })
+    extras?: any[];
 }
 
 export const NestedRoadMapItemSchema = SchemaFactory.createForClass(NestedRoadMapItem);
@@ -219,8 +219,8 @@ export class RoadMap {
     @Prop({ default: 0, type: Number })
     totalSteps: number;
 
-    @Prop({ type: [Types.Map], default: [] })
-    extras?: Types.Array<any>;
+    @Prop({ type: [MongooseSchema.Types.Mixed], default: [] })
+    extras?: any[];
 
     @Prop({ type: [NestedRoadMapItemSchema], default: [] })
     roadmaps: Types.Array<NestedRoadMapItem>;
