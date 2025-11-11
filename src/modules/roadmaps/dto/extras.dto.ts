@@ -1,11 +1,9 @@
-import { IsString, IsArray, IsOptional } from 'class-validator';
+import { IsString, IsArray, IsOptional, IsObject } from 'class-validator';
+import { Type } from 'class-transformer';
 
 export class CreateExtrasDto {
     @IsString()
     userId: string;
-
-    @IsString()
-    roadMapId: string;
 
     @IsOptional()
     @IsString()
@@ -13,13 +11,17 @@ export class CreateExtrasDto {
 
     @IsOptional()
     @IsArray()
-    extras?: any[];
+    @IsObject({ each: true })
+    @Type(() => Object)
+    extras?: Record<string, any>[];
 }
 
 export class UpdateExtrasDto {
     @IsOptional()
     @IsArray()
-    extras?: any[];
+    @IsObject({ each: true })
+    @Type(() => Object)
+    extras?: Record<string, any>[];
 }
 
 export class ExtrasResponseDto {
@@ -27,7 +29,7 @@ export class ExtrasResponseDto {
     userId: string;
     roadMapId: string;
     nestedRoadMapItemId?: string;
-    extras: any[];
+    extras: Record<string, any>[];
     createdAt: Date;
     updatedAt: Date;
 }
