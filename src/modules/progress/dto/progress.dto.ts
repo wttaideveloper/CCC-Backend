@@ -7,9 +7,10 @@ export class AssignRoadmapDto {
     @IsMongoId({ each: true })
     userIds: Types.ObjectId[];
 
-    @IsMongoId()
-    @IsNotEmpty()
-    roadMapId: Types.ObjectId;
+    @IsArray()
+    @ArrayMinSize(1)
+    @IsMongoId({ each: true })
+    roadMapIds: Types.ObjectId[];
 }
 
 export class AssignAssessmentDto {

@@ -29,84 +29,69 @@ export class ProgressService {
         return toProgressResponseDto(progress);
     }
 
-    async assignRoadmap(dto: AssignRoadmapDto): Promise<ProgressResponseDto | ProgressResponseDto[]> {
-        if (dto.userIds.length === 1) {
-            return this.assignRoadmapSingle(dto.userIds[0], dto.roadMapId);
-        }
-
-        return this.assignRoadmapBulk(dto.userIds, dto.roadMapId);
-    }
-
-    private async assignRoadmapSingle(userId: Types.ObjectId, roadMapId: Types.ObjectId): Promise<ProgressResponseDto> {
-        const existingProgress = await this.progressModel.findOne({
-            userId: userId,
-            'roadmaps.roadMapId': roadMapId,
-        }).exec();
-
-        if (existingProgress) {
-            throw new BadRequestException(`RoadMap ${roadMapId} is already assigned to this user.`);
-        }
-
-        const roadMap = await this.roadMapModel.findById(roadMapId, { totalSteps: 1 }).exec();
-        if (!roadMap) {
-            throw new NotFoundException(`RoadMap with ID ${roadMapId} not found.`);
-        }
-
-        const newRoadmapEntry = {
-            roadMapId: roadMapId,
-            completedSteps: 0,
-            totalSteps: roadMap.totalSteps || 0,
-            progressPercentage: 0,
-            status: PROGRESS_STATUSES.NOT_STARTED,
-        };
-
-        const updatedProgress = await this.progressModel.findOneAndUpdate(
-            { userId: userId },
-            {
-                $push: { roadmaps: newRoadmapEntry }
-            },
-            {
-                new: true,
-                upsert: true,
-            }
+    async assignRoadmap(dto: AssignRoadmapDto): Promise<ProgressResponseDto[]> {
+        // Step 1: Validate all roadmaps exist and fetch their totalSteps in a single query
+        const roadMaps = await this.roadMapModel.find(
+            { _id: { $in: dto.roadMapIds } },
+            { _id: 1, totalSteps: 1 }
         ).exec();
 
-        return toProgressResponseDto(updatedProgress);
-    }
-
-    private async assignRoadmapBulk(userIds: Types.ObjectId[], roadMapId: Types.ObjectId): Promise<ProgressResponseDto[]> {
-        const roadMap = await this.roadMapModel.findById(roadMapId, { totalSteps: 1 }).exec();
-        if (!roadMap) {
-            throw new NotFoundException(`RoadMap with ID ${roadMapId} not found.`);
+        if (roadMaps.length !== dto.roadMapIds.length) {
+            const foundIds = roadMaps.map(r => r._id.toString());
+            const missingIds = dto.roadMapIds.filter(id => !foundIds.includes(id.toString()));
+            throw new NotFoundException(`RoadMap(s) not found: ${missingIds.join(', ')}`);
         }
 
-        const newRoadmapEntry = {
-            roadMapId: roadMapId,
-            completedSteps: 0,
-            totalSteps: roadMap.totalSteps || 0,
-            progressPercentage: 0,
-            status: PROGRESS_STATUSES.NOT_STARTED,
-        };
+        // Create a map for O(1) lookup of totalSteps by roadMapId
+        const roadMapDataMap = new Map(roadMaps.map(r => [r._id.toString(), r.totalSteps || 0]));
+
+        // Step 2: Fetch all existing progress records for all users in a single query (prevents N+1 problem)
+        const existingProgressRecords = await this.progressModel.find(
+            { userId: { $in: dto.userIds } }
+        ).exec();
+
+        // Create a map for O(1) lookup of existing progress by userId
+        const progressByUserMap = new Map(
+            existingProgressRecords.map(p => [p.userId.toString(), p])
+        );
 
         const results: ProgressResponseDto[] = [];
         const errors: string[] = [];
 
-        for (const userId of userIds) {
+        // Step 3: Process each user and assign roadmaps
+        for (const userId of dto.userIds) {
             try {
-                const existingProgress = await this.progressModel.findOne({
-                    userId: userId,
-                    'roadmaps.roadMapId': roadMapId,
-                }).exec();
+                const existingProgress = progressByUserMap.get(userId.toString());
 
-                if (existingProgress) {
-                    errors.push(`RoadMap already assigned to user ${userId}`);
+                // Get list of already assigned roadmap IDs for this user
+                const existingRoadMapIds = existingProgress
+                    ? existingProgress.roadmaps.map(r => r.roadMapId.toString())
+                    : [];
+
+                // Filter out roadmaps that are already assigned
+                const newRoadMapIds = dto.roadMapIds.filter(
+                    id => !existingRoadMapIds.includes(id.toString())
+                );
+
+                if (newRoadMapIds.length === 0) {
+                    errors.push(`All roadmaps already assigned to user ${userId}`);
                     continue;
                 }
 
+                // Create entries for new roadmaps
+                const newRoadmapEntries = newRoadMapIds.map(roadMapId => ({
+                    roadMapId: roadMapId,
+                    completedSteps: 0,
+                    totalSteps: roadMapDataMap.get(roadMapId.toString()) || 0,
+                    progressPercentage: 0,
+                    status: PROGRESS_STATUSES.NOT_STARTED,
+                }));
+
+                // Update progress with all new roadmaps in a single atomic operation
                 const updatedProgress = await this.progressModel.findOneAndUpdate(
                     { userId: userId },
                     {
-                        $push: { roadmaps: newRoadmapEntry }
+                        $push: { roadmaps: { $each: newRoadmapEntries } }
                     },
                     {
                         new: true,
@@ -116,12 +101,13 @@ export class ProgressService {
 
                 results.push(toProgressResponseDto(updatedProgress));
             } catch (error) {
-                errors.push(`Failed to assign roadmap to user ${userId}: ${error.message}`);
+                errors.push(`Failed to assign roadmaps to user ${userId}: ${error.message}`);
             }
         }
 
+        // If all assignments failed, throw an error
         if (errors.length > 0 && results.length === 0) {
-            throw new BadRequestException(`Failed to assign roadmap to all users: ${errors.join(', ')}`);
+            throw new BadRequestException(`Failed to assign roadmaps to all users: ${errors.join(', ')}`);
         }
 
         return results;

@@ -30,14 +30,12 @@ export class ProgressController {
     @Post('assign-roadmap')
     async assignRoadmap(
         @Body() dto: AssignRoadmapDto,
-    ): Promise<BaseResponse<ProgressResponseDto | ProgressResponseDto[]>> {
+    ): Promise<BaseResponse<ProgressResponseDto[]>> {
         const progress = await this.progressService.assignRoadmap(dto);
-        const isBulk = Array.isArray(progress);
+        const totalAssignments = dto.userIds.length * dto.roadMapIds.length;
         return {
             success: true,
-            message: isBulk
-                ? `RoadMap assigned to ${progress.length} user(s) successfully.`
-                : 'RoadMap assigned and progress record updated.',
+            message: `Successfully assigned ${dto.roadMapIds.length} roadmap(s) to ${dto.userIds.length} user(s). Total: ${totalAssignments} assignments.`,
             data: progress,
         };
     }
