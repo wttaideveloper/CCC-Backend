@@ -29,23 +29,31 @@ export class ProgressService {
         return toProgressResponseDto(progress);
     }
 
-    async assignRoadmap(dto: AssignRoadmapDto): Promise<ProgressResponseDto> {
+    async assignRoadmap(dto: AssignRoadmapDto): Promise<ProgressResponseDto | ProgressResponseDto[]> {
+        if (dto.userIds.length === 1) {
+            return this.assignRoadmapSingle(dto.userIds[0], dto.roadMapId);
+        }
+
+        return this.assignRoadmapBulk(dto.userIds, dto.roadMapId);
+    }
+
+    private async assignRoadmapSingle(userId: Types.ObjectId, roadMapId: Types.ObjectId): Promise<ProgressResponseDto> {
         const existingProgress = await this.progressModel.findOne({
-            userId: dto.userId,
-            'roadmaps.roadMapId': dto.roadMapId,
+            userId: userId,
+            'roadmaps.roadMapId': roadMapId,
         }).exec();
 
         if (existingProgress) {
-            throw new BadRequestException(`RoadMap ${dto.roadMapId} is already assigned to this user.`);
+            throw new BadRequestException(`RoadMap ${roadMapId} is already assigned to this user.`);
         }
 
-        const roadMap = await this.roadMapModel.findById(dto.roadMapId, { totalSteps: 1 }).exec();
+        const roadMap = await this.roadMapModel.findById(roadMapId, { totalSteps: 1 }).exec();
         if (!roadMap) {
-            throw new NotFoundException(`RoadMap with ID ${dto.roadMapId} not found.`);
+            throw new NotFoundException(`RoadMap with ID ${roadMapId} not found.`);
         }
 
         const newRoadmapEntry = {
-            roadMapId: dto.roadMapId,
+            roadMapId: roadMapId,
             completedSteps: 0,
             totalSteps: roadMap.totalSteps || 0,
             progressPercentage: 0,
@@ -53,7 +61,7 @@ export class ProgressService {
         };
 
         const updatedProgress = await this.progressModel.findOneAndUpdate(
-            { userId: dto.userId },
+            { userId: userId },
             {
                 $push: { roadmaps: newRoadmapEntry }
             },
@@ -64,6 +72,59 @@ export class ProgressService {
         ).exec();
 
         return toProgressResponseDto(updatedProgress);
+    }
+
+    private async assignRoadmapBulk(userIds: Types.ObjectId[], roadMapId: Types.ObjectId): Promise<ProgressResponseDto[]> {
+        const roadMap = await this.roadMapModel.findById(roadMapId, { totalSteps: 1 }).exec();
+        if (!roadMap) {
+            throw new NotFoundException(`RoadMap with ID ${roadMapId} not found.`);
+        }
+
+        const newRoadmapEntry = {
+            roadMapId: roadMapId,
+            completedSteps: 0,
+            totalSteps: roadMap.totalSteps || 0,
+            progressPercentage: 0,
+            status: PROGRESS_STATUSES.NOT_STARTED,
+        };
+
+        const results: ProgressResponseDto[] = [];
+        const errors: string[] = [];
+
+        for (const userId of userIds) {
+            try {
+                const existingProgress = await this.progressModel.findOne({
+                    userId: userId,
+                    'roadmaps.roadMapId': roadMapId,
+                }).exec();
+
+                if (existingProgress) {
+                    errors.push(`RoadMap already assigned to user ${userId}`);
+                    continue;
+                }
+
+                const updatedProgress = await this.progressModel.findOneAndUpdate(
+                    { userId: userId },
+                    {
+                        $push: { roadmaps: newRoadmapEntry }
+                    },
+                    {
+                        new: true,
+                        upsert: true,
+                    }
+                ).exec();
+
+                results.push(toProgressResponseDto(updatedProgress));
+            } catch (error) {
+                errors.push(`Failed to assign roadmap to user ${userId}: ${error.message}`);
+            }
+        }
+
+        if (errors.length > 0 && results.length === 0) {
+            throw new BadRequestException(`Failed to assign roadmap to all users: ${errors.join(', ')}`);
+        }
+
+        return results;
     }
 
     async assignAssessment(dto: AssignAssessmentDto): Promise<ProgressResponseDto> {
@@ -119,7 +180,7 @@ export class ProgressService {
     async updateAssessmentProgress(dto: UpdateAssessmentProgressDto): Promise<ProgressResponseDto> {
         const updatedProgress = await this.progressModel.findOneAndUpdate(
             { userId: dto.userId, 'assessments.assessmentId': dto.assessmentId },
-            { $set: { 'assessments.$.score': dto.score } },
+            { $set: { 'assessments.$.completedSections': dto.completedSections } },
             { new: true }
         ).exec();
 

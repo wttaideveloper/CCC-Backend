@@ -1,10 +1,11 @@
-import { IsMongoId, IsNumber, IsNotEmpty, Min, IsOptional } from 'class-validator';
+import { IsMongoId, IsNumber, IsNotEmpty, Min, IsArray, ArrayMinSize } from 'class-validator';
 import { Types } from 'mongoose';
 
 export class AssignRoadmapDto {
-    @IsMongoId()
-    @IsNotEmpty()
-    userId: Types.ObjectId;
+    @IsArray()
+    @ArrayMinSize(1)
+    @IsMongoId({ each: true })
+    userIds: Types.ObjectId[];
 
     @IsMongoId()
     @IsNotEmpty()
@@ -33,7 +34,6 @@ export class UpdateRoadmapProgressDto {
 
     @IsNumber()
     @Min(0)
-    @IsNotEmpty()
     completedSteps: number;
 }
 
@@ -48,6 +48,5 @@ export class UpdateAssessmentProgressDto {
 
     @IsNumber()
     @Min(0)
-    @IsNotEmpty()
-    score: number;
+    completedSections: number;
 }
