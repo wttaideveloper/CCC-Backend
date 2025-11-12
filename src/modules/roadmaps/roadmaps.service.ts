@@ -355,6 +355,7 @@ export class RoadMapsService {
                         }
                     },
                     {
+                        new: true,
                         arrayFilters: [
                             { 'roadmap.roadMapId': roadMapObjectId },
                             { 'nested.nestedRoadmapId': nestedRoadMapItemObjectId }
@@ -432,6 +433,7 @@ export class RoadMapsService {
                         }
                     },
                     {
+                        new: true,
                         arrayFilters: [
                             { 'roadmap.roadMapId': roadMapObjectId },
                             { 'nested.nestedRoadmapId': nestedRoadMapItemObjectId }
