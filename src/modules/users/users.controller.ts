@@ -7,14 +7,14 @@ import {
   Patch,
   Delete,
   Query,
-  NotFoundException,
   // UseGuards,
 } from '@nestjs/common';
 import { UsersService } from './users.service';
 import { CreateUserDto } from './dto/create-user.dto';
 import { UpdateUserDto } from './dto/update-user.dto';
 import { BaseResponse } from '../../shared/interfaces/base-response.interface';
-import { AssignMentorDto, UserResponseDto } from './dto/user-response.dto';
+import { AssignMentorMenteeDto, RemoveMentorMenteeDto, UserResponseDto } from './dto/user-response.dto';
+import { ParseMongoIdPipe } from 'src/common/pipes/parse-mongo-id.pipe';
 // import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
 // import { RolesGuard } from '../../common/guards/roles.guard';
 // import { Roles } from '../../common/decorators/roles.decorator';
@@ -66,28 +66,39 @@ export class UsersController {
     };
   }
 
-  @Post(':userId/assign-mentor')
-  async assignMentor(
-    @Param('userId') userId: string,
-    @Body() dto: AssignMentorDto,
+  @Post(':userId/assign')
+  async assignUsers(
+    @Param('userId', ParseMongoIdPipe) userId: string,
+    @Body() dto: AssignMentorMenteeDto,
   ) {
-    const user = await this.usersService.assignMentor(userId, dto);
-    if (!user) throw new NotFoundException('User not found');
-
+    const result = await this.usersService.assignUsers(userId, dto);
     return {
       success: true,
-      message: 'Mentor assigned successfully',
-      data: user,
+      message: 'Users assigned successfully',
+      data: result,
     };
   }
 
-  @Get(':userId/mentors')
-  async getMentorList(@Param('userId') userId: string) {
-    const mentors = await this.usersService.getMentorList(userId);
+  @Patch(':userId/remove')
+  async removeAssignedUsers(
+    @Param('userId', ParseMongoIdPipe) userId: string,
+    @Body() dto: RemoveMentorMenteeDto,
+  ) {
+    const result = await this.usersService.removeUsers(userId, dto);
     return {
       success: true,
-      message: 'Mentor list fetched successfully',
-      data: mentors,
+      message: 'Users removed successfully',
+      data: result,
+    };
+  }
+
+  @Get(':userId/assigned')
+  async getAssignedUsers(@Param('userId', ParseMongoIdPipe) userId: string) {
+    const assignedUsers = await this.usersService.getAssignedUsers(userId);
+    return {
+      success: true,
+      message: 'Assigned users fetched successfully',
+      data: assignedUsers,
     };
   }
 

@@ -1,4 +1,4 @@
-import { IsString, IsEmail, IsBoolean, IsOptional, IsDate, IsMongoId } from 'class-validator';
+import { IsString, IsEmail, IsBoolean, IsOptional, IsDate, IsMongoId, IsArray, ArrayMinSize } from 'class-validator';
 
 export class UserResponseDto {
     @IsString()
@@ -44,7 +44,16 @@ export class UserResponseDto {
     updatedAt: Date;
 }
 
-export class AssignMentorDto {
-    @IsMongoId()
-    mentorId: string;
+export class AssignMentorMenteeDto {
+    @IsArray()
+    @ArrayMinSize(1)
+    @IsMongoId({ each: true })
+    assignedId: string[];
+}
+
+export class RemoveMentorMenteeDto {
+    @IsArray()
+    @ArrayMinSize(1)
+    @IsMongoId({ each: true })
+    assignedId: string[];
 }

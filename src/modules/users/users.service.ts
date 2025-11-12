@@ -10,7 +10,7 @@ import { CreateUserDto } from './dto/create-user.dto';
 import { UpdateUserDto } from './dto/update-user.dto';
 import { hashPassword } from '../../common/utils/bcrypt.util';
 import { toUserResponseDto } from './utils/user.mapper';
-import { AssignMentorDto, UserResponseDto } from './dto/user-response.dto';
+import { AssignMentorMenteeDto, RemoveMentorMenteeDto, UserResponseDto } from './dto/user-response.dto';
 
 @Injectable()
 export class UsersService {
@@ -105,30 +105,61 @@ export class UsersService {
         return user.status;
     }
 
-    async assignMentor(userId: string, dto: AssignMentorDto) {
+    async assignUsers(userId: string, dto: AssignMentorMenteeDto) {
         const user = await this.userModel.findById(userId);
         if (!user) throw new NotFoundException('User not found');
 
-        const mentor = await this.userModel.findById(dto.mentorId);
-        if (!mentor) throw new NotFoundException('Mentor not found');
+        for (const targetId of dto.assignedId) {
+            const targetUser = await this.userModel.findById(targetId);
+            if (!targetUser) throw new NotFoundException(`User not found`);
 
-        const alreadyAssigned = user.assignedMentor.some(
-            (m) => m.toString() === dto.mentorId,
-        );
-        if (alreadyAssigned) return user;
+            await this.userModel.findByIdAndUpdate(
+                userId,
+                { $addToSet: { assignedId: targetUser._id } },
+                { new: true }
+            );
 
-        user.assignedMentor.push(new Types.ObjectId(dto.mentorId));
-        await user.save();
+            await this.userModel.findByIdAndUpdate(
+                targetId,
+                { $addToSet: { assignedId: user._id } },
+                { new: true }
+            );
+        }
 
-        return user;
+        return this.userModel.findById(userId).populate('assignedId');
     }
 
-    async getMentorList(userId: string) {
-        const user = await this.userModel
-            .findById(userId)
-            .populate('assignedMentor', 'name email role');
+    async removeUsers(userId: string, dto: RemoveMentorMenteeDto) {
+        const user = await this.userModel.findById(userId);
         if (!user) throw new NotFoundException('User not found');
 
-        return user.assignedMentor;
+        for (const targetId of dto.assignedId) {
+            const targetUser = await this.userModel.findById(targetId);
+            if (!targetUser) throw new NotFoundException(`User not found`);
+
+            await this.userModel.findByIdAndUpdate(
+                userId,
+                { $pull: { assignedId: targetUser._id } },
+                { new: true }
+            );
+
+            await this.userModel.findByIdAndUpdate(
+                targetId,
+                { $pull: { assignedId: user._id } },
+                { new: true }
+            );
+        }
+
+        return this.userModel.findById(userId).populate('assignedId');
+    }
+
+    async getAssignedUsers(userId: string) {
+        const user = await this.userModel
+            .findById(userId)
+            .populate('assignedId', 'firstName lastName email role status');
+
+        if (!user) throw new NotFoundException('User not found');
+
+        return user.assignedId || [];
     }
 }

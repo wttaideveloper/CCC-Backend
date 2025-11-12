@@ -63,7 +63,7 @@ export class User {
   refreshToken?: string;
 
   @Prop({ type: [{ type: Types.ObjectId, ref: 'User' }], default: [] })
-  assignedMentor: Types.ObjectId[];
+  assignedId: Types.ObjectId[];
 }
 
 export const UserSchema = SchemaFactory.createForClass(User);
