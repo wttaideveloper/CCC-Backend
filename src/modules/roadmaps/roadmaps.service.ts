@@ -342,7 +342,7 @@ export class RoadMapsService {
         if (dto.extras && dto.extras.length > 0) {
             if (nestedRoadMapItemObjectId) {
                 // Update nested roadmap progress AND main roadmap progress
-                await this.progressModel.findOneAndUpdate(
+                const progressUpdateResult = await this.progressModel.findOneAndUpdate(
                     {
                         userId: userObjectId,
                         'roadmaps.roadMapId': roadMapObjectId,
@@ -362,12 +362,21 @@ export class RoadMapsService {
                         ]
                     }
                 ).exec();
+
+                if (!progressUpdateResult) {
+                    console.warn(`Progress update failed for userId: ${userObjectId}, roadMapId: ${roadMapObjectId}, nestedRoadmapId: ${nestedRoadMapItemObjectId}`);
+                }
             } else {
                 // Update main roadmap progress only
-                await this.progressModel.findOneAndUpdate(
+                const progressUpdateResult = await this.progressModel.findOneAndUpdate(
                     { userId: userObjectId, 'roadmaps.roadMapId': roadMapObjectId },
-                    { $inc: { 'roadmaps.$.completedSteps': dto.extras.length } }
+                    { $inc: { 'roadmaps.$.completedSteps': dto.extras.length } },
+                    { new: true }
                 ).exec();
+
+                if (!progressUpdateResult) {
+                    console.warn(`Progress update failed for userId: ${userObjectId}, roadMapId: ${roadMapObjectId}`);
+                }
             }
         }
 
@@ -392,19 +401,17 @@ export class RoadMapsService {
             ];
         }
 
-        // Get the existing extras to calculate the difference in length
+        // Get the existing extras to calculate how many new items are being added
         const existingExtras = await this.extrasModel.findOne(query).lean().exec();
         if (!existingExtras) {
             throw new NotFoundException(`Extras not found for user ${userId} and roadmap ${roadMapId}`);
         }
 
-        const oldExtrasCount = existingExtras.extras?.length || 0;
-        const newExtrasCount = dto.extras?.length || 0;
-        const difference = newExtrasCount - oldExtrasCount;
+        const newItemsCount = dto.extras?.length || 0;
 
         const updatedExtras = await this.extrasModel.findOneAndUpdate(
             query,
-            { $set: { extras: dto.extras } },
+            { $push: { extras: { $each: dto.extras || [] } } },
             { new: true, runValidators: true }
         )
             .lean()
@@ -414,13 +421,13 @@ export class RoadMapsService {
             throw new NotFoundException(`Extras not found for user ${userId} and roadmap ${roadMapId}`);
         }
 
-        // Update progress: adjust completedSteps by the difference
-        if (difference !== 0) {
+        // Update progress: increment completedSteps by the number of new items added
+        if (newItemsCount > 0) {
             const nestedRoadMapItemObjectId = nestedRoadMapItemId ? new Types.ObjectId(nestedRoadMapItemId) : null;
 
             if (nestedRoadMapItemObjectId) {
                 // Update nested roadmap progress AND main roadmap progress
-                await this.progressModel.findOneAndUpdate(
+                const progressUpdateResult = await this.progressModel.findOneAndUpdate(
                     {
                         userId: userObjectId,
                         'roadmaps.roadMapId': roadMapObjectId,
@@ -428,8 +435,8 @@ export class RoadMapsService {
                     },
                     {
                         $inc: {
-                            'roadmaps.$[roadmap].nestedRoadmaps.$[nested].completedSteps': difference,
-                            'roadmaps.$[roadmap].completedSteps': difference  // Also update main roadmap
+                            'roadmaps.$[roadmap].nestedRoadmaps.$[nested].completedSteps': newItemsCount,
+                            'roadmaps.$[roadmap].completedSteps': newItemsCount
                         }
                     },
                     {
@@ -440,12 +447,20 @@ export class RoadMapsService {
                         ]
                     }
                 ).exec();
+
+                if (!progressUpdateResult) {
+                    console.warn(`Progress update failed in updateExtras for userId: ${userObjectId}, roadMapId: ${roadMapObjectId}, nestedRoadmapId: ${nestedRoadMapItemObjectId}`);
+                }
             } else {
-                // Update main roadmap progress only
-                await this.progressModel.findOneAndUpdate(
+                const progressUpdateResult = await this.progressModel.findOneAndUpdate(
                     { userId: userObjectId, 'roadmaps.roadMapId': roadMapObjectId },
-                    { $inc: { 'roadmaps.$.completedSteps': difference } }
+                    { $inc: { 'roadmaps.$.completedSteps': newItemsCount } },
+                    { new: true }
                 ).exec();
+
+                if (!progressUpdateResult) {
+                    console.warn(`Progress update failed in updateExtras for userId: ${userObjectId}, roadMapId: ${roadMapObjectId}`);
+                }
             }
         }
 
