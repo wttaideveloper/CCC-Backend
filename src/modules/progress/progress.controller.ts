@@ -18,11 +18,11 @@ export class ProgressController {
     @Get(':userId')
     async getProgress(
         @Param('userId', ParseMongoIdPipe) userId: Types.ObjectId,
-    ): Promise<BaseResponse<ProgressResponseDto>> {
+    ): Promise<BaseResponse<ProgressResponseDto | null>> {
         const progress = await this.progressService.findByUserId(userId);
         return {
             success: true,
-            message: 'User progress fetched successfully.',
+            message: progress ? 'User progress fetched successfully.' : 'No progress record found for this user.',
             data: progress,
         };
     }

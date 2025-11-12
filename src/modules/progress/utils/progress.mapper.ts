@@ -1,12 +1,21 @@
 import { Types } from 'mongoose';
 import { ProgressDocument } from '../schemas/progress.schema';
 
+class NestedRoadmapProgressDto {
+    nestedRoadmapId: Types.ObjectId;
+    completedSteps: number;
+    totalSteps: number;
+    progressPercentage: number;
+    status: string;
+}
+
 class ProgressRoadmapDto {
     roadMapId: Types.ObjectId;
     completedSteps: number;
     totalSteps: number;
     progressPercentage: number;
     status: string;
+    nestedRoadmaps: NestedRoadmapProgressDto[];
 }
 
 class ProgressAssessmentDto {
@@ -42,6 +51,13 @@ export function toProgressResponseDto(doc: ProgressDocument): ProgressResponseDt
             totalSteps: r.totalSteps,
             progressPercentage: r.progressPercentage,
             status: r.status,
+            nestedRoadmaps: (r.nestedRoadmaps || []).map(nested => ({
+                nestedRoadmapId: nested.nestedRoadmapId,
+                completedSteps: nested.completedSteps,
+                totalSteps: nested.totalSteps,
+                progressPercentage: nested.progressPercentage,
+                status: nested.status,
+            })),
         })),
         totalRoadmaps: doc.totalRoadmaps,
         completedRoadmaps: doc.completedRoadmaps,

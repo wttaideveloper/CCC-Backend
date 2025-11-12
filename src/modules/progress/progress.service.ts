@@ -21,19 +21,19 @@ export class ProgressService {
         @InjectModel(Assessment.name) private assessmentModel: Model<AssessmentDocument>,
     ) { }
 
-    async findByUserId(userId: Types.ObjectId): Promise<ProgressResponseDto> {
+    async findByUserId(userId: Types.ObjectId): Promise<ProgressResponseDto | null> {
         const progress = await this.progressModel.findOne({ userId }).exec();
         if (!progress) {
-            throw new NotFoundException(`Progress record not found for user ${userId}.`);
+            return null;
         }
         return toProgressResponseDto(progress);
     }
 
     async assignRoadmap(dto: AssignRoadmapDto): Promise<ProgressResponseDto[]> {
-        // Step 1: Validate all roadmaps exist and fetch their totalSteps in a single query
+        // Step 1: Validate all roadmaps exist and fetch their data including nested roadmaps
         const roadMaps = await this.roadMapModel.find(
             { _id: { $in: dto.roadMapIds } },
-            { _id: 1, totalSteps: 1 }
+            { _id: 1, totalSteps: 1, roadmaps: 1 }
         ).exec();
 
         if (roadMaps.length !== dto.roadMapIds.length) {
@@ -42,8 +42,14 @@ export class ProgressService {
             throw new NotFoundException(`RoadMap(s) not found: ${missingIds.join(', ')}`);
         }
 
-        // Create a map for O(1) lookup of totalSteps by roadMapId
-        const roadMapDataMap = new Map(roadMaps.map(r => [r._id.toString(), r.totalSteps || 0]));
+        // Create a map for O(1) lookup of roadmap data by roadMapId
+        const roadMapDataMap = new Map(roadMaps.map(r => [
+            r._id.toString(),
+            {
+                totalSteps: r.totalSteps || 0,
+                nestedRoadmaps: r.roadmaps || []
+            }
+        ]));
 
         // Step 2: Fetch all existing progress records for all users in a single query (prevents N+1 problem)
         const existingProgressRecords = await this.progressModel.find(
@@ -78,14 +84,29 @@ export class ProgressService {
                     continue;
                 }
 
-                // Create entries for new roadmaps
-                const newRoadmapEntries = newRoadMapIds.map(roadMapId => ({
-                    roadMapId: roadMapId,
-                    completedSteps: 0,
-                    totalSteps: roadMapDataMap.get(roadMapId.toString()) || 0,
-                    progressPercentage: 0,
-                    status: PROGRESS_STATUSES.NOT_STARTED,
-                }));
+                // Create entries for new roadmaps with nested roadmaps
+                const newRoadmapEntries = newRoadMapIds.map(roadMapId => {
+                    const roadMapData = roadMapDataMap.get(roadMapId.toString());
+                    const nestedRoadmapsData = roadMapData?.nestedRoadmaps || [];
+
+                    // Create nested roadmap entries
+                    const nestedRoadmaps = nestedRoadmapsData.map((nested: any) => ({
+                        nestedRoadmapId: nested._id,
+                        completedSteps: 0,
+                        totalSteps: nested.totalSteps || 0,
+                        progressPercentage: 0,
+                        status: PROGRESS_STATUSES.NOT_STARTED,
+                    }));
+
+                    return {
+                        roadMapId: roadMapId,
+                        completedSteps: 0,
+                        totalSteps: roadMapData?.totalSteps || 0,
+                        progressPercentage: 0,
+                        status: PROGRESS_STATUSES.NOT_STARTED,
+                        nestedRoadmaps: nestedRoadmaps,
+                    };
+                });
 
                 // Update progress with all new roadmaps in a single atomic operation
                 const updatedProgress = await this.progressModel.findOneAndUpdate(

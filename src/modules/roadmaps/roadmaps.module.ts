@@ -6,6 +6,7 @@ import { RoadMap, RoadMapSchema } from './schemas/roadmap.schema';
 import { Comments, CommentsSchema } from './schemas/comments.schema';
 import { Queries, QueriesSchema } from './schemas/queries.schema';
 import { Extras, ExtrasSchema } from './schemas/extras.schema';
+import { Progress, ProgressSchema } from '../progress/schemas/progress.schema';
 
 @Module({
     imports: [
@@ -14,6 +15,7 @@ import { Extras, ExtrasSchema } from './schemas/extras.schema';
             { name: Comments.name, schema: CommentsSchema },
             { name: Queries.name, schema: QueriesSchema },
             { name: Extras.name, schema: ExtrasSchema },
+            { name: Progress.name, schema: ProgressSchema },
         ]),
     ],
     controllers: [RoadMapsController],

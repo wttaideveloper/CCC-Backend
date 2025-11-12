@@ -22,6 +22,21 @@ export class Progress {
                 enum: VALID_PROGRESS_STATUSES,
                 default: PROGRESS_STATUSES.NOT_STARTED,
             },
+            nestedRoadmaps: {
+                type: [{
+                    _id: false,
+                    nestedRoadmapId: { type: Types.ObjectId, required: true },
+                    completedSteps: { type: Number, default: 0 },
+                    totalSteps: { type: Number, default: 0 },
+                    progressPercentage: { type: Number, default: 0 },
+                    status: {
+                        type: String,
+                        enum: VALID_PROGRESS_STATUSES,
+                        default: PROGRESS_STATUSES.NOT_STARTED,
+                    },
+                }],
+                default: []
+            },
         },
     ])
     roadmaps: {
@@ -30,6 +45,13 @@ export class Progress {
         totalSteps: number;
         progressPercentage: number;
         status: string;
+        nestedRoadmaps: {
+            nestedRoadmapId: Types.ObjectId;
+            completedSteps: number;
+            totalSteps: number;
+            progressPercentage: number;
+            status: string;
+        }[];
     }[];
 
     @Prop({ type: Number, default: 0 })
@@ -83,15 +105,50 @@ function calculateProgress(doc: any) {
     // --- Roadmaps ---
     let completedRoadmaps = 0;
     doc.roadmaps.forEach((r: any) => {
-        // Calculate progress percentage
+        // Calculate nested roadmap progress first
+        let hasNestedInProgress = false;
+        let hasNestedCompleted = false;
+        let allNestedCompleted = true;
+
+        if (r.nestedRoadmaps && r.nestedRoadmaps.length > 0) {
+            r.nestedRoadmaps.forEach((nested: any) => {
+                // Calculate nested progress percentage
+                if (nested.totalSteps > 0)
+                    nested.progressPercentage = Math.min((nested.completedSteps / nested.totalSteps) * 100, 100);
+                else nested.progressPercentage = 0;
+
+                // Automatically update nested status based on progress
+                if (nested.progressPercentage >= 100) {
+                    nested.status = PROGRESS_STATUSES.COMPLETED;
+                    hasNestedCompleted = true;
+                } else if (nested.progressPercentage > 0) {
+                    nested.status = PROGRESS_STATUSES.IN_PROGRESS;
+                    hasNestedInProgress = true;
+                    allNestedCompleted = false;
+                } else {
+                    nested.status = PROGRESS_STATUSES.NOT_STARTED;
+                    allNestedCompleted = false;
+                }
+            });
+        }
+
+        // Calculate main roadmap progress percentage
         if (r.totalSteps > 0)
             r.progressPercentage = Math.min((r.completedSteps / r.totalSteps) * 100, 100);
         else r.progressPercentage = 0;
 
-        // Automatically update status based on progress
-        if (r.progressPercentage >= 100) r.status = PROGRESS_STATUSES.COMPLETED;
-        else if (r.progressPercentage > 0) r.status = PROGRESS_STATUSES.IN_PROGRESS;
-        else r.status = PROGRESS_STATUSES.NOT_STARTED;
+        // Automatically update main roadmap status based on progress and nested roadmaps
+        if (r.progressPercentage >= 100) {
+            r.status = PROGRESS_STATUSES.COMPLETED;
+        } else if (r.progressPercentage > 0 || hasNestedInProgress || hasNestedCompleted) {
+            // Main roadmap is IN_PROGRESS if:
+            // - Its own completedSteps > 0, OR
+            // - Any nested roadmap is IN_PROGRESS, OR
+            // - Any nested roadmap is COMPLETED (but not all)
+            r.status = PROGRESS_STATUSES.IN_PROGRESS;
+        } else {
+            r.status = PROGRESS_STATUSES.NOT_STARTED;
+        }
 
         totalRoadmapPercent += r.progressPercentage;
         if (r.status === PROGRESS_STATUSES.COMPLETED) completedRoadmaps++;

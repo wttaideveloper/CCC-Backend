@@ -14,6 +14,7 @@ import { VALID_ROADMAP_STATUSES, ROADMAP_STATUSES, QUERY_STATUSES } from '../../
 import { Extras, ExtrasDocument } from './schemas/extras.schema';
 import { CreateExtrasDto, UpdateExtrasDto, ExtrasResponseDto } from './dto/extras.dto';
 import { toExtrasResponseDto } from './utils/extras.mapper';
+import { Progress, ProgressDocument } from '../progress/schemas/progress.schema';
 
 @Injectable()
 export class RoadMapsService {
@@ -22,6 +23,7 @@ export class RoadMapsService {
         @InjectModel(Comments.name) private commentsModel: Model<CommentsDocument>,
         @InjectModel(Queries.name) private queriesModel: Model<QueriesDocument>,
         @InjectModel(Extras.name) private extrasModel: Model<ExtrasDocument>,
+        @InjectModel(Progress.name) private progressModel: Model<ProgressDocument>,
     ) { }
 
     async create(dto: CreateRoadMapDto): Promise<RoadMapResponseDto> {
@@ -336,13 +338,48 @@ export class RoadMapsService {
             .lean()
             .exec();
 
+        // Update progress: increment completedSteps by the number of extras
+        if (dto.extras && dto.extras.length > 0) {
+            if (nestedRoadMapItemObjectId) {
+                // Update nested roadmap progress AND main roadmap progress
+                await this.progressModel.findOneAndUpdate(
+                    {
+                        userId: userObjectId,
+                        'roadmaps.roadMapId': roadMapObjectId,
+                        'roadmaps.nestedRoadmaps.nestedRoadmapId': nestedRoadMapItemObjectId
+                    },
+                    {
+                        $inc: {
+                            'roadmaps.$[roadmap].nestedRoadmaps.$[nested].completedSteps': dto.extras.length,
+                            'roadmaps.$[roadmap].completedSteps': dto.extras.length  // Also increment main roadmap
+                        }
+                    },
+                    {
+                        arrayFilters: [
+                            { 'roadmap.roadMapId': roadMapObjectId },
+                            { 'nested.nestedRoadmapId': nestedRoadMapItemObjectId }
+                        ]
+                    }
+                ).exec();
+            } else {
+                // Update main roadmap progress only
+                await this.progressModel.findOneAndUpdate(
+                    { userId: userObjectId, 'roadmaps.roadMapId': roadMapObjectId },
+                    { $inc: { 'roadmaps.$.completedSteps': dto.extras.length } }
+                ).exec();
+            }
+        }
+
         return toExtrasResponseDto(updatedExtras as any);
     }
 
     async updateExtras(roadMapId: string, userId: string, dto: UpdateExtrasDto, nestedRoadMapItemId?: string): Promise<ExtrasResponseDto> {
+        const roadMapObjectId = new Types.ObjectId(roadMapId);
+        const userObjectId = new Types.ObjectId(userId);
+
         const query: any = {
-            roadMapId: new Types.ObjectId(roadMapId),
-            userId: new Types.ObjectId(userId),
+            roadMapId: roadMapObjectId,
+            userId: userObjectId,
         };
 
         if (nestedRoadMapItemId) {
@@ -354,6 +391,16 @@ export class RoadMapsService {
             ];
         }
 
+        // Get the existing extras to calculate the difference in length
+        const existingExtras = await this.extrasModel.findOne(query).lean().exec();
+        if (!existingExtras) {
+            throw new NotFoundException(`Extras not found for user ${userId} and roadmap ${roadMapId}`);
+        }
+
+        const oldExtrasCount = existingExtras.extras?.length || 0;
+        const newExtrasCount = dto.extras?.length || 0;
+        const difference = newExtrasCount - oldExtrasCount;
+
         const updatedExtras = await this.extrasModel.findOneAndUpdate(
             query,
             { $set: { extras: dto.extras } },
@@ -364,6 +411,40 @@ export class RoadMapsService {
 
         if (!updatedExtras) {
             throw new NotFoundException(`Extras not found for user ${userId} and roadmap ${roadMapId}`);
+        }
+
+        // Update progress: adjust completedSteps by the difference
+        if (difference !== 0) {
+            const nestedRoadMapItemObjectId = nestedRoadMapItemId ? new Types.ObjectId(nestedRoadMapItemId) : null;
+
+            if (nestedRoadMapItemObjectId) {
+                // Update nested roadmap progress AND main roadmap progress
+                await this.progressModel.findOneAndUpdate(
+                    {
+                        userId: userObjectId,
+                        'roadmaps.roadMapId': roadMapObjectId,
+                        'roadmaps.nestedRoadmaps.nestedRoadmapId': nestedRoadMapItemObjectId
+                    },
+                    {
+                        $inc: {
+                            'roadmaps.$[roadmap].nestedRoadmaps.$[nested].completedSteps': difference,
+                            'roadmaps.$[roadmap].completedSteps': difference  // Also update main roadmap
+                        }
+                    },
+                    {
+                        arrayFilters: [
+                            { 'roadmap.roadMapId': roadMapObjectId },
+                            { 'nested.nestedRoadmapId': nestedRoadMapItemObjectId }
+                        ]
+                    }
+                ).exec();
+            } else {
+                // Update main roadmap progress only
+                await this.progressModel.findOneAndUpdate(
+                    { userId: userObjectId, 'roadmaps.roadMapId': roadMapObjectId },
+                    { $inc: { 'roadmaps.$.completedSteps': difference } }
+                ).exec();
+            }
         }
 
         return toExtrasResponseDto(updatedExtras as any);
