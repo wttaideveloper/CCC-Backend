@@ -341,6 +341,14 @@ export class RoadMapsService {
         // Update progress: increment completedSteps by the number of extras
         if (dto.extras && dto.extras.length > 0) {
             if (nestedRoadMapItemObjectId) {
+                // Debug: Log the query parameters
+                console.log('[saveExtras] Progress Update Query:', {
+                    userId: userObjectId.toString(),
+                    roadMapId: roadMapObjectId.toString(),
+                    nestedRoadmapId: nestedRoadMapItemObjectId.toString(),
+                    extrasLength: dto.extras.length
+                });
+
                 // Update nested roadmap progress AND main roadmap progress
                 const progressUpdateResult = await this.progressModel.findOneAndUpdate(
                     {
@@ -364,7 +372,23 @@ export class RoadMapsService {
                 ).exec();
 
                 if (!progressUpdateResult) {
-                    console.warn(`Progress update failed for userId: ${userObjectId}, roadMapId: ${roadMapObjectId}, nestedRoadmapId: ${nestedRoadMapItemObjectId}`);
+                    console.warn(`[saveExtras] Progress update failed for userId: ${userObjectId}, roadMapId: ${roadMapObjectId}, nestedRoadmapId: ${nestedRoadMapItemObjectId}`);
+
+                    // Debug: Check if progress document exists
+                    const existingProgress = await this.progressModel.findOne({ userId: userObjectId }).lean().exec();
+                    if (!existingProgress) {
+                        console.error('[saveExtras] No progress document found for this user!');
+                    } else {
+                        console.log('[saveExtras] Progress document exists:', JSON.stringify({
+                            userId: existingProgress.userId,
+                            roadmapsCount: existingProgress.roadmaps?.length || 0,
+                            roadmaps: existingProgress.roadmaps?.map((r: any) => ({
+                                roadMapId: r.roadMapId?.toString(),
+                                nestedCount: r.nestedRoadmaps?.length || 0,
+                                nestedIds: r.nestedRoadmaps?.map((n: any) => n.nestedRoadmapId?.toString())
+                            }))
+                        }, null, 2));
+                    }
                 }
             } else {
                 // Update main roadmap progress only
