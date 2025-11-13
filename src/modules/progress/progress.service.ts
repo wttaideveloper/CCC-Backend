@@ -22,7 +22,16 @@ export class ProgressService {
     ) { }
 
     async findByUserId(userId: Types.ObjectId): Promise<ProgressResponseDto | null> {
-        const progress = await this.progressModel.findOne({ userId }).exec();
+        const userObjectId: Types.ObjectId = userId;
+        const userIdString: string = userId.toString();
+
+        const progress = await this.progressModel.findOne({
+            $or: [
+                { userId: userObjectId },
+                { userId: userIdString }
+            ]
+        }).exec();
+
         if (!progress) {
             return null;
         }
@@ -112,7 +121,8 @@ export class ProgressService {
                 const updatedProgress = await this.progressModel.findOneAndUpdate(
                     { userId: userId },
                     {
-                        $push: { roadmaps: { $each: newRoadmapEntries } }
+                        $push: { roadmaps: { $each: newRoadmapEntries } },
+                        $setOnInsert: { userId: userId }
                     },
                     {
                         new: true,

@@ -316,6 +316,8 @@ export class RoadMapsService {
     async saveExtras(roadMapId: string, dto: CreateExtrasDto): Promise<ExtrasResponseDto> {
         const roadMapObjectId = toObjectId(roadMapId);
         const userObjectId = toObjectId(dto.userId);
+        const userIdString = userObjectId?.toString();
+
         const nestedRoadMapItemObjectId = toObjectId(dto.nestedRoadMapItemId);
 
         if (!roadMapObjectId || !userObjectId) {
@@ -343,11 +345,18 @@ export class RoadMapsService {
 
         // Update progress: increment completedSteps by the number of extras
         if (dto.extras && dto.extras.length > 0) {
+            const userIdFlexibleQuery = {
+                $or: [
+                    { userId: userObjectId },
+                    { userId: userIdString }
+                ]
+            };
+
             if (nestedRoadMapItemObjectId) {
                 // Update nested roadmap progress AND main roadmap progress
                 await this.progressModel.findOneAndUpdate(
                     {
-                        userId: userObjectId,
+                        ...userIdFlexibleQuery,
                         'roadmaps.roadMapId': roadMapObjectId,
                         'roadmaps.nestedRoadmaps.nestedRoadmapId': nestedRoadMapItemObjectId
                     },
@@ -355,7 +364,7 @@ export class RoadMapsService {
                         $inc: {
                             'roadmaps.$[roadmap].nestedRoadmaps.$[nested].completedSteps': dto.extras.length,
                             'roadmaps.$[roadmap].completedSteps': dto.extras.length
-                        }
+                        },
                     },
                     {
                         new: true,
@@ -368,8 +377,13 @@ export class RoadMapsService {
             } else {
                 // Update main roadmap progress only
                 await this.progressModel.findOneAndUpdate(
-                    { userId: userObjectId, 'roadmaps.roadMapId': roadMapObjectId },
-                    { $inc: { 'roadmaps.$.completedSteps': dto.extras.length } },
+                    {
+                        ...userIdFlexibleQuery,
+                        'roadmaps.roadMapId': roadMapObjectId
+                    },
+                    {
+                        $inc: { 'roadmaps.$.completedSteps': dto.extras.length },
+                    },
                     { new: true }
                 ).exec();
             }
@@ -381,6 +395,8 @@ export class RoadMapsService {
     async updateExtras(roadMapId: string, userId: string, dto: UpdateExtrasDto, nestedRoadMapItemId?: string): Promise<ExtrasResponseDto> {
         const roadMapObjectId = toObjectId(roadMapId);
         const userObjectId = toObjectId(userId);
+        const userIdString = userObjectId?.toString();
+
         const nestedRoadMapItemObjectId = toObjectId(nestedRoadMapItemId);
 
         if (!roadMapObjectId || !userObjectId) {
@@ -422,11 +438,18 @@ export class RoadMapsService {
 
         // Update progress: increment completedSteps by the number of new items added
         if (newItemsCount > 0) {
+            const userIdFlexibleQuery = {
+                $or: [
+                    { userId: userObjectId },
+                    { userId: userIdString }
+                ]
+            };
+
             if (nestedRoadMapItemObjectId) {
                 // Update nested roadmap progress AND main roadmap progress
                 await this.progressModel.findOneAndUpdate(
                     {
-                        userId: userObjectId,
+                        ...userIdFlexibleQuery,
                         'roadmaps.roadMapId': roadMapObjectId,
                         'roadmaps.nestedRoadmaps.nestedRoadmapId': nestedRoadMapItemObjectId
                     },
@@ -434,7 +457,7 @@ export class RoadMapsService {
                         $inc: {
                             'roadmaps.$[roadmap].nestedRoadmaps.$[nested].completedSteps': newItemsCount,
                             'roadmaps.$[roadmap].completedSteps': newItemsCount
-                        }
+                        },
                     },
                     {
                         new: true,
@@ -446,8 +469,13 @@ export class RoadMapsService {
                 ).exec();
             } else {
                 await this.progressModel.findOneAndUpdate(
-                    { userId: userObjectId, 'roadmaps.roadMapId': roadMapObjectId },
-                    { $inc: { 'roadmaps.$.completedSteps': newItemsCount } },
+                    {
+                        ...userIdFlexibleQuery,
+                        'roadmaps.roadMapId': roadMapObjectId
+                    },
+                    {
+                        $inc: { 'roadmaps.$.completedSteps': newItemsCount },
+                    },
                     { new: true }
                 ).exec();
             }
