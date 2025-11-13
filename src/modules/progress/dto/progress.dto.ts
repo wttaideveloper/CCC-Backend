@@ -6,25 +6,21 @@ export class AssignRoadmapDto {
     @IsArray()
     @ArrayMinSize(1)
     @IsMongoId({ each: true })
-    @Transform(({ value }) => value.map((id: string) => Types.ObjectId.createFromHexString(id)))
     userIds: Types.ObjectId[];
 
     @IsArray()
     @ArrayMinSize(1)
     @IsMongoId({ each: true })
-    @Transform(({ value }) => value.map((id: string) => Types.ObjectId.createFromHexString(id)))
     roadMapIds: Types.ObjectId[];
 }
 
 export class AssignAssessmentDto {
     @IsMongoId()
     @IsNotEmpty()
-    @Transform(({ value }) => Types.ObjectId.createFromHexString(value))
     userId: Types.ObjectId;
 
     @IsMongoId()
     @IsNotEmpty()
-    @Transform(({ value }) => Types.ObjectId.createFromHexString(value))
     assessmentId: Types.ObjectId;
 
 }
@@ -32,12 +28,10 @@ export class AssignAssessmentDto {
 export class UpdateRoadmapProgressDto {
     @IsMongoId()
     @IsNotEmpty()
-    @Transform(({ value }) => Types.ObjectId.createFromHexString(value))
     userId: Types.ObjectId;
 
     @IsMongoId()
     @IsNotEmpty()
-    @Transform(({ value }) => Types.ObjectId.createFromHexString(value))
     roadMapId: Types.ObjectId;
 
     @IsNumber()
@@ -48,12 +42,10 @@ export class UpdateRoadmapProgressDto {
 export class UpdateAssessmentProgressDto {
     @IsMongoId()
     @IsNotEmpty()
-    @Transform(({ value }) => Types.ObjectId.createFromHexString(value))
     userId: Types.ObjectId;
 
     @IsMongoId()
     @IsNotEmpty()
-    @Transform(({ value }) => Types.ObjectId.createFromHexString(value))
     assessmentId: Types.ObjectId;
 
     @IsNumber()

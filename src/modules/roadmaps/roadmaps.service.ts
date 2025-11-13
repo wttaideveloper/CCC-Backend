@@ -15,6 +15,7 @@ import { Extras, ExtrasDocument } from './schemas/extras.schema';
 import { CreateExtrasDto, UpdateExtrasDto, ExtrasResponseDto } from './dto/extras.dto';
 import { toExtrasResponseDto } from './utils/extras.mapper';
 import { Progress, ProgressDocument } from '../progress/schemas/progress.schema';
+import { toObjectId } from 'src/common/pipes/to-object-id.pipe';
 
 @Injectable()
 export class RoadMapsService {
@@ -313,11 +314,13 @@ export class RoadMapsService {
     }
 
     async saveExtras(roadMapId: string, dto: CreateExtrasDto): Promise<ExtrasResponseDto> {
-        const roadMapObjectId = new Types.ObjectId(roadMapId);
-        const userObjectId = new Types.ObjectId(dto.userId);
-        const nestedRoadMapItemObjectId = dto.nestedRoadMapItemId
-            ? new Types.ObjectId(dto.nestedRoadMapItemId)
-            : null;
+        const roadMapObjectId = toObjectId(roadMapId);
+        const userObjectId = toObjectId(dto.userId);
+        const nestedRoadMapItemObjectId = toObjectId(dto.nestedRoadMapItemId);
+
+        if (!roadMapObjectId || !userObjectId) {
+            throw new BadRequestException('Invalid RoadMap ID or User ID provided.');
+        }
 
         const updatedExtras = await this.extrasModel.findOneAndUpdate(
             {
@@ -376,16 +379,21 @@ export class RoadMapsService {
     }
 
     async updateExtras(roadMapId: string, userId: string, dto: UpdateExtrasDto, nestedRoadMapItemId?: string): Promise<ExtrasResponseDto> {
-        const roadMapObjectId = new Types.ObjectId(roadMapId);
-        const userObjectId = new Types.ObjectId(userId);
+        const roadMapObjectId = toObjectId(roadMapId);
+        const userObjectId = toObjectId(userId);
+        const nestedRoadMapItemObjectId = toObjectId(nestedRoadMapItemId);
+
+        if (!roadMapObjectId || !userObjectId) {
+            throw new BadRequestException('Invalid RoadMap ID or User ID provided.');
+        }
 
         const query: any = {
             roadMapId: roadMapObjectId,
             userId: userObjectId,
         };
 
-        if (nestedRoadMapItemId) {
-            query.nestedRoadMapItemId = new Types.ObjectId(nestedRoadMapItemId);
+        if (nestedRoadMapItemObjectId) {
+            query.nestedRoadMapItemId = nestedRoadMapItemObjectId;
         } else {
             query.$or = [
                 { nestedRoadMapItemId: null },
@@ -393,7 +401,6 @@ export class RoadMapsService {
             ];
         }
 
-        // Get the existing extras to calculate how many new items are being added
         const existingExtras = await this.extrasModel.findOne(query).lean().exec();
         if (!existingExtras) {
             throw new NotFoundException(`Extras not found for user ${userId} and roadmap ${roadMapId}`);
@@ -415,8 +422,6 @@ export class RoadMapsService {
 
         // Update progress: increment completedSteps by the number of new items added
         if (newItemsCount > 0) {
-            const nestedRoadMapItemObjectId = nestedRoadMapItemId ? new Types.ObjectId(nestedRoadMapItemId) : null;
-
             if (nestedRoadMapItemObjectId) {
                 // Update nested roadmap progress AND main roadmap progress
                 await this.progressModel.findOneAndUpdate(
