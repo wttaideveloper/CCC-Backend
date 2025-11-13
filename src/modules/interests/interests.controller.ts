@@ -20,11 +20,14 @@ export class InterestController {
     }
 
     @Get()
-    async getAll(): Promise<BaseResponse<InterestResponseDto[]>> {
-        const data = await this.interestService.findAll();
+    async getAll(
+        @Query('search') search?: string,
+        @Query('status') status?: string,
+    ): Promise<BaseResponse<InterestResponseDto[]>> {
+        const data = await this.interestService.findAll({ search, status });
         return {
             success: true,
-            message: 'All interest forms fetched successfully',
+            message: 'Filtered interests fetched successfully',
             data,
         };
     }

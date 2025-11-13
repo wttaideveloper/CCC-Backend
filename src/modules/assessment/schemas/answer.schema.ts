@@ -1,5 +1,5 @@
 import { Prop, Schema, SchemaFactory } from '@nestjs/mongoose';
-import { Document, Types } from 'mongoose';
+import { Document, Types, Schema as MongooseSchema } from 'mongoose';
 
 export type UserAnswerDocument = UserAnswer & Document;
 
@@ -38,6 +38,20 @@ export class UserAnswer {
 
   @Prop({ type: [SectionAnswerSchema], default: [] })
   sections: SectionAnswer[];
+
+  @Prop({
+    type: [
+      {
+        questionText: { type: String, required: true },
+        answer: { type: MongooseSchema.Types.Mixed, required: true },
+      },
+    ],
+    default: [],
+  })
+  preSurveyAnswers?: { questionText: string; answer: any }[];
+
+  @Prop()
+  preSurveySubmittedAt?: Date;
 }
 
 export const UserAnswerSchema = SchemaFactory.createForClass(UserAnswer);
