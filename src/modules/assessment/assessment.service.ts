@@ -178,7 +178,7 @@ export class AssessmentService {
       };
     });
   }
-  // Save or update answers for one section
+
   async saveOrUpdateSectionAnswers(
     assessmentId: string,
     userId: string,
@@ -211,7 +211,6 @@ export class AssessmentService {
       answeredAt: new Date(),
     }));
 
-    // Try updating existing section
     const updated = await this.userAnswerModel.findOneAndUpdate(
       {
         assessmentId: new Types.ObjectId(assessmentId),
@@ -230,7 +229,6 @@ export class AssessmentService {
 
     if (updated) return updated;
 
-    // If section doesn't exist yet, push a new one
     const result = await this.userAnswerModel.findOneAndUpdate(
       {
         assessmentId: new Types.ObjectId(assessmentId),
@@ -281,7 +279,6 @@ export class AssessmentService {
     return result;
   }
 
-  // Submit Pre-Survey Answers
   async submitPreSurvey(assessmentId: string, dto: SubmitPreSurveyDto) {
     const { userId, preSurveyAnswers } = dto;
 
@@ -299,6 +296,17 @@ export class AssessmentService {
       throw new BadRequestException('PreSurvey is only applicable for CMA assessments');
     }
 
+    if (!assessment.preSurvey || assessment.preSurvey.length === 0) {
+      throw new BadRequestException('This assessment has no pre-survey questions');
+    }
+
+    const questionTexts = assessment.preSurvey.map(q => q.text);
+    for (const answer of preSurveyAnswers) {
+      if (!questionTexts.includes(answer.questionText)) {
+        throw new BadRequestException(`Invalid question: ${answer.questionText}`);
+      }
+    }
+
     const updated = await this.userAnswerModel.findOneAndUpdate(
       {
         assessmentId: new Types.ObjectId(assessmentId),
@@ -310,11 +318,51 @@ export class AssessmentService {
           preSurveySubmittedAt: new Date(),
         },
       },
-      { new: true, upsert: true },
-    );
+      { new: true, upsert: true }
+    ).lean().exec();
 
     return updated;
   }
+
+  // Get Pre-Survey Answers for a User
+  async getPreSurveyAnswers(assessmentId: string, userId: string) {
+    if (!Types.ObjectId.isValid(assessmentId)) {
+      throw new BadRequestException('Invalid assessment ID format');
+    }
+    if (!Types.ObjectId.isValid(userId)) {
+      throw new BadRequestException('Invalid user ID format');
+    }
+
+    const assessment = await this.assessmentModel.findById(assessmentId).lean();
+    if (!assessment) throw new NotFoundException('Assessment not found');
+
+    if (assessment.type !== 'CMA') {
+      throw new BadRequestException('PreSurvey is only applicable for CMA assessments');
+    }
+
+    const userAnswers = await this.userAnswerModel
+      .findOne({
+        assessmentId: new Types.ObjectId(assessmentId),
+        userId: new Types.ObjectId(userId),
+      })
+      .lean()
+      .exec();
+
+    if (!userAnswers || !userAnswers.preSurveyAnswers?.length) {
+      return {
+        preSurveyAnswers: [],
+        preSurveySubmittedAt: null,
+        totalQuestions: assessment.preSurvey?.length || 0,
+      };
+    }
+
+    return {
+      preSurveyAnswers: userAnswers.preSurveyAnswers,
+      preSurveySubmittedAt: userAnswers.preSurveySubmittedAt,
+      totalQuestions: assessment.preSurvey?.length || 0,
+    };
+  }
+
 
   // Submit Section Answers
   async submitSectionAnswers(assessmentId: string, dto: SubmitSectionAnswersDto) {

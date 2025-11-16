@@ -44,14 +44,76 @@ export class InterestService {
     }
   }
 
-  async findAll(): Promise<InterestResponseDto[]> {
-    const interests = await this.interestModel
-      .find()
-      .sort({ createdAt: -1 })
-      .lean()
-      .exec();
-    return interests.map(toInterestResponseDto);
+  async findAll(filters?: { search?: string; status?: string }) {
+    const pipeline: any[] = [
+      {
+        $lookup: {
+          from: 'users',
+          localField: 'email', // join via email (since interestId may be missing)
+          foreignField: 'email',
+          as: 'user',
+        },
+      },
+      {
+        $unwind: {
+          path: '$user',
+          preserveNullAndEmptyArrays: true, // keep interests even if user not found
+        },
+      },
+    ];
+
+    const match: any = {};
+
+    // 🔍 Search by Interest fields (and optionally user email)
+    if (filters?.search) {
+      const regex = new RegExp(filters.search, 'i');
+      match.$or = [
+        { firstName: regex },
+        { lastName: regex },
+        { email: regex },
+        { phoneNumber: regex },
+        { 'user.email': regex },
+      ];
+    }
+
+    // 🎯 Filter by User's status if provided
+    if (filters?.status) {
+      match['user.status'] = filters.status;
+    }
+
+    // Add filters to pipeline if they exist
+    if (Object.keys(match).length > 0) {
+      pipeline.push({ $match: match });
+    }
+
+    // Sort by newest
+    pipeline.push({ $sort: { createdAt: -1 } });
+
+    // Only project Interest fields (no user info)
+    pipeline.push({
+      $project: {
+        _id: 1,
+        firstName: 1,
+        lastName: 1,
+        email: 1,
+        phoneNumber: 1,
+        churchDetails: 1,
+        title: 1,
+        conference: 1,
+        yearsInMinistry: 1,
+        currentCommunityProjects: 1,
+        interests: 1,
+        comments: 1,
+        createdAt: 1,
+        updatedAt: 1,
+      },
+    });
+
+    const results = await this.interestModel.aggregate(pipeline).exec();
+    return results;
   }
+
+
 
   async getMetadata(): Promise<InterestMetadataDto> {
     const countriesList = COUNTRIES_STATES_LIST.map((item) => item.country);

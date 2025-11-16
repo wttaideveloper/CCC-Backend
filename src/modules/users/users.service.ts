@@ -156,10 +156,10 @@ export class UsersService {
     async getAssignedUsers(userId: string) {
         const user = await this.userModel
             .findById(userId)
-            .populate('assignedId', 'firstName lastName email role status');
+            .populate('assignedId', 'firstName lastName email role status profilePicture assignedId')
+            .lean();
 
         if (!user) throw new NotFoundException('User not found');
-
         return user.assignedId || [];
     }
 }

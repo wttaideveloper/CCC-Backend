@@ -43,6 +43,10 @@ export class CreateOrUpdateFormDto {
   @ValidateNested({ each: true })
   @Type(() => FieldDto)
   fields: FieldDto[];
+
+  @IsString()
+  @IsOptional()
+  reportingProcedure?: string;
 }
 
 export class ApplyMicroGrantDto {

@@ -160,6 +160,26 @@ export class AssessmentController {
     };
   }
 
+  @Get(':assessmentId/pre-survey/:userId')
+  async getPreSurveyAnswers(
+    @Param('assessmentId', ParseMongoIdPipe) assessmentId: string,
+    @Param('userId', ParseMongoIdPipe) userId: string,
+  ) {
+    const result = await this.assessmentService.getPreSurveyAnswers(
+      assessmentId,
+      userId,
+    );
+
+    return {
+      success: true,
+      message: result
+        ? 'Pre-survey answers fetched successfully'
+        : 'No pre-survey data found',
+      data: result,
+    };
+  }
+
+
   // Submit Section Answers
   @Post(':assessmentId/answers')
   async submitSectionAnswers(
