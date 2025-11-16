@@ -17,6 +17,7 @@ import { ProgressModule } from './modules/progress/progress.module';
 import { ProductsServicesModule } from './modules/products_services/products_services.module';
 import { MicroGrantModule } from './modules/micro-grand/micro-grant.module';
 import { HealthModule } from './health/health.module';
+import { S3Module } from './modules/s3/s3.module';
 
 @Module({
   imports: [
@@ -48,6 +49,7 @@ import { HealthModule } from './health/health.module';
 
     DatabaseModule,
     HealthModule,
+    S3Module,
     AuthModule,
     UsersModule,
     InterestModule,

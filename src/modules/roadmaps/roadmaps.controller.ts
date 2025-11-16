@@ -11,7 +11,7 @@ import {
 } from '@nestjs/common';
 import { RoadMapsService } from './roadmaps.service';
 import { BaseResponse } from 'src/shared/interfaces/base-response.interface';
-import { RoadMapResponseDto, CreateRoadMapDto, UpdateRoadMapDto, UpdateNestedRoadMapItemDto } from './dto/roadmap.dto';
+import { RoadMapResponseDto, CreateRoadMapDto, UpdateRoadMapDto, UpdateNestedRoadMapItemDto, NestedRoadMapItemDto } from './dto/roadmap.dto';
 import { AddCommentDto, CommentsThreadResponseDto } from './dto/comments.dto';
 import {
     CreateQueryDto,
@@ -121,6 +121,20 @@ export class RoadMapsController {
         return {
             success: true,
             message: 'Nested roadmap item updated successfully',
+            data: roadmap,
+        };
+    }
+
+    @Post(':roadMapId/nested')
+    // @Roles(ROLES.DIRECTOR, ROLES.MENTOR)
+    async addNestedRoadMap(
+        @Param('roadMapId', ParseMongoIdPipe) roadMapId: string,
+        @Body() dto: NestedRoadMapItemDto,
+    ): Promise<BaseResponse<RoadMapResponseDto>> {
+        const roadmap = await this.roadMapsService.addNestedRoadMap(roadMapId, dto);
+        return {
+            success: true,
+            message: 'Nested RoadMap item added successfully',
             data: roadmap,
         };
     }

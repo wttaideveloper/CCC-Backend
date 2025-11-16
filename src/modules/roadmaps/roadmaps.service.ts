@@ -3,7 +3,7 @@ import { InjectModel } from '@nestjs/mongoose';
 import { Model, Types } from 'mongoose';
 import { RoadMap, RoadMapDocument } from './schemas/roadmap.schema';
 import { CommentItem, Comments, CommentsDocument } from './schemas/comments.schema';
-import { CreateRoadMapDto, RoadMapResponseDto, UpdateRoadMapDto, UpdateNestedRoadMapItemDto } from './dto/roadmap.dto';
+import { CreateRoadMapDto, RoadMapResponseDto, UpdateRoadMapDto, UpdateNestedRoadMapItemDto, NestedRoadMapItemDto } from './dto/roadmap.dto';
 import { toRoadMapResponseDto } from './utils/roadmaps.mapper';
 import { Queries, QueriesDocument, QueryItem } from './schemas/queries.schema';
 import { AddCommentDto, CommentsThreadResponseDto } from './dto/comments.dto';
@@ -289,6 +289,28 @@ export class RoadMapsService {
 
         if (!updatedRoadmap) {
             throw new NotFoundException(`RoadMap with ID "${roadMapId}" or nested item with ID "${nestedItemId}" not found`);
+        }
+
+        return toRoadMapResponseDto(updatedRoadmap);
+    }
+
+    async addNestedRoadMap(roadMapId: string, dto: NestedRoadMapItemDto): Promise<RoadMapResponseDto> {
+
+        const updatedRoadmap = await this.roadMapModel.findByIdAndUpdate(
+            new Types.ObjectId(roadMapId),
+            {
+                $push: { roadmaps: dto },
+                $inc: { totalSteps: 1 },
+                haveNextedRoadMaps: true,
+            },
+            {
+                new: true,
+                runValidators: true,
+            }
+        ).lean().exec();
+
+        if (!updatedRoadmap) {
+            throw new NotFoundException(`RoadMap with ID "${roadMapId}" not found`);
         }
 
         return toRoadMapResponseDto(updatedRoadmap);
