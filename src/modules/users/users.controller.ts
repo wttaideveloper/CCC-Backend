@@ -19,6 +19,8 @@ import { ParseMongoIdPipe } from 'src/common/pipes/parse-mongo-id.pipe';
 // import { RolesGuard } from '../../common/guards/roles.guard';
 // import { Roles } from '../../common/decorators/roles.decorator';
 // import { ROLES } from 'src/common/constants/roles.constants';
+import { FileInterceptor } from '@nestjs/platform-express';
+import { UploadedFile, UseInterceptors } from '@nestjs/common';
 
 @Controller('users')
 // @UseGuards(JwtAuthGuard, RolesGuard)

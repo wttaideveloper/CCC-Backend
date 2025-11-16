@@ -28,6 +28,9 @@ export class MicroGrantForm {
     required: boolean;
     options?: string[];
   }[];
+
+  @Prop({ type: String, default: '' })
+  reportingProcedure: string;
 }
 
 export const MicroGrantFormSchema =
