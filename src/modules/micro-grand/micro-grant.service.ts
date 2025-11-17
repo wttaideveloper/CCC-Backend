@@ -77,6 +77,16 @@ export class MicroGrantService {
       .lean()
       .exec();
     if (!form) throw new NotFoundException('No active form available');
+
+    const existing = await this.applicationModel.findOne({
+      userId: new Types.ObjectId(dto.userId),
+      formId: form._id,
+    });
+
+    if (existing) {
+      throw new BadRequestException('You have already applied for this grant.');
+    }
+
     const missingRequired = form.fields.filter(
       (f) =>
         f.required &&
