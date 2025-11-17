@@ -295,12 +295,14 @@ export class RoadMapsService {
     }
 
     async addNestedRoadMap(roadMapId: string, dto: NestedRoadMapItemDto): Promise<RoadMapResponseDto> {
+        const roadMapObjectId = new Types.ObjectId(roadMapId);
+        const nestedRoadmapTotalSteps = dto.totalSteps || 0;
 
         const updatedRoadmap = await this.roadMapModel.findByIdAndUpdate(
-            new Types.ObjectId(roadMapId),
+            roadMapObjectId,
             {
                 $push: { roadmaps: dto },
-                $inc: { totalSteps: 1 },
+                $inc: { totalSteps: nestedRoadmapTotalSteps },
                 haveNextedRoadMaps: true,
             },
             {
@@ -311,6 +313,34 @@ export class RoadMapsService {
 
         if (!updatedRoadmap) {
             throw new NotFoundException(`RoadMap with ID "${roadMapId}" not found`);
+        }
+
+        const nestedRoadmaps = updatedRoadmap.roadmaps || [];
+        const newNestedRoadmap = nestedRoadmaps[nestedRoadmaps.length - 1];
+
+        if (newNestedRoadmap) {
+            await this.progressModel.updateMany(
+                { 'roadmaps.roadMapId': roadMapObjectId },
+                {
+                    $push: {
+                        'roadmaps.$[roadmap].nestedRoadmaps': {
+                            nestedRoadmapId: newNestedRoadmap._id,
+                            completedSteps: 0,
+                            totalSteps: nestedRoadmapTotalSteps,
+                            progressPercentage: 0,
+                            status: 'not_started',
+                        }
+                    },
+                    $inc: {
+                        'roadmaps.$[roadmap].totalSteps': nestedRoadmapTotalSteps,
+                    }
+                },
+                {
+                    arrayFilters: [
+                        { 'roadmap.roadMapId': roadMapObjectId }
+                    ]
+                }
+            ).exec();
         }
 
         return toRoadMapResponseDto(updatedRoadmap);

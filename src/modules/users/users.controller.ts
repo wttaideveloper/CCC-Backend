@@ -21,6 +21,7 @@ import { ParseMongoIdPipe } from 'src/common/pipes/parse-mongo-id.pipe';
 // import { ROLES } from 'src/common/constants/roles.constants';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { UploadedFile, UseInterceptors } from '@nestjs/common';
+import { UserDocumentResponseDto } from './dto/upload-document.dto';
 
 @Controller('users')
 // @UseGuards(JwtAuthGuard, RolesGuard)
@@ -45,20 +46,34 @@ export class UsersController {
   async getAllUsers(
     @Query('role') role?: string,
     @Query('status') status?: string,
-  ): Promise<BaseResponse<UserResponseDto[]>> {
-    const filters = { role, status };
-    const users = await this.usersService.findAll(filters);
+    @Query('page') page?: string,
+    @Query('limit') limit?: string,
+    @Query('search') search?: string,
+  ): Promise<BaseResponse<{
+    users: UserResponseDto[];
+    total: number;
+    page: number;
+    totalPages: number;
+  }>> {
+    const filters = {
+      role,
+      status,
+      page: page ? parseInt(page, 10) : undefined,
+      limit: limit ? parseInt(limit, 10) : undefined,
+      search,
+    };
+    const result = await this.usersService.findAll(filters);
     return {
       success: true,
       message: 'Users fetched successfully',
-      data: users,
+      data: result,
     };
   }
 
   @Get('check-status/:id')
   // @Roles(ROLES.DIRECTOR, ROLES.MENTOR, ROLES.FIELD_MENTOR, ROLES.PASTOR)
   async checkUserStatus(
-    @Param('id') userId: string,
+    @Param('id', ParseMongoIdPipe) userId: string,
   ): Promise<BaseResponse<{ status: string }>> {
     const userStatus = await this.usersService.checkUserStatus(userId);
     return {
@@ -107,7 +122,7 @@ export class UsersController {
   @Get(':id')
   // @Roles(ROLES.DIRECTOR, ROLES.MENTOR, ROLES.FIELD_MENTOR, ROLES.PASTOR)
   async getUser(
-    @Param('id') id: string,
+    @Param('id', ParseMongoIdPipe) id: string,
   ): Promise<BaseResponse<UserResponseDto>> {
     const user = await this.usersService.findById(id);
     return {
@@ -120,7 +135,7 @@ export class UsersController {
   @Patch(':id')
   // @Roles(ROLES.DIRECTOR, ROLES.MENTOR, ROLES.FIELD_MENTOR, ROLES.PASTOR)
   async updateUser(
-    @Param('id') id: string,
+    @Param('id', ParseMongoIdPipe) id: string,
     @Body() updateData: UpdateUserDto,
   ): Promise<BaseResponse<UserResponseDto>> {
     const updated = await this.usersService.update(id, updateData);
@@ -133,11 +148,68 @@ export class UsersController {
 
   @Delete(':id')
   // @Roles(ROLES.DIRECTOR)
-  async deleteUser(@Param('id') id: string): Promise<BaseResponse<null>> {
+  async deleteUser(@Param('id', ParseMongoIdPipe) id: string): Promise<BaseResponse<null>> {
     await this.usersService.delete(id);
     return {
       success: true,
       message: 'User deleted successfully',
+      data: null,
+    };
+  }
+
+  @Patch(':id/profile-picture')
+  // @Roles(ROLES.DIRECTOR, ROLES.MENTOR, ROLES.FIELD_MENTOR, ROLES.PASTOR)
+  @UseInterceptors(FileInterceptor('file'))
+  async updateProfilePicture(
+    @Param('id', ParseMongoIdPipe) id: string,
+    @UploadedFile() file: Express.Multer.File,
+  ): Promise<BaseResponse<UserResponseDto>> {
+    const updated = await this.usersService.updateProfilePicture(id, file);
+    return {
+      success: true,
+      message: 'Profile picture updated successfully',
+      data: updated,
+    };
+  }
+
+  @Post(':id/documents')
+  // @Roles(ROLES.DIRECTOR, ROLES.MENTOR, ROLES.FIELD_MENTOR, ROLES.PASTOR)
+  @UseInterceptors(FileInterceptor('file'))
+  async uploadDocument(
+    @Param('id', ParseMongoIdPipe) id: string,
+    @UploadedFile() file: Express.Multer.File,
+  ): Promise<BaseResponse<UserDocumentResponseDto>> {
+    const document = await this.usersService.uploadDocument(id, file);
+    return {
+      success: true,
+      message: 'Document uploaded successfully',
+      data: document,
+    };
+  }
+
+  @Get(':id/documents')
+  // @Roles(ROLES.DIRECTOR, ROLES.MENTOR, ROLES.FIELD_MENTOR, ROLES.PASTOR)
+  async getDocuments(
+    @Param('id', ParseMongoIdPipe) id: string,
+  ): Promise<BaseResponse<UserDocumentResponseDto[]>> {
+    const documents = await this.usersService.getDocuments(id);
+    return {
+      success: true,
+      message: 'Documents fetched successfully',
+      data: documents,
+    };
+  }
+
+  @Delete(':id/documents')
+  // @Roles(ROLES.DIRECTOR, ROLES.MENTOR, ROLES.FIELD_MENTOR, ROLES.PASTOR)
+  async deleteDocument(
+    @Param('id', ParseMongoIdPipe) id: string,
+    @Body('documentUrl') documentUrl: string,
+  ): Promise<BaseResponse<null>> {
+    await this.usersService.deleteDocument(id, documentUrl);
+    return {
+      success: true,
+      message: 'Document deleted successfully',
       data: null,
     };
   }

@@ -12,6 +12,7 @@ import { ASSESSMENT_ASSIGNMENT_STATUSES } from '../../common/constants/status.co
 import { UserAnswer } from './schemas/answer.schema';
 import { SubmitSectionAnswersDto } from './dto/submit-section-answers.dto';
 import { SubmitPreSurveyDto } from './dto/submit-pre-survey.dto';
+import { Progress, ProgressDocument } from '../progress/schemas/progress.schema';
 
 @Injectable()
 export class AssessmentService {
@@ -22,6 +23,8 @@ export class AssessmentService {
     private readonly userModel: Model<UserDocument>,
     @InjectModel(UserAnswer.name)
     private readonly userAnswerModel: Model<UserAnswer>,
+    @InjectModel(Progress.name)
+    private readonly progressModel: Model<ProgressDocument>,
   ) { }
 
   async create(dto: CreateAssessmentDto): Promise<Assessment> {
@@ -227,29 +230,62 @@ export class AssessmentService {
       .lean()
       .exec();
 
-    if (updated) return updated;
-
-    const result = await this.userAnswerModel.findOneAndUpdate(
-      {
-        assessmentId: new Types.ObjectId(assessmentId),
-        userId: new Types.ObjectId(userId),
-      },
-      {
-        $setOnInsert: {
+    let result;
+    if (updated) {
+      result = updated;
+    } else {
+      result = await this.userAnswerModel.findOneAndUpdate(
+        {
           assessmentId: new Types.ObjectId(assessmentId),
           userId: new Types.ObjectId(userId),
         },
-        $push: {
-          sections: {
-            sectionId: new Types.ObjectId(sectionId),
-            layers: layerAnswers,
+        {
+          $setOnInsert: {
+            assessmentId: new Types.ObjectId(assessmentId),
+            userId: new Types.ObjectId(userId),
+          },
+          $push: {
+            sections: {
+              sectionId: new Types.ObjectId(sectionId),
+              layers: layerAnswers,
+            },
           },
         },
-      },
-      { upsert: true, new: true },
-    )
-      .lean()
-      .exec();
+        { upsert: true, new: true },
+      )
+        .lean()
+        .exec();
+    }
+
+    if (result && result.sections && result.sections.length > 0) {
+      const completedSectionsCount = result.sections.length;
+      const assessmentIdObj = new Types.ObjectId(assessmentId);
+      const userIdObj = new Types.ObjectId(userId);
+      const userIdString = userIdObj.toString();
+
+      const progressUpdateResult = await this.progressModel.findOneAndUpdate(
+        {
+          $or: [
+            { userId: userIdObj },
+            { userId: userIdString }
+          ],
+          'assessments.assessmentId': assessmentIdObj,
+        },
+        {
+          $set: {
+            'assessments.$.completedSections': completedSectionsCount,
+          },
+        },
+        { new: true }
+      ).exec();
+
+      if (!progressUpdateResult) {
+        console.warn(
+          `Progress not found for userId: ${userId}, assessmentId: ${assessmentId}. ` +
+          `Assessment should be assigned via assignAssessment() before saving answers.`
+        );
+      }
+    }
 
     return result;
   }
@@ -400,6 +436,27 @@ export class AssessmentService {
       },
       { new: true, upsert: true },
     );
+
+    const completedSectionsCount = answers.length;
+    const assessmentIdObj = new Types.ObjectId(assessmentId);
+    const userIdObj = new Types.ObjectId(userId);
+    const userIdString = userIdObj.toString();
+
+    await this.progressModel.findOneAndUpdate(
+      {
+        $or: [
+          { userId: userIdObj },
+          { userId: userIdString }
+        ],
+        'assessments.assessmentId': assessmentIdObj,
+      },
+      {
+        $set: {
+          'assessments.$.completedSections': completedSectionsCount,
+        },
+      },
+      { new: true }
+    ).exec();
 
     return updated;
   }

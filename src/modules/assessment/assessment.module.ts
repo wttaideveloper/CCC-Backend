@@ -5,6 +5,7 @@ import { AssessmentController } from './assessment.controller';
 import { AssessmentService } from './assessment.service';
 import { User, UserSchema } from '../users/schemas/user.schema';
 import { UserAnswer, UserAnswerSchema } from './schemas/answer.schema';
+import { Progress, ProgressSchema } from '../progress/schemas/progress.schema';
 
 @Module({
   imports: [
@@ -12,6 +13,7 @@ import { UserAnswer, UserAnswerSchema } from './schemas/answer.schema';
       { name: Assessment.name, schema: AssessmentSchema },
       { name: User.name, schema: UserSchema },
       { name: UserAnswer.name, schema: UserAnswerSchema },
+      { name: Progress.name, schema: ProgressSchema },
     ]),
   ],
   controllers: [AssessmentController],

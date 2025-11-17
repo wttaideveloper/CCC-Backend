@@ -1,5 +1,10 @@
 import { IsEmail, IsNotEmpty, MinLength, IsOptional, IsEnum, IsMongoId, IsBoolean } from 'class-validator';
 import { Types } from 'mongoose';
+import { ROLES } from '../../../common/constants/roles.constants';
+import { USER_STATUSES } from '../../../common/constants/status.constants';
+
+const VALID_ROLES = Object.values(ROLES);
+const VALID_USER_STATUSES_ARRAY = Object.values(USER_STATUSES);
 
 export class CreateUserDto {
     @IsNotEmpty()
@@ -19,11 +24,11 @@ export class CreateUserDto {
     password?: string;
 
     @IsOptional()
-    @IsEnum(['director', 'mentor', 'field mentor', 'pastor', 'pending'])
+    @IsEnum(VALID_ROLES)
     role?: string;
 
     @IsOptional()
-    @IsEnum(['pending', 'accepted', 'rejected'])
+    @IsEnum(VALID_USER_STATUSES_ARRAY)
     status?: string;
 
     @IsOptional()

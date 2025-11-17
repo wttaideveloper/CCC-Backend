@@ -64,6 +64,24 @@ export class User {
 
   @Prop({ type: [{ type: Types.ObjectId, ref: 'User' }], default: [] })
   assignedId: Types.ObjectId[];
+
+  @Prop({
+    type: [{
+      fileName: { type: String, required: true },
+      fileUrl: { type: String, required: true },
+      fileType: { type: String, required: true },
+      fileSize: { type: Number, required: true },
+      uploadedAt: { type: Date, default: Date.now },
+    }],
+    default: [],
+  })
+  uploadedDocuments: {
+    fileName: string;
+    fileUrl: string;
+    fileType: string;
+    fileSize: number;
+    uploadedAt: Date;
+  }[];
 }
 
 export const UserSchema = SchemaFactory.createForClass(User);

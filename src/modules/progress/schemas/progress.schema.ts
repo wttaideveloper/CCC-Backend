@@ -192,16 +192,32 @@ ProgressSchema.pre<ProgressDocument>("save", function (next) {
     next();
 });
 
-// Post-findOneAndUpdate hook to recalculate progress after updates
+// OPTIMIZED: Use updateOne instead of save() to prevent double writes
 ProgressSchema.post("findOneAndUpdate", async function (doc) {
     if (doc) {
         calculateProgress(doc);
-        await doc.save();
+        await doc.collection.updateOne(
+            { _id: doc._id },
+            {
+                $set: {
+                    roadmaps: doc.roadmaps,
+                    assessments: doc.assessments,
+                    totalRoadmaps: doc.totalRoadmaps,
+                    completedRoadmaps: doc.completedRoadmaps,
+                    overallRoadmapProgress: doc.overallRoadmapProgress,
+                    totalAssessments: doc.totalAssessments,
+                    completedAssessments: doc.completedAssessments,
+                    overallAssessmentProgress: doc.overallAssessmentProgress,
+                }
+            }
+        );
     }
 });
 
 ProgressSchema.index({ userId: 1 });
 ProgressSchema.index({ userId: 1, 'roadmaps.roadMapId': 1 });
 ProgressSchema.index({ userId: 1, 'assessments.assessmentId': 1 });
+ProgressSchema.index({ userId: 1, 'roadmaps.roadMapId': 1, 'roadmaps.nestedRoadmaps.nestedRoadmapId': 1 });
+ProgressSchema.index({ 'roadmaps.roadMapId': 1 });
 ProgressSchema.index({ createdAt: 1 });
 ProgressSchema.index({ updatedAt: -1 });

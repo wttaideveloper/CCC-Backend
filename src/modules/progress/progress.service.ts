@@ -158,11 +158,12 @@ export class ProgressService {
         if (!assessment) {
             throw new NotFoundException(`Assessment with ID ${dto.assessmentId} not found.`);
         }
+        const totalSections = assessment.sections?.length || 0;
 
         const newAssessmentEntry = {
             assessmentId: dto.assessmentId,
             completedSections: 0,
-            totalSections: 0, //assessment.totalSections || needed
+            totalSections: totalSections,
             progressPercentage: 0,
             status: PROGRESS_STATUSES.NOT_STARTED,
         };
@@ -170,7 +171,8 @@ export class ProgressService {
         const updatedProgress = await this.progressModel.findOneAndUpdate(
             { userId: dto.userId },
             {
-                $push: { assessments: newAssessmentEntry }
+                $push: { assessments: newAssessmentEntry },
+                $setOnInsert: { userId: dto.userId }
             },
             {
                 new: true,
