@@ -15,6 +15,24 @@ export class Extras {
     @Prop({ type: [MongooseSchema.Types.Mixed], default: [] })
     extras: any[];
 
+    @Prop({
+        type: [{
+            fileName: { type: String, required: true },
+            fileUrl: { type: String, required: true },
+            fileType: { type: String, required: true },
+            fileSize: { type: Number, required: true },
+            uploadedAt: { type: Date, default: Date.now },
+        }],
+        default: [],
+    })
+    uploadedDocuments: {
+        fileName: string;
+        fileUrl: string;
+        fileType: string;
+        fileSize: number;
+        uploadedAt: Date;
+    }[];
+
     createdAt?: Date;
     updatedAt?: Date;
 }

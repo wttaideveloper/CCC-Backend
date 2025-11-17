@@ -7,6 +7,7 @@ import { Comments, CommentsSchema } from './schemas/comments.schema';
 import { Queries, QueriesSchema } from './schemas/queries.schema';
 import { Extras, ExtrasSchema } from './schemas/extras.schema';
 import { Progress, ProgressSchema } from '../progress/schemas/progress.schema';
+import { S3Module } from '../s3/s3.module';
 
 @Module({
     imports: [
@@ -17,6 +18,7 @@ import { Progress, ProgressSchema } from '../progress/schemas/progress.schema';
             { name: Extras.name, schema: ExtrasSchema },
             { name: Progress.name, schema: ProgressSchema },
         ]),
+        S3Module,
     ],
     controllers: [RoadMapsController],
     providers: [RoadMapsService],

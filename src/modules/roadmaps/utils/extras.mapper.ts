@@ -8,6 +8,7 @@ export const toExtrasResponseDto = (doc: ExtrasDocument | any): ExtrasResponseDt
         roadMapId: doc.roadMapId?.toString() || String(doc.roadMapId),
         nestedRoadMapItemId: doc.nestedRoadMapItemId?.toString(),
         extras: doc.extras || [],
+        uploadedDocuments: doc.uploadedDocuments || [],
         createdAt: doc.createdAt,
         updatedAt: doc.updatedAt,
     };

@@ -7,8 +7,11 @@ import {
     Query,
     Patch,
     Delete,
+    UseInterceptors,
+    UploadedFile,
     // UseGuards,
 } from '@nestjs/common';
+import { FileInterceptor } from '@nestjs/platform-express';
 import { RoadMapsService } from './roadmaps.service';
 import { BaseResponse } from 'src/shared/interfaces/base-response.interface';
 import { RoadMapResponseDto, CreateRoadMapDto, UpdateRoadMapDto, UpdateNestedRoadMapItemDto, NestedRoadMapItemDto } from './dto/roadmap.dto';
@@ -18,7 +21,7 @@ import {
     QueriesThreadResponseDto,
     ReplyQueryDto,
 } from './dto/queries.dto';
-import { CreateExtrasDto, UpdateExtrasDto, ExtrasResponseDto } from './dto/extras.dto';
+import { CreateExtrasDto, UpdateExtrasDto, ExtrasResponseDto, ExtrasDocumentDto } from './dto/extras.dto';
 import { ParseMongoIdPipe } from 'src/common/pipes/parse-mongo-id.pipe';
 // import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
 // import { RolesGuard } from '../../common/guards/roles.guard';
@@ -282,6 +285,65 @@ export class RoadMapsController {
         return {
             success: true,
             message: 'Extras deleted successfully',
+            data: result,
+        };
+    }
+
+    @Post(':roadMapId/extras/documents')
+    @UseInterceptors(FileInterceptor('file'))
+    async uploadExtrasDocument(
+        @Param('roadMapId', ParseMongoIdPipe) roadMapId: string,
+        @Query('userId', ParseMongoIdPipe) userId: string,
+        @Query('nestedRoadMapItemId', ParseMongoIdPipe) nestedRoadMapItemId: string | undefined,
+        @UploadedFile() file: Express.Multer.File,
+    ): Promise<BaseResponse<ExtrasDocumentDto>> {
+        const document = await this.roadMapsService.uploadExtrasDocument(
+            roadMapId,
+            userId,
+            file,
+            nestedRoadMapItemId,
+        );
+        return {
+            success: true,
+            message: 'Document uploaded successfully',
+            data: document,
+        };
+    }
+
+    @Get(':roadMapId/extras/documents')
+    async getExtrasDocuments(
+        @Param('roadMapId', ParseMongoIdPipe) roadMapId: string,
+        @Query('userId', ParseMongoIdPipe) userId: string,
+        @Query('nestedRoadMapItemId') nestedRoadMapItemId?: string,
+    ): Promise<BaseResponse<ExtrasDocumentDto[]>> {
+        const documents = await this.roadMapsService.getExtrasDocuments(
+            roadMapId,
+            userId,
+            nestedRoadMapItemId,
+        );
+        return {
+            success: true,
+            message: 'Documents fetched successfully',
+            data: documents,
+        };
+    }
+
+    @Delete(':roadMapId/extras/documents')
+    async deleteExtrasDocument(
+        @Param('roadMapId', ParseMongoIdPipe) roadMapId: string,
+        @Query('userId', ParseMongoIdPipe) userId: string,
+        @Query('fileUrl') fileUrl: string,
+        @Query('nestedRoadMapItemId') nestedRoadMapItemId?: string,
+    ): Promise<BaseResponse<{ message: string }>> {
+        const result = await this.roadMapsService.deleteExtrasDocument(
+            roadMapId,
+            userId,
+            fileUrl,
+            nestedRoadMapItemId,
+        );
+        return {
+            success: true,
+            message: 'Document deleted successfully',
             data: result,
         };
     }

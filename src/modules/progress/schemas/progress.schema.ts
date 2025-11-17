@@ -93,6 +93,15 @@ export class Progress {
 
     @Prop({ type: Number, default: 0 })
     overallAssessmentProgress: number;
+
+    @Prop({ type: Number, default: 0 })
+    totalItems: number;
+
+    @Prop({ type: Number, default: 0 })
+    completedItems: number;
+
+    @Prop({ type: Number, default: 0 })
+    overallProgress: number;
 }
 
 export const ProgressSchema = SchemaFactory.createForClass(Progress);
@@ -184,6 +193,25 @@ function calculateProgress(doc: any) {
         doc.assessments.length > 0
             ? parseFloat((totalAssessmentPercent / doc.assessments.length).toFixed(2))
             : 0;
+
+    // --- Overall Progress (Combined Roadmaps + Assessments) ---
+    doc.totalItems = doc.totalRoadmaps + doc.totalAssessments;
+    doc.completedItems = doc.completedRoadmaps + doc.completedAssessments;
+
+    // Calculate overall progress as weighted average of roadmap and assessment progress
+    if (doc.totalItems > 0) {
+        const roadmapWeight = doc.totalRoadmaps / doc.totalItems;
+        const assessmentWeight = doc.totalAssessments / doc.totalItems;
+
+        doc.overallProgress = parseFloat(
+            (
+                (doc.overallRoadmapProgress * roadmapWeight) +
+                (doc.overallAssessmentProgress * assessmentWeight)
+            ).toFixed(2)
+        );
+    } else {
+        doc.overallProgress = 0;
+    }
 }
 
 // Pre-save hook (for .create() and .save() operations)
@@ -208,6 +236,9 @@ ProgressSchema.post("findOneAndUpdate", async function (doc) {
                     totalAssessments: doc.totalAssessments,
                     completedAssessments: doc.completedAssessments,
                     overallAssessmentProgress: doc.overallAssessmentProgress,
+                    totalItems: doc.totalItems,
+                    completedItems: doc.completedItems,
+                    overallProgress: doc.overallProgress,
                 }
             }
         );

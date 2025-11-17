@@ -37,6 +37,9 @@ export class ProgressResponseDto {
     totalAssessments: number;
     completedAssessments: number;
     overallAssessmentProgress: number;
+    totalItems: number;
+    completedItems: number;
+    overallProgress: number;
     // createdAt: Date;
     // updatedAt: Date;
 }
@@ -72,6 +75,9 @@ export function toProgressResponseDto(doc: ProgressDocument): ProgressResponseDt
         totalAssessments: doc.totalAssessments,
         completedAssessments: doc.completedAssessments,
         overallAssessmentProgress: doc.overallAssessmentProgress,
+        totalItems: doc.totalItems,
+        completedItems: doc.completedItems,
+        overallProgress: doc.overallProgress,
         // createdAt: doc.createdAt,
         // updatedAt: doc.updatedAt,
     };

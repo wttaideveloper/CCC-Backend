@@ -12,10 +12,11 @@ import { toCommentsThreadResponseDto } from './utils/comments.mapper';
 import { toQueriesThreadResponseDto } from './utils/queries.mapper';
 import { VALID_ROADMAP_STATUSES, ROADMAP_STATUSES, QUERY_STATUSES } from '../../common/constants/status.constants';
 import { Extras, ExtrasDocument } from './schemas/extras.schema';
-import { CreateExtrasDto, UpdateExtrasDto, ExtrasResponseDto } from './dto/extras.dto';
+import { CreateExtrasDto, UpdateExtrasDto, ExtrasResponseDto, ExtrasDocumentDto } from './dto/extras.dto';
 import { toExtrasResponseDto } from './utils/extras.mapper';
 import { Progress, ProgressDocument } from '../progress/schemas/progress.schema';
 import { toObjectId } from 'src/common/pipes/to-object-id.pipe';
+import { S3Service } from '../s3/s3.service';
 
 @Injectable()
 export class RoadMapsService {
@@ -25,6 +26,7 @@ export class RoadMapsService {
         @InjectModel(Queries.name) private queriesModel: Model<QueriesDocument>,
         @InjectModel(Extras.name) private extrasModel: Model<ExtrasDocument>,
         @InjectModel(Progress.name) private progressModel: Model<ProgressDocument>,
+        private readonly s3Service: S3Service,
     ) { }
 
     async create(dto: CreateRoadMapDto): Promise<RoadMapResponseDto> {
@@ -556,5 +558,162 @@ export class RoadMapsService {
             throw new NotFoundException(`Extras not found for user ${userId} and roadmap ${roadMapId}`);
         }
         return { message: 'Extras deleted successfully' };
+    }
+
+    async uploadExtrasDocument(
+        roadMapId: string,
+        userId: string,
+        file: Express.Multer.File,
+        nestedRoadMapItemId?: string
+    ): Promise<ExtrasDocumentDto> {
+        const roadMapObjectId = toObjectId(roadMapId);
+        const userObjectId = toObjectId(userId);
+        const nestedRoadMapItemObjectId = toObjectId(nestedRoadMapItemId);
+
+        if (!roadMapObjectId || !userObjectId) {
+            throw new BadRequestException('Invalid RoadMap ID or User ID provided');
+        }
+
+        // Validate file type and size
+        const allowedTypes = [
+            'application/pdf',
+            'application/msword',
+            'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+            'application/vnd.ms-excel',
+            'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+            'image/jpeg',
+            'image/png',
+            'image/jpg',
+        ];
+
+        if (!allowedTypes.includes(file.mimetype)) {
+            throw new BadRequestException(
+                'Invalid file type. Only PDF, Word, Excel, and images are allowed'
+            );
+        }
+
+        const maxSize = 10 * 1024 * 1024; // 10MB
+        if (file.size > maxSize) {
+            throw new BadRequestException('File size exceeds 10MB limit');
+        }
+
+        // Upload to S3
+        const key = `roadmaps/${roadMapId}/extras/${userId}/${Date.now()}-${file.originalname}`;
+        const fileUrl = await this.s3Service.uploadFile(key, file.buffer, file.mimetype);
+
+        const documentData: ExtrasDocumentDto = {
+            fileName: file.originalname,
+            fileUrl: fileUrl,
+            fileType: file.mimetype,
+            fileSize: file.size,
+            uploadedAt: new Date(),
+        };
+
+        const query: any = {
+            roadMapId: roadMapObjectId,
+            userId: userObjectId,
+        };
+
+        if (nestedRoadMapItemObjectId) {
+            query.nestedRoadMapItemId = nestedRoadMapItemObjectId;
+        } else {
+            query.$or = [
+                { nestedRoadMapItemId: null },
+                { nestedRoadMapItemId: { $exists: false } }
+            ];
+        }
+
+        await this.extrasModel.findOneAndUpdate(
+            query,
+            {
+                $push: { uploadedDocuments: documentData },
+                $setOnInsert: {
+                    roadMapId: roadMapObjectId,
+                    userId: userObjectId,
+                    nestedRoadMapItemId: nestedRoadMapItemObjectId,
+                    extras: [],
+                }
+            },
+            { upsert: true, new: true }
+        ).exec();
+
+        return documentData;
+    }
+
+    async getExtrasDocuments(
+        roadMapId: string,
+        userId: string,
+        nestedRoadMapItemId?: string
+    ): Promise<ExtrasDocumentDto[]> {
+        const roadMapObjectId = toObjectId(roadMapId);
+        const userObjectId = toObjectId(userId);
+        const nestedRoadMapItemObjectId = toObjectId(nestedRoadMapItemId);
+
+        if (!roadMapObjectId || !userObjectId) {
+            throw new BadRequestException('Invalid RoadMap ID or User ID provided');
+        }
+
+        const query: any = {
+            roadMapId: roadMapObjectId,
+            userId: userObjectId,
+        };
+
+        if (nestedRoadMapItemObjectId) {
+            query.nestedRoadMapItemId = nestedRoadMapItemObjectId;
+        } else {
+            query.$or = [
+                { nestedRoadMapItemId: null },
+                { nestedRoadMapItemId: { $exists: false } }
+            ];
+        }
+
+        const extras = await this.extrasModel.findOne(query).select('uploadedDocuments').lean().exec();
+
+        if (!extras) {
+            return [];
+        }
+
+        return extras.uploadedDocuments || [];
+    }
+
+    async deleteExtrasDocument(
+        roadMapId: string,
+        userId: string,
+        fileUrl: string,
+        nestedRoadMapItemId?: string
+    ): Promise<{ message: string }> {
+        const roadMapObjectId = toObjectId(roadMapId);
+        const userObjectId = toObjectId(userId);
+        const nestedRoadMapItemObjectId = toObjectId(nestedRoadMapItemId);
+
+        if (!roadMapObjectId || !userObjectId) {
+            throw new BadRequestException('Invalid RoadMap ID or User ID provided');
+        }
+
+        const query: any = {
+            roadMapId: roadMapObjectId,
+            userId: userObjectId,
+        };
+
+        if (nestedRoadMapItemObjectId) {
+            query.nestedRoadMapItemId = nestedRoadMapItemObjectId;
+        } else {
+            query.$or = [
+                { nestedRoadMapItemId: null },
+                { nestedRoadMapItemId: { $exists: false } }
+            ];
+        }
+
+        const result = await this.extrasModel.findOneAndUpdate(
+            query,
+            { $pull: { uploadedDocuments: { fileUrl: fileUrl } } },
+            { new: true }
+        ).exec();
+
+        if (!result) {
+            throw new NotFoundException('Extras not found');
+        }
+
+        return { message: 'Document deleted successfully' };
     }
 }
