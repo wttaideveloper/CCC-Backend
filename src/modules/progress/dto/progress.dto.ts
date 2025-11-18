@@ -1,6 +1,6 @@
-import { IsMongoId, IsNumber, IsNotEmpty, Min, IsArray, ArrayMinSize } from 'class-validator';
+import { IsMongoId, IsNumber, IsNotEmpty, Min, IsArray, ArrayMinSize, IsString, MaxLength } from 'class-validator';
+import { PartialType, OmitType } from '@nestjs/mapped-types';
 import { Types } from 'mongoose';
-import { Transform, Type } from 'class-transformer';
 
 export class AssignRoadmapDto {
     @IsArray()
@@ -22,7 +22,6 @@ export class AssignAssessmentDto {
     @IsMongoId()
     @IsNotEmpty()
     assessmentId: Types.ObjectId;
-
 }
 
 export class UpdateRoadmapProgressDto {
@@ -51,4 +50,39 @@ export class UpdateAssessmentProgressDto {
     @IsNumber()
     @Min(0)
     completedSections: number;
+}
+
+export class AddFinalCommentDto {
+    @IsMongoId()
+    @IsNotEmpty()
+    userId: Types.ObjectId;
+
+    @IsMongoId()
+    @IsNotEmpty()
+    commentorId: Types.ObjectId;
+
+    @IsString()
+    @IsNotEmpty()
+    @MaxLength(2000)
+    comment: string;
+}
+
+export class UpdateFinalCommentDto extends PartialType(OmitType(AddFinalCommentDto, ['userId', 'commentorId'] as const)) {
+    @IsMongoId()
+    @IsNotEmpty()
+    userId: Types.ObjectId;
+
+    @IsMongoId()
+    @IsNotEmpty()
+    commentId: Types.ObjectId;
+}
+
+export class DeleteFinalCommentDto {
+    @IsMongoId()
+    @IsNotEmpty()
+    userId: Types.ObjectId;
+
+    @IsMongoId()
+    @IsNotEmpty()
+    commentId: Types.ObjectId;
 }

@@ -26,6 +26,14 @@ class ProgressAssessmentDto {
     status: string;
 }
 
+class FinalCommentDto {
+    _id: Types.ObjectId;
+    commentorId: Types.ObjectId;
+    comment: string;
+    createdAt: Date;
+    updatedAt: Date;
+}
+
 export class ProgressResponseDto {
     _id: Types.ObjectId;
     userId: Types.ObjectId;
@@ -40,6 +48,8 @@ export class ProgressResponseDto {
     totalItems: number;
     completedItems: number;
     overallProgress: number;
+    overallCompleted: boolean;
+    finalComments: FinalCommentDto[];
     // createdAt: Date;
     // updatedAt: Date;
 }
@@ -78,6 +88,14 @@ export function toProgressResponseDto(doc: ProgressDocument): ProgressResponseDt
         totalItems: doc.totalItems,
         completedItems: doc.completedItems,
         overallProgress: doc.overallProgress,
+        overallCompleted: doc.overallCompleted || false,
+        finalComments: (doc.finalComments || []).map(c => ({
+            _id: c._id,
+            commentorId: c.commentorId,
+            comment: c.comment,
+            createdAt: c.createdAt,
+            updatedAt: c.updatedAt,
+        })),
         // createdAt: doc.createdAt,
         // updatedAt: doc.updatedAt,
     };

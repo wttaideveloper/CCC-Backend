@@ -5,15 +5,16 @@ import * as nodemailer from 'nodemailer';
 @Injectable()
 export class MailerService {
     private transporter;
-    private mailUser: string;
+    private mailFrom: string;
+    private mailFromName: string;
 
     constructor(private readonly configService: ConfigService) {
         const mailHost = this.configService.get<string>('mail.host');
         const mailPort = this.configService.get<number>('mail.port');
         const mailUser = this.configService.get<string>('mail.user');
         const mailPass = this.configService.get<string>('mail.pass');
-
-        this.mailUser = mailUser || '';
+        this.mailFrom = this.configService.get<string>('mail.from') || mailUser || '';
+        this.mailFromName = this.configService.get<string>('mail.fromName') || 'Support Team';
 
         this.transporter = nodemailer.createTransport({
             host: mailHost,
@@ -28,7 +29,7 @@ export class MailerService {
 
     async sendMail(to: string, subject: string, text: string, html?: string) {
         await this.transporter.sendMail({
-            from: `"Support Team" <${this.mailUser}>`,
+            from: `"${this.mailFromName}" <${this.mailFrom}>`,
             to,
             subject,
             text,

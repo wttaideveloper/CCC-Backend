@@ -82,6 +82,27 @@ export class User {
     fileSize: number;
     uploadedAt: Date;
   }[];
+
+  @Prop({ type: Boolean, default: false })
+  hasCompleted: boolean;
+
+  @Prop({ type: Boolean, default: false })
+  hasIssuedCertificate: boolean;
+
+  @Prop({
+    type: {
+      invitedBy: { type: Types.ObjectId, ref: 'User' },
+      invitedAt: { type: Date },
+      token: { type: String },
+      expiresAt: { type: Date },
+    },
+  })
+  fieldMentorInvitation?: {
+    invitedBy: Types.ObjectId;
+    invitedAt: Date;
+    token: string;
+    expiresAt: Date;
+  };
 }
 
 export const UserSchema = SchemaFactory.createForClass(User);

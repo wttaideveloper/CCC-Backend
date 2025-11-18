@@ -26,6 +26,7 @@ export class S3Service {
             Key: key,
             Body: body,
             ContentType: mimeType,
+            ACL: 'public-read',
         };
 
         try {
@@ -33,7 +34,7 @@ export class S3Service {
             await this.s3Client.send(command);
 
             const region = this.configService.get<string>('aws.region');
-            // Construct the S3 URL (can be accessed via bucket policy or CloudFront)
+            // Return public URL (no signing required)
             const fileUrl = `https://${this.bucketName}.s3.${region}.amazonaws.com/${key}`;
 
             return fileUrl;
@@ -43,4 +44,5 @@ export class S3Service {
             throw new Error('S3_UPLOAD_FAILED');
         }
     }
+
 }

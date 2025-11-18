@@ -10,6 +10,9 @@ import {
     AssignAssessmentDto,
     UpdateRoadmapProgressDto,
     UpdateAssessmentProgressDto,
+    AddFinalCommentDto,
+    UpdateFinalCommentDto,
+    DeleteFinalCommentDto,
 } from './dto/progress.dto';
 import { PROGRESS_STATUSES } from '../../common/constants/status.constants';
 
@@ -206,6 +209,88 @@ export class ProgressService {
         if (!updatedProgress) {
             throw new NotFoundException(`Assessment ${dto.assessmentId} not found for user ${dto.userId}.`);
         }
+        return toProgressResponseDto(updatedProgress);
+    }
+
+    async addFinalComment(dto: AddFinalCommentDto): Promise<ProgressResponseDto> {
+        const newComment = {
+            _id: new Types.ObjectId(),
+            commentorId: dto.commentorId,
+            comment: dto.comment,
+            createdAt: new Date(),
+            updatedAt: new Date(),
+        };
+
+        const updatedProgress = await this.progressModel.findOneAndUpdate(
+            { userId: dto.userId },
+            {
+                $push: { finalComments: newComment },
+                $setOnInsert: { userId: dto.userId }
+            },
+            {
+                new: true,
+                upsert: true,
+            }
+        ).exec();
+
+        if (!updatedProgress) {
+            throw new NotFoundException(`Progress record not found for user ${dto.userId}.`);
+        }
+
+        return toProgressResponseDto(updatedProgress);
+    }
+
+    async getFinalComments(userId: Types.ObjectId): Promise<ProgressResponseDto['finalComments']> {
+        const progress = await this.progressModel
+            .findOne({ userId })
+            .select('finalComments')
+            .sort({ 'finalComments.createdAt': -1 })
+            .exec();
+
+        if (!progress) {
+            return [];
+        }
+
+        return progress.finalComments || [];
+    }
+
+    async updateFinalComment(dto: UpdateFinalCommentDto): Promise<ProgressResponseDto> {
+        const updatedProgress = await this.progressModel.findOneAndUpdate(
+            {
+                userId: dto.userId,
+                'finalComments._id': dto.commentId
+            },
+            {
+                $set: {
+                    'finalComments.$.comment': dto.comment,
+                    'finalComments.$.updatedAt': new Date(),
+                }
+            },
+            { new: true }
+        ).exec();
+
+        if (!updatedProgress) {
+            throw new NotFoundException(
+                `Comment ${dto.commentId} not found for user ${dto.userId}.`
+            );
+        }
+
+        return toProgressResponseDto(updatedProgress);
+    }
+
+    async deleteFinalComment(dto: DeleteFinalCommentDto): Promise<ProgressResponseDto> {
+        const updatedProgress = await this.progressModel.findOneAndUpdate(
+            { userId: dto.userId },
+            {
+                $pull: { finalComments: { _id: dto.commentId } }
+            },
+            { new: true }
+        ).exec();
+
+        if (!updatedProgress) {
+            throw new NotFoundException(`Progress record not found for user ${dto.userId}.`);
+        }
+
         return toProgressResponseDto(updatedProgress);
     }
 }

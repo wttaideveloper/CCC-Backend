@@ -15,6 +15,8 @@ export function toUserResponseDto(user: UserDocument | any): UserResponseDto {
         interestId: user.interestId?.toString(),
         status: user.status,
         isEmailVerified: user.isEmailVerified,
+        hasCompleted: user.hasCompleted || false,
+        hasIssuedCertificate: user.hasIssuedCertificate || false,
         createdAt: user.createdAt,
         updatedAt: user.updatedAt,
     };

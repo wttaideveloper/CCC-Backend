@@ -37,6 +37,12 @@ export class UserResponseDto {
     @IsBoolean()
     isEmailVerified: boolean;
 
+    @IsBoolean()
+    hasCompleted: boolean;
+
+    @IsBoolean()
+    hasIssuedCertificate: boolean;
+
     @IsDate()
     createdAt: Date;
 

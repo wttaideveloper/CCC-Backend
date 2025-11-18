@@ -15,6 +15,11 @@ import { UpdateUserDto } from './dto/update-user.dto';
 import { BaseResponse } from '../../shared/interfaces/base-response.interface';
 import { AssignMentorMenteeDto, RemoveMentorMenteeDto, UserResponseDto } from './dto/user-response.dto';
 import { ParseMongoIdPipe } from 'src/common/pipes/parse-mongo-id.pipe';
+import {
+  InviteFieldMentorDto,
+  AcceptInvitationDto,
+  IssueCertificateDto,
+} from './dto/user-operations.dto';
 // import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
 // import { RolesGuard } from '../../common/guards/roles.guard';
 // import { Roles } from '../../common/decorators/roles.decorator';
@@ -211,6 +216,61 @@ export class UsersController {
       success: true,
       message: 'Document deleted successfully',
       data: null,
+    };
+  }
+
+  @Post('invite-field-mentor')
+  // @Roles(ROLES.DIRECTOR)
+  async inviteFieldMentor(
+    @Body() dto: InviteFieldMentorDto,
+  ): Promise<BaseResponse<{ token: string; expiresAt: Date }>> {
+    const result = await this.usersService.inviteFieldMentor(dto);
+    return {
+      success: true,
+      message: 'Field mentor invitation sent successfully',
+      data: result,
+    };
+  }
+
+  @Post('accept-invitation')
+  async acceptInvitation(
+    @Body() dto: AcceptInvitationDto,
+  ): Promise<BaseResponse<UserResponseDto>> {
+    const user = await this.usersService.acceptInvitation(dto);
+    return {
+      success: true,
+      message: 'Invitation accepted successfully. Role updated to field-mentor.',
+      data: user,
+    };
+  }
+
+  @Patch(':id/mark-completed')
+  // @Roles(ROLES.DIRECTOR, ROLES.MENTOR)
+  async markCompleted(
+    @Param('id', ParseMongoIdPipe) userId: string,
+  ): Promise<BaseResponse<UserResponseDto>> {
+    const user = await this.usersService.markCompleted({ userId: userId as any });
+    return {
+      success: true,
+      message: 'User marked as completed successfully',
+      data: user,
+    };
+  }
+
+  @Post(':id/issue-certificate')
+  // @Roles(ROLES.DIRECTOR)
+  async issueCertificate(
+    @Param('id', ParseMongoIdPipe) userId: string,
+    @Body() dto: Omit<IssueCertificateDto, 'userId'>,
+  ): Promise<BaseResponse<UserResponseDto>> {
+    const user = await this.usersService.issueCertificate({
+      userId: userId as any,
+      issuedBy: dto.issuedBy,
+    });
+    return {
+      success: true,
+      message: 'Certificate issued successfully',
+      data: user,
     };
   }
 }

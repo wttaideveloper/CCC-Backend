@@ -1,4 +1,4 @@
-import { Controller, Get, Param, Patch, Post, Body } from '@nestjs/common';
+import { Controller, Get, Param, Patch, Post, Body, Delete } from '@nestjs/common';
 import { ProgressService } from './progress.service';
 import { Types } from 'mongoose';
 import {
@@ -6,6 +6,9 @@ import {
     AssignAssessmentDto,
     UpdateRoadmapProgressDto,
     UpdateAssessmentProgressDto,
+    AddFinalCommentDto,
+    UpdateFinalCommentDto,
+    DeleteFinalCommentDto,
 } from './dto/progress.dto';
 import { ProgressResponseDto } from './utils/progress.mapper';
 import { BaseResponse } from '../../shared/interfaces/base-response.interface';
@@ -72,6 +75,54 @@ export class ProgressController {
         return {
             success: true,
             message: 'Assessment score updated successfully.',
+            data: progress,
+        };
+    }
+
+    @Post('final-comments')
+    async addFinalComment(
+        @Body() dto: AddFinalCommentDto,
+    ): Promise<BaseResponse<ProgressResponseDto>> {
+        const progress = await this.progressService.addFinalComment(dto);
+        return {
+            success: true,
+            message: 'Final comment added successfully.',
+            data: progress,
+        };
+    }
+
+    @Get(':userId/final-comments')
+    async getFinalComments(
+        @Param('userId', ParseMongoIdPipe) userId: Types.ObjectId,
+    ): Promise<BaseResponse<ProgressResponseDto['finalComments']>> {
+        const comments = await this.progressService.getFinalComments(userId);
+        return {
+            success: true,
+            message: 'Final comments fetched successfully.',
+            data: comments,
+        };
+    }
+
+    @Patch('final-comments')
+    async updateFinalComment(
+        @Body() dto: UpdateFinalCommentDto,
+    ): Promise<BaseResponse<ProgressResponseDto>> {
+        const progress = await this.progressService.updateFinalComment(dto);
+        return {
+            success: true,
+            message: 'Final comment updated successfully.',
+            data: progress,
+        };
+    }
+
+    @Delete('final-comments')
+    async deleteFinalComment(
+        @Body() dto: DeleteFinalCommentDto,
+    ): Promise<BaseResponse<ProgressResponseDto>> {
+        const progress = await this.progressService.deleteFinalComment(dto);
+        return {
+            success: true,
+            message: 'Final comment deleted successfully.',
             data: progress,
         };
     }

@@ -2,6 +2,7 @@ import {
     Injectable,
     BadRequestException,
     NotFoundException,
+    ConflictException,
 } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model, Types } from 'mongoose';
@@ -13,6 +14,14 @@ import { toUserResponseDto } from './utils/user.mapper';
 import { AssignMentorMenteeDto, RemoveMentorMenteeDto, UserResponseDto } from './dto/user-response.dto';
 import { S3Service } from '../s3/s3.service';
 import { UserDocumentResponseDto } from './dto/upload-document.dto';
+import {
+    InviteFieldMentorDto,
+    AcceptInvitationDto,
+    MarkCompletedDto,
+    IssueCertificateDto,
+} from './dto/user-operations.dto';
+import { ROLES } from '../../common/constants/roles.constants';
+import { nanoid } from 'nanoid';
 
 @Injectable()
 export class UsersService {
@@ -356,5 +365,102 @@ export class UsersService {
             { $pull: { uploadedDocuments: { fileUrl: documentUrl } } },
             { new: true }
         );
+    }
+
+    async inviteFieldMentor(dto: InviteFieldMentorDto): Promise<{ token: string; expiresAt: Date }> {
+        const user = await this.userModel.findOne({ email: dto.email });
+        if (!user) {
+            throw new NotFoundException('User not found with this email');
+        }
+
+        if (user.fieldMentorInvitation && user.fieldMentorInvitation.expiresAt > new Date()) {
+            throw new ConflictException('User already has a pending invitation');
+        }
+
+        const token = nanoid(32);
+        const expiresAt = new Date();
+        expiresAt.setDate(expiresAt.getDate() + 7); // 7 days expiry
+
+        await this.userModel.findByIdAndUpdate(user._id, {
+            fieldMentorInvitation: {
+                invitedBy: dto.invitedBy,
+                invitedAt: new Date(),
+                token,
+                expiresAt,
+            },
+        });
+
+        return { token, expiresAt };
+    }
+
+    async acceptInvitation(dto: AcceptInvitationDto): Promise<UserResponseDto> {
+        const user = await this.userModel.findOne({
+            'fieldMentorInvitation.token': dto.token,
+        });
+
+        if (!user) {
+            throw new NotFoundException('Invalid invitation token');
+        }
+
+        if (!user.fieldMentorInvitation || user.fieldMentorInvitation.expiresAt < new Date()) {
+            throw new BadRequestException('Invitation has expired');
+        }
+
+        const updatedUser = await this.userModel.findByIdAndUpdate(
+            user._id,
+            {
+                role: ROLES.FIELD_MENTOR,
+                $unset: { fieldMentorInvitation: 1 },
+            },
+            { new: true }
+        );
+
+        if (!updatedUser) {
+            throw new NotFoundException('User not found');
+        }
+
+        return toUserResponseDto(updatedUser);
+    }
+
+    async markCompleted(dto: MarkCompletedDto): Promise<UserResponseDto> {
+        const user = await this.userModel.findByIdAndUpdate(
+            dto.userId,
+            { hasCompleted: true },
+            { new: true }
+        );
+
+        if (!user) {
+            throw new NotFoundException('User not found');
+        }
+
+        return toUserResponseDto(user);
+    }
+
+    async issueCertificate(dto: IssueCertificateDto): Promise<UserResponseDto> {
+        const user = await this.userModel.findById(dto.userId);
+
+        if (!user) {
+            throw new NotFoundException('User not found');
+        }
+
+        if (!user.hasCompleted) {
+            throw new BadRequestException('User has not completed their progress');
+        }
+
+        if (user.hasIssuedCertificate) {
+            throw new ConflictException('Certificate already issued to this user');
+        }
+
+        const updatedUser = await this.userModel.findByIdAndUpdate(
+            dto.userId,
+            { hasIssuedCertificate: true },
+            { new: true }
+        );
+
+        if (!updatedUser) {
+            throw new NotFoundException('User not found');
+        }
+
+        return toUserResponseDto(updatedUser);
     }
 }

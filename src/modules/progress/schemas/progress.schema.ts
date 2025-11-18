@@ -102,6 +102,26 @@ export class Progress {
 
     @Prop({ type: Number, default: 0 })
     overallProgress: number;
+
+    @Prop({ type: Boolean, default: false })
+    overallCompleted: boolean;
+
+    @Prop([
+        {
+            _id: true,
+            commentorId: { type: Types.ObjectId, ref: "User", required: true },
+            comment: { type: String, required: true },
+            createdAt: { type: Date, default: Date.now },
+            updatedAt: { type: Date, default: Date.now },
+        },
+    ])
+    finalComments: {
+        _id: Types.ObjectId;
+        commentorId: Types.ObjectId;
+        comment: string;
+        createdAt: Date;
+        updatedAt: Date;
+    }[];
 }
 
 export const ProgressSchema = SchemaFactory.createForClass(Progress);
@@ -212,6 +232,7 @@ function calculateProgress(doc: any) {
     } else {
         doc.overallProgress = 0;
     }
+    doc.overallCompleted = doc.overallProgress >= 100;
 }
 
 // Pre-save hook (for .create() and .save() operations)
@@ -219,6 +240,19 @@ ProgressSchema.pre<ProgressDocument>("save", function (next) {
     calculateProgress(this);
     next();
 });
+
+// // Post-save hook to update user's hasCompleted
+// ProgressSchema.post<ProgressDocument>("save", async function (doc) {
+//     if (doc.overallCompleted) {
+//         const db = doc.collection.conn.db;
+//         if (db) {
+//             await db.collection('users').updateOne(
+//                 { _id: doc.userId },
+//                 { $set: { hasCompleted: true } }
+//             );
+//         }
+//     }
+// });
 
 // OPTIMIZED: Use updateOne instead of save() to prevent double writes
 ProgressSchema.post("findOneAndUpdate", async function (doc) {
@@ -239,6 +273,7 @@ ProgressSchema.post("findOneAndUpdate", async function (doc) {
                     totalItems: doc.totalItems,
                     completedItems: doc.completedItems,
                     overallProgress: doc.overallProgress,
+                    overallCompleted: doc.overallCompleted,
                 }
             }
         );
@@ -252,3 +287,4 @@ ProgressSchema.index({ userId: 1, 'roadmaps.roadMapId': 1, 'roadmaps.nestedRoadm
 ProgressSchema.index({ 'roadmaps.roadMapId': 1 });
 ProgressSchema.index({ createdAt: 1 });
 ProgressSchema.index({ updatedAt: -1 });
+ProgressSchema.index({ userId: 1, 'finalComments.createdAt': -1 });
