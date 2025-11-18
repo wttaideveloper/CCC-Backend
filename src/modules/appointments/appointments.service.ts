@@ -171,9 +171,10 @@ export class AppointmentsService {
         });
 
         return this.availabilityModel.findOneAndUpdate(
-            { mentorId: dto.mentorId },
+            { mentorId: new Types.ObjectId(dto.mentorId) },
             {
                 $set: {
+                    mentorId: new Types.ObjectId(dto.mentorId),
                     weeklySlots: processedSlots,
                     meetingDuration,
                     minSchedulingNoticeHours: dto.minSchedulingNoticeHours ?? 2,
