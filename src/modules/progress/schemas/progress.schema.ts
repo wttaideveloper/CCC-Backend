@@ -108,7 +108,6 @@ export class Progress {
 
     @Prop([
         {
-            _id: true,
             commentorId: { type: Types.ObjectId, ref: "User", required: true },
             comment: { type: String, required: true },
             createdAt: { type: Date, default: Date.now },
