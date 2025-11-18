@@ -235,9 +235,7 @@ export class AppointmentsService {
             throw new BadRequestException("Appointment not found.");
         }
 
-        const availability = await this.availabilityModel.findOne({
-            mentorId: mentorId.toString()
-        }).lean();
+        const availability = await this.availabilityModel.findOne({ mentorId }).lean();
 
         if (!availability) {
             throw new BadRequestException("No availability");

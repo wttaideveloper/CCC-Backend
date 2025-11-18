@@ -13,11 +13,13 @@ import { toUserResponseDto } from './utils/user.mapper';
 import { AssignMentorMenteeDto, RemoveMentorMenteeDto, UserResponseDto } from './dto/user-response.dto';
 import { S3Service } from '../s3/s3.service';
 import { UserDocumentResponseDto } from './dto/upload-document.dto';
+import { Interest, InterestDocument } from '../interests/schemas/interest.schema';
 
 @Injectable()
 export class UsersService {
     constructor(
         @InjectModel(User.name) private readonly userModel: Model<UserDocument>,
+        @InjectModel(Interest.name) private interestModel: Model<InterestDocument>,
         private readonly s3Service: S3Service,
     ) { }
 
@@ -207,7 +209,30 @@ export class UsersService {
             .lean();
 
         if (!user) throw new NotFoundException('User not found');
-        return user.assignedId || [];
+
+        const assigned = user.assignedId || [];
+
+        if (assigned.length === 0) return [];
+
+        const assignedUserIds = assigned.map((u: any) => (u._id ? u._id.toString() : u.toString()));
+
+        const interests = await this.interestModel
+            .find({ userId: { $in: assignedUserIds } })
+            .select('userId profileInfo')
+            .lean();
+    
+        const interestMap = new Map<string, string | undefined>();
+        for (const it of interests) {
+            const key = (it.userId as any).toString();
+            interestMap.set(key, (it as any).profileInfo);
+        }
+
+        const result = assigned.map((u: any) => ({
+            ...u,
+            profileInfo: interestMap.get(u._id.toString()) ?? null,
+        }));
+
+        return result;
     }
 
     async updateProfilePicture(

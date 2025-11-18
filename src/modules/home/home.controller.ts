@@ -4,9 +4,12 @@ import {
   Delete,
   Get,
   Param,
+  Patch,
   Post,
   Query,
+  UploadedFile,
   UseGuards,
+  UseInterceptors,
 } from '@nestjs/common';
 import { BaseResponse } from 'src/shared/interfaces/base-response.interface';
 import { HomeService } from './home.service';
@@ -20,11 +23,13 @@ import {
 // import { Roles } from '../../common/decorators';
 // import { ROLES } from '../../common/constants/roles.constants';
 import { ParseMongoIdPipe } from '../../common/pipes/parse-mongo-id.pipe';
+import { CreateVideoDto, UpdateVideoDto } from './dto/video.dto';
+import { FileInterceptor } from '@nestjs/platform-express';
 
 @Controller('home')
 // @UseGuards(JwtAuthGuard, RolesGuard)
 export class HomeController {
-  constructor(private readonly homeService: HomeService) {}
+  constructor(private readonly homeService: HomeService) { }
 
   @Get('mentor/:email')
   // @Roles(ROLES.DIRECTOR, ROLES.PASTOR)
@@ -151,5 +156,41 @@ export class HomeController {
       message: 'Notifications fetched successfully',
       data: result,
     };
+  }
+
+  @Post("videos")
+  @UseInterceptors(FileInterceptor('file'))
+  async create(@Body() dto: CreateVideoDto, @UploadedFile() file: Express.Multer.File) {
+    const data = await this.homeService.createVideo(dto, file);
+    return { success: true, message: 'Video uploaded', data };
+  }
+
+  @Get()
+  async findAllVideos(): Promise<BaseResponse<any>> {
+    const data = await this.homeService.findAllVideos();
+    return { success: true, message: 'Videos fetched', data };
+  }
+
+  @Get(':id')
+  async findOneVideo(@Param('id') id: string): Promise<BaseResponse<any>> {
+    const data = await this.homeService.findOneVideo(id);
+    return { success: true, message: 'Video fetched', data };
+  }
+
+  @Patch(':id')
+  @UseInterceptors(FileInterceptor('file'))
+  async updateVideo(
+    @Param('id') id: string,
+    @Body() dto: UpdateVideoDto,
+    @UploadedFile() file?: Express.Multer.File,
+  ) {
+    const data = await this.homeService.updateVideo(id, dto, file);
+    return { success: true, message: 'Video updated', data };
+  }
+
+  @Delete(':id')
+  async deleteVideo(@Param('id') id: string): Promise<BaseResponse<any>> {
+    const data = await this.homeService.deleteVideo(id);
+    return { success: true, message: 'Video deleted', data };
   }
 }

@@ -9,6 +9,9 @@ import {
 import { Home, HomeSchema } from './schemas/home.schema';
 import { UsersModule } from '../users/users.module';
 import { User, UserSchema } from '../users/schemas/user.schema';
+import { Video, VideoSchema } from './schemas/videos.schema';
+import { S3Module } from '../s3/s3.module';
+import { MulterModule } from '@nestjs/platform-express';
 
 @Module({
   imports: [
@@ -16,12 +19,17 @@ import { User, UserSchema } from '../users/schemas/user.schema';
       { name: Home.name, schema: HomeSchema },
       { name: User.name, schema: UserSchema },
       { name: Notification.name, schema: NotificationSchema },
+      { name: Video.name, schema: VideoSchema }
     ]),
     UsersModule,
+    S3Module,
+    MulterModule.register({
+      storage: require('multer').memoryStorage(),
+    }),
   ],
 
   controllers: [HomeController],
   providers: [HomeService],
   exports: [HomeService],
 })
-export class HomeModule {}
+export class HomeModule { }
