@@ -7,6 +7,7 @@ import {
 import { InjectModel } from '@nestjs/mongoose';
 import { Model, Types } from 'mongoose';
 import { User, UserDocument } from './schemas/user.schema';
+import { Interest, InterestDocument } from '../interests/schemas/interest.schema';
 import { CreateUserDto } from './dto/create-user.dto';
 import { UpdateUserDto } from './dto/update-user.dto';
 import { hashPassword } from '../../common/utils/bcrypt.util';
@@ -27,6 +28,7 @@ import { nanoid } from 'nanoid';
 export class UsersService {
     constructor(
         @InjectModel(User.name) private readonly userModel: Model<UserDocument>,
+        @InjectModel(Interest.name) private interestModel: Model<InterestDocument>,
         private readonly s3Service: S3Service,
     ) { }
 
@@ -216,7 +218,30 @@ export class UsersService {
             .lean();
 
         if (!user) throw new NotFoundException('User not found');
-        return user.assignedId || [];
+
+        const assigned = user.assignedId || [];
+
+        if (assigned.length === 0) return [];
+
+        const assignedUserIds = assigned.map((u: any) => (u._id ? u._id.toString() : u.toString()));
+
+        const interests = await this.interestModel
+            .find({ userId: { $in: assignedUserIds } })
+            .select('userId profileInfo')
+            .lean();
+    
+        const interestMap = new Map<string, string | undefined>();
+        for (const it of interests) {
+            const key = (it.userId as any).toString();
+            interestMap.set(key, (it as any).profileInfo);
+        }
+
+        const result = assigned.map((u: any) => ({
+            ...u,
+            profileInfo: interestMap.get(u._id.toString()) ?? null,
+        }));
+
+        return result;
     }
 
     async updateProfilePicture(
@@ -368,12 +393,19 @@ export class UsersService {
     }
 
     async inviteFieldMentor(dto: InviteFieldMentorDto): Promise<{ token: string; expiresAt: Date }> {
-        const user = await this.userModel.findOne({ email: dto.email });
-        if (!user) {
-            throw new NotFoundException('User not found with this email');
-        }
+        const user = await this.userModel.findOne({
+            email: dto.email,
+            $or: [
+                { fieldMentorInvitation: { $exists: false } },
+                { 'fieldMentorInvitation.expiresAt': { $lte: new Date() } }
+            ]
+        }).select('_id').lean();
 
-        if (user.fieldMentorInvitation && user.fieldMentorInvitation.expiresAt > new Date()) {
+        if (!user) {
+            const existingUser = await this.userModel.findOne({ email: dto.email }).select('fieldMentorInvitation').lean();
+            if (!existingUser) {
+                throw new NotFoundException('User not found with this email');
+            }
             throw new ConflictException('User already has a pending invitation');
         }
 
@@ -437,28 +469,28 @@ export class UsersService {
     }
 
     async issueCertificate(dto: IssueCertificateDto): Promise<UserResponseDto> {
-        const user = await this.userModel.findById(dto.userId);
-
-        if (!user) {
-            throw new NotFoundException('User not found');
-        }
-
-        if (!user.hasCompleted) {
-            throw new BadRequestException('User has not completed their progress');
-        }
-
-        if (user.hasIssuedCertificate) {
-            throw new ConflictException('Certificate already issued to this user');
-        }
-
-        const updatedUser = await this.userModel.findByIdAndUpdate(
-            dto.userId,
+        const updatedUser = await this.userModel.findOneAndUpdate(
+            {
+                _id: dto.userId,
+                hasCompleted: true,
+                hasIssuedCertificate: { $ne: true },
+            },
             { hasIssuedCertificate: true },
             { new: true }
         );
 
         if (!updatedUser) {
-            throw new NotFoundException('User not found');
+            const user = await this.userModel.findById(dto.userId).select('hasCompleted hasIssuedCertificate').lean();
+
+            if (!user) {
+                throw new NotFoundException('User not found');
+            }
+            if (!user.hasCompleted) {
+                throw new BadRequestException('User has not completed their progress');
+            }
+            if (user.hasIssuedCertificate) {
+                throw new ConflictException('Certificate already issued to this user');
+            }
         }
 
         return toUserResponseDto(updatedUser);

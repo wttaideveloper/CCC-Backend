@@ -171,9 +171,10 @@ export class AppointmentsService {
         });
 
         return this.availabilityModel.findOneAndUpdate(
-            { mentorId: dto.mentorId },
+            { mentorId: new Types.ObjectId(dto.mentorId) },
             {
                 $set: {
+                    mentorId: new Types.ObjectId(dto.mentorId),
                     weeklySlots: processedSlots,
                     meetingDuration,
                     minSchedulingNoticeHours: dto.minSchedulingNoticeHours ?? 2,
@@ -235,9 +236,7 @@ export class AppointmentsService {
             throw new BadRequestException("Appointment not found.");
         }
 
-        const availability = await this.availabilityModel.findOne({
-            mentorId: mentorId.toString()
-        }).lean();
+        const availability = await this.availabilityModel.findOne({ mentorId }).lean();
 
         if (!availability) {
             throw new BadRequestException("No availability");
