@@ -7,7 +7,7 @@ import { toAppointmentResponseDto } from './utils/appointment.mapper';
 import { APPOINTMENT_STATUSES } from '../../common/constants/status.constants';
 import { Availability, AvailabilityDocument } from './schemas/availability.schema';
 import { AvailabilityDto } from './dto/availability.dto';
-import { convertSlotToMinutes, convertToMinutes, generateMonthlyAvailability, splitIntoDurationSlots } from './utils/availability.utils';
+import { generateMonthlyAvailability, splitIntoDurationSlots } from './utils/availability.utils';
 
 @Injectable()
 export class AppointmentsService {
@@ -17,8 +17,6 @@ export class AppointmentsService {
     ) { }
 
     async create(dto: CreateAppointmentDto): Promise<AppointmentResponseDto> {
-        const meetingDate = new Date(dto.meetingDate);
-        console.log(dto.mentorId)
         const mentorId = new Types.ObjectId(dto.mentorId);
 
         const availability = await this.availabilityModel.findOne({ mentorId }).lean();
@@ -26,26 +24,28 @@ export class AppointmentsService {
             throw new BadRequestException("Mentor has no availability set.");
         }
 
-        const weekday = meetingDate.getDay();
+        const meetingDateUtc = new Date(dto.meetingDate);
+        const meetingInMentorTz = new Date(meetingDateUtc.getTime() + (5.5 * 60 * 60 * 1000));
+
+        const weekday = meetingInMentorTz.getUTCDay();
+        const selectedHour24 = meetingInMentorTz.getUTCHours();
+        const selectedMinute = meetingInMentorTz.getUTCMinutes();
+
+        const selectedPeriod = selectedHour24 >= 12 ? "PM" : "AM";
+        let displayHour = selectedHour24 % 12;
+        if (displayHour === 0) displayHour = 12;
+
+        const selectedSlot = {
+            startTime: displayHour.toString(),
+            startPeriod: selectedPeriod
+        };
+
         const dayAvailability = availability.weeklySlots.find(d => d.day === weekday);
 
         if (!dayAvailability || dayAvailability.slots.length === 0) {
             throw new BadRequestException("Mentor is not available on this day.");
         }
 
-        const selectedStart = meetingDate.getHours();
-        const selectedMinute = meetingDate.getMinutes();
-
-        const selectedPeriod = selectedStart >= 12 ? "PM" : "AM";
-        const displayHour = selectedStart % 12 === 0 ? 12 : selectedStart % 12;
-
-        // The exact slot user is trying to book
-        const selectedSlot = {
-            startTime: displayHour.toString(),
-            startPeriod: selectedPeriod
-        };
-
-        // Check slot exists
         const slotExists = dayAvailability.slots.some(s =>
             s.startTime === selectedSlot.startTime &&
             s.startPeriod === selectedSlot.startPeriod
@@ -55,7 +55,7 @@ export class AppointmentsService {
             throw new BadRequestException("This slot is not available.");
         }
 
-        // Check mentor is free (no overlap)
+        const meetingDate = meetingDateUtc;
         const endTime = new Date(meetingDate.getTime() + 60 * 60 * 1000);
 
         const overlap = await this.appointmentModel.findOne({
@@ -69,17 +69,16 @@ export class AppointmentsService {
             throw new BadRequestException("This time slot is already booked.");
         }
 
-        // Create appointment
         const appointment = new this.appointmentModel({
             ...dto,
-            userId: new Types.ObjectId(dto.userId),
-            mentorId,
             meetingDate,
-            endTime
+            endTime,
+            userId: new Types.ObjectId(dto.userId),
+            mentorId
         });
+
         const saved = await appointment.save();
 
-        // REMOVE the booked slot from availability
         await this.availabilityModel.updateOne(
             {
                 mentorId,
@@ -225,60 +224,114 @@ export class AppointmentsService {
 
     async reschedule(
         appointmentId: string,
-        dto: { newDate: string; startTime: string; startPeriod: 'AM' | 'PM' }
+        dto: { newDate: string }
     ) {
-
-        const { newDate, startTime, startPeriod } = dto;
-
-        const meetingDate = new Date(newDate);
-        const mentorId = (await this.appointmentModel.findById(appointmentId).lean())?.mentorId;
-        if (!mentorId) {
+        const appointment = await this.appointmentModel.findById(appointmentId).lean();
+        if (!appointment) {
             throw new BadRequestException("Appointment not found.");
         }
 
+        const mentorId = appointment.mentorId;
         const availability = await this.availabilityModel.findOne({ mentorId }).lean();
 
         if (!availability) {
-            throw new BadRequestException("No availability");
+            throw new BadRequestException("Mentor has no availability set.");
         }
 
-        const weekday = meetingDate.getDay();
+        const meetingDateUtc = new Date(dto.newDate);
+        const meetingInMentorTz = new Date(meetingDateUtc.getTime() + 5.5 * 3600 * 1000);
+
+        const weekday = meetingInMentorTz.getUTCDay();
+        const selectedHour24 = meetingInMentorTz.getUTCHours();
+        const minute = meetingInMentorTz.getUTCMinutes();
+
+        if (minute !== 0) {
+            throw new BadRequestException("Time must start exactly at the hour.");
+        }
+
+        const selectedPeriod = selectedHour24 >= 12 ? "PM" : "AM";
+        let displayHour = selectedHour24 % 12;
+        if (displayHour === 0) displayHour = 12;
+
+        const selectedSlot = {
+            startTime: displayHour.toString(),
+            startPeriod: selectedPeriod
+        };
+
         const dayAvailability = availability.weeklySlots.find(d => d.day === weekday);
-
         if (!dayAvailability || dayAvailability.slots.length === 0) {
-            throw new BadRequestException("No availability on this day");
+            throw new BadRequestException("Mentor is not available on this day.");
         }
 
-        const chosenSlotMinutes = convertSlotToMinutes(startTime, startPeriod);
+        const slotExists = dayAvailability.slots.some(s =>
+            s.startTime === selectedSlot.startTime &&
+            s.startPeriod === selectedSlot.startPeriod
+        );
 
-        const matchingSlot = dayAvailability.slots.find(slot => {
-            return (
-                convertSlotToMinutes(slot.startTime, slot.startPeriod) === chosenSlotMinutes
-            );
+        if (!slotExists) {
+            throw new BadRequestException("Selected slot is not available.");
+        }
+
+        const newEndTime = new Date(meetingDateUtc.getTime() + 3600 * 1000);
+
+        const overlap = await this.appointmentModel.findOne({
+            mentorId,
+            _id: { $ne: appointmentId },
+            meetingDate: { $lt: newEndTime },
+            endTime: { $gt: meetingDateUtc },
+            status: APPOINTMENT_STATUSES.SCHEDULED
         });
 
-        if (!matchingSlot) {
-            throw new BadRequestException("Selected slot is not available");
+        if (overlap) {
+            throw new BadRequestException("This slot is already booked by another appointment.");
         }
 
-        const endTime = new Date(meetingDate.getTime() + 60 * 60 * 1000);
+        const oldMeetingLocal = new Date(appointment.meetingDate.getTime() + 5.5 * 3600 * 1000);
+        const oldWeekday = oldMeetingLocal.getUTCDay();
+        const oldHour = oldMeetingLocal.getUTCHours();
+        const oldPeriod = oldHour >= 12 ? "PM" : "AM";
+        let oldDisplay = oldHour % 12;
+        if (oldDisplay === 0) oldDisplay = 12;
+
+        const oldSlot = {
+            startTime: oldDisplay.toString(),
+            startPeriod: oldPeriod
+        };
+
+        await this.availabilityModel.updateOne(
+            { mentorId, "weeklySlots.day": oldWeekday },
+            {
+                $push: {
+                    "weeklySlots.$.slots": oldSlot
+                }
+            }
+        );
+
+        await this.availabilityModel.updateOne(
+            { mentorId, "weeklySlots.day": weekday },
+            {
+                $pull: {
+                    "weeklySlots.$.slots": selectedSlot
+                }
+            }
+        );
 
         await this.appointmentModel.updateOne(
             { _id: new Types.ObjectId(appointmentId) },
             {
                 $set: {
-                    meetingDate,
-                    endTime,
-                    status: 'rescheduled'
+                    meetingDate: meetingDateUtc,
+                    endTime: newEndTime,
+                    status: "rescheduled"
                 }
             }
         );
 
         return {
             appointmentId,
-            meetingDate,
-            endTime,
-            status: 'rescheduled'
+            meetingDate: meetingDateUtc,
+            endTime: newEndTime,
+            status: "rescheduled"
         };
     }
 
