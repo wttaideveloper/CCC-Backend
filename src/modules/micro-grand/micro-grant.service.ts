@@ -18,6 +18,7 @@ import {
   CreateOrUpdateFormDto,
 } from './dto/micro-grant.dto';
 import { User, UserDocument } from '../users/schemas/user.schema';
+import { S3Service } from '../s3/s3.service';
 
 @Injectable()
 export class MicroGrantService {
@@ -28,6 +29,7 @@ export class MicroGrantService {
     private applicationModel: Model<MicroGrantApplicationDocument>,
     @InjectModel(User.name)
     private readonly userModel: Model<UserDocument>,
+    private readonly s3Service: S3Service,
   ) { }
 
   async createOrUpdateForm(dto: CreateOrUpdateFormDto) {
@@ -70,13 +72,27 @@ export class MicroGrantService {
     return form;
   }
 
-  async applyForGrant(dto: ApplyMicroGrantDto) {
+  async applyForGrant(dto: ApplyMicroGrantDto, files: Express.Multer.File[]) {
+
+    let answers = dto.answers;
+
+    if (typeof answers === 'string') {
+      try {
+        answers = JSON.parse(answers);
+      } catch (err) {
+        throw new BadRequestException('answers must be valid JSON');
+      }
+    }
+
     const form = await this.formModel
       .findOne()
       .sort({ updatedAt: -1 })
       .lean()
       .exec();
-    if (!form) throw new NotFoundException('No active form available');
+
+    if (!form) {
+      throw new NotFoundException('No active form available');
+    }
 
     const existing = await this.applicationModel.findOne({
       userId: new Types.ObjectId(dto.userId),
@@ -88,27 +104,41 @@ export class MicroGrantService {
     }
 
     const missingRequired = form.fields.filter(
-      (f) =>
-        f.required &&
-        (dto.answers[f.label] === undefined || dto.answers[f.label] === ''),
+      f => f.required && (!answers[f.label] || answers[f.label].trim() === '')
     );
 
     if (missingRequired.length > 0) {
       throw new BadRequestException(
         `Missing answers for required fields: ${missingRequired
-          .map((f) => f.label)
-          .join(', ')}`,
+          .map(f => f.label)
+          .join(', ')}`
       );
     }
+
+    const uploadedDocs: string[] = [];
+
+    if (files && files.length > 0) {
+      for (const file of files) {
+        const url = await this.s3Service.uploadFile(
+          file.originalname,
+          file.buffer,
+          file.mimetype
+        );
+
+        uploadedDocs.push(url);
+      }
+    }
+
     const application = await this.applicationModel.create({
       userId: new Types.ObjectId(dto.userId),
       formId: form._id,
-      answers: dto.answers,
-      supportingDoc: dto.supportingDoc || '',
+      answers: answers,
+      supportingDocs: uploadedDocs,
     });
 
     return application;
   }
+
 
   async getApplications(status?: string, search?: string) {
     const query: any = {};

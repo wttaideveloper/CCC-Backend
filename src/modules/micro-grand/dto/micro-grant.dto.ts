@@ -54,9 +54,8 @@ export class ApplyMicroGrantDto {
   @IsNotEmpty()
   userId: string;
 
-  @IsObject()
   @IsNotEmpty()
-  answers: Record<string, any>;
+  answers: any;
 
   @IsString()
   @IsOptional()

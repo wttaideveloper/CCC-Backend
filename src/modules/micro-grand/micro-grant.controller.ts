@@ -6,6 +6,8 @@ import {
   Patch,
   Post,
   Query,
+  UploadedFiles,
+  UseInterceptors,
   // UseGuards,
 } from '@nestjs/common';
 import { MicroGrantService } from './micro-grant.service';
@@ -18,6 +20,7 @@ import {
 // import { Roles } from '../../common/decorators';
 // import { ROLES } from '../../common/constants/roles.constants';
 import { ParseMongoIdPipe } from '../../common/pipes/parse-mongo-id.pipe';
+import { FilesInterceptor } from '@nestjs/platform-express';
 
 @Controller('microgrant')
 // @UseGuards(JwtAuthGuard, RolesGuard)
@@ -44,8 +47,11 @@ export class MicroGrantController {
 
   @Post('apply')
   // @Roles(ROLES.PASTOR)
-  async applyForGrant(@Body() dto: ApplyMicroGrantDto) {
-    const result = await this.microGrantService.applyForGrant(dto);
+  @UseInterceptors(FilesInterceptor('files', 10))
+  async applyForGrant(@Body() dto: ApplyMicroGrantDto,
+    @UploadedFiles() files: Express.Multer.File[],
+  ) {
+    const result = await this.microGrantService.applyForGrant(dto, files);
     return {
       success: true,
       message: 'Micro grant application submitted successfully',

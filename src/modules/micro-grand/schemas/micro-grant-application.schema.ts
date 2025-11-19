@@ -15,8 +15,8 @@ export class MicroGrantApplication {
   @Prop({ type: Object, default: {} })
   answers: Record<string, any>;
 
-  @Prop()
-  supportingDoc: string;
+  @Prop({ type: [String], default: [] })
+  supportingDocs: string[];
 
   @Prop({
     type: String,
