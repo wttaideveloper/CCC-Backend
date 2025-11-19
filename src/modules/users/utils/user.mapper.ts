@@ -19,5 +19,6 @@ export function toUserResponseDto(user: UserDocument | any): UserResponseDto {
         hasIssuedCertificate: user.hasIssuedCertificate || false,
         createdAt: user.createdAt,
         updatedAt: user.updatedAt,
+        assignedId: user.assignedId,
     };
 }

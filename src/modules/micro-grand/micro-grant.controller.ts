@@ -22,7 +22,7 @@ import { ParseMongoIdPipe } from '../../common/pipes/parse-mongo-id.pipe';
 @Controller('microgrant')
 // @UseGuards(JwtAuthGuard, RolesGuard)
 export class MicroGrantController {
-  constructor(private readonly microGrantService: MicroGrantService) {}
+  constructor(private readonly microGrantService: MicroGrantService) { }
 
   @Post('form')
   // @Roles(ROLES.DIRECTOR)
@@ -92,6 +92,19 @@ export class MicroGrantController {
       success: true,
       message: result.message,
       data: result.application,
+    };
+  }
+
+  @Get('application/check/:userId')
+  async checkApplication(
+    @Param('userId', ParseMongoIdPipe) userId: string,
+  ) {
+    const result = await this.microGrantService.checkApplication(userId);
+
+    return {
+      success: true,
+      message: "Application check completed",
+      data: result,
     };
   }
 }

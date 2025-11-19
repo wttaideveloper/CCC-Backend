@@ -116,10 +116,6 @@ export class AppointmentsService {
             .sort({ meetingDate: 1 })
             .exec();
 
-        if (appointments.length === 0 && futureOnly) {
-            throw new NotFoundException(`No scheduled appointments found for this ${role}.`);
-        }
-
         return appointments.map(toAppointmentResponseDto);
     }
 
@@ -186,7 +182,6 @@ export class AppointmentsService {
 
     async getMentorAvailability(mentorId: string) {
         const data = await this.availabilityModel.findOne({ mentorId }).lean();
-
         if (!data) {
             return {
                 mentorId,
@@ -213,7 +208,8 @@ export class AppointmentsService {
     }
 
     async getMonthlyAvailability(mentorId: string, year: number, month: number) {
-        const data = await this.availabilityModel.findOne({ mentorId }).lean();
+        const objectId = new Types.ObjectId(mentorId);
+        const data = await this.availabilityModel.findOne({ mentorId: objectId }).lean();
 
         if (!data) {
             return [];

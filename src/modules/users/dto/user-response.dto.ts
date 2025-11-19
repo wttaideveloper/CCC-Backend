@@ -48,6 +48,11 @@ export class UserResponseDto {
 
     @IsDate()
     updatedAt: Date;
+
+    @IsArray()
+    @ArrayMinSize(1)
+    @IsMongoId({ each: true })
+    assignedId: string[];
 }
 
 export class AssignMentorMenteeDto {

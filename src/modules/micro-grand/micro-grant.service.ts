@@ -176,4 +176,23 @@ export class MicroGrantService {
       application,
     };
   }
+
+  async checkApplication(userId: string) {
+    const application = await this.applicationModel
+      .findOne({ userId: new Types.ObjectId(userId) })
+      .lean();
+
+    if (!application) {
+      return {
+        applied: false,
+        status: "not_applied"
+      };
+    }
+
+    return {
+      applied: true,
+      status: application.status,
+      applicationId: application._id,
+    };
+  }
 }
