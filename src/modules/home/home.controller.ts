@@ -165,19 +165,19 @@ export class HomeController {
     return { success: true, message: 'Video uploaded', data };
   }
 
-  @Get()
+  @Get("videos")
   async findAllVideos(): Promise<BaseResponse<any>> {
     const data = await this.homeService.findAllVideos();
     return { success: true, message: 'Videos fetched', data };
   }
 
-  @Get(':id')
+  @Get('videos/:id')
   async findOneVideo(@Param('id') id: string): Promise<BaseResponse<any>> {
     const data = await this.homeService.findOneVideo(id);
     return { success: true, message: 'Video fetched', data };
   }
 
-  @Patch(':id')
+  @Patch('videos/:id')
   @UseInterceptors(FileInterceptor('file'))
   async updateVideo(
     @Param('id') id: string,
@@ -188,7 +188,7 @@ export class HomeController {
     return { success: true, message: 'Video updated', data };
   }
 
-  @Delete(':id')
+  @Delete('videos/:id')
   async deleteVideo(@Param('id') id: string): Promise<BaseResponse<any>> {
     const data = await this.homeService.deleteVideo(id);
     return { success: true, message: 'Video deleted', data };

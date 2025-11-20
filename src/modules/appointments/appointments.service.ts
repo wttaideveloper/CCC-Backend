@@ -181,7 +181,8 @@ export class AppointmentsService {
     }
 
     async getMentorAvailability(mentorId: string) {
-        const data = await this.availabilityModel.findOne({ mentorId }).lean();
+        const objectId = new Types.ObjectId(mentorId);
+        const data = await this.availabilityModel.findOne({ mentorId: objectId }).lean();
         if (!data) {
             return {
                 mentorId,
