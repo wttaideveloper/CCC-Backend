@@ -24,9 +24,9 @@ export class AuthService {
         const ok = await comparePassword(password, user.password || '');
         if (!ok) throw new UnauthorizedException('Invalid credentials');
 
-        // if (!user.isEmailVerified) {
-        //     throw new BadRequestException('Email not verified');
-        // }
+        if (!user.isEmailVerified) {
+            throw new BadRequestException('Email not verified');
+        }
 
         const payload = {
             sub: user._id!.toString(),
@@ -76,7 +76,7 @@ export class AuthService {
         if (password !== confirmPassword) throw new BadRequestException('Passwords do not match');
         const user = await this.usersService.findByEmail(email);
         if (!user) throw new BadRequestException('User not found');
-        // if (!user.isEmailVerified) throw new BadRequestException('Email not verified');
+        if (!user.isEmailVerified) throw new BadRequestException('Email not verified');
 
         await this.usersService.update(user._id!.toString(), { password });
         return { success: true };
