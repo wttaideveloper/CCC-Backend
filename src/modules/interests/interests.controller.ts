@@ -56,12 +56,12 @@ export class InterestController {
         };
     }
 
-    @Patch('request/:interestId')
+    @Patch('request/:userId')
     async updateUserStatus(
-        @Param('interestId') interestId: string,
+        @Param('userId') userId: string,
         @Body('status') status: string,
     ): Promise<BaseResponse<any>> {
-        const data = await this.interestService.updateUserStatus(interestId, status);
+        const data = await this.interestService.updateUserStatus(userId, status);
         return {
             success: true,
             message: 'User status updated successfully',

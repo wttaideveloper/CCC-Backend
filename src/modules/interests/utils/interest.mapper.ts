@@ -32,5 +32,6 @@ export function toInterestResponseDto(interest: InterestDocument | any): Interes
         interests: interest.interests,
         comments: interest.comments,
         userId: interest.userId?.toString(),
+        status: interest.status || 'new',
     };
 }

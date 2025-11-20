@@ -35,6 +35,29 @@ export class InterestService {
       const interest = await this.interestModel.create(dto);
       console.log(`Interest form created successfully for email: ${dto.email}, interestId: ${interest._id}`);
 
+      try {
+        const newUser = await this.usersService.create({
+          firstName: dto.firstName,
+          lastName: dto.lastName,
+          email: dto.email,
+          interestId: interest._id,
+          profilePicture: dto.profilePicture,
+          status: USER_STATUSES.PENDING,
+          role: ROLES.PENDING,
+        });
+
+        interest.userId = newUser.id as any;
+
+        await this.interestModel.findByIdAndUpdate(
+          interest._id,
+          { userId: newUser.id }
+        ).exec();
+
+        console.log(`User ${newUser.id} created and linked to interest ${interest._id}`);
+      } catch (userError: any) {
+        console.warn(`Failed to create user for interest ${interest._id}:`, userError.message);
+      }
+
       return toInterestResponseDto(interest);
     } catch (error: any) {
       if (error.code === 11000 && error.keyPattern?.email) {
@@ -64,7 +87,6 @@ export class InterestService {
 
     const match: any = {};
 
-    // 🔍 Search by Interest fields (and optionally user email)
     if (filters?.search) {
       const regex = new RegExp(filters.search, 'i');
       match.$or = [
@@ -76,9 +98,8 @@ export class InterestService {
       ];
     }
 
-    // 🎯 Filter by User's status if provided
     if (filters?.status) {
-      match['user.status'] = filters.status;
+      match.status = filters.status;
     }
 
     // Add filters to pipeline if they exist
@@ -104,6 +125,7 @@ export class InterestService {
         currentCommunityProjects: 1,
         interests: 1,
         comments: 1,
+        status: 1,
         createdAt: 1,
         updatedAt: 1,
       },
@@ -152,15 +174,8 @@ export class InterestService {
       throw new BadRequestException('Invalid status value');
     }
 
-    const matchCondition: any = {};
-
-    if (status === USER_APPLICATION_STATUSES.NEW) {
-      matchCondition.userDetails = { $eq: null };
-    } else {
-      matchCondition['userDetails.status'] = status;
-    }
-
     const pipeline: any[] = [
+      { $match: { status: status } },
       {
         $lookup: {
           from: 'users',
@@ -170,7 +185,6 @@ export class InterestService {
         },
       },
       { $unwind: { path: '$userDetails', preserveNullAndEmptyArrays: true } },
-      { $match: matchCondition },
       {
         $project: {
           _id: 1,
@@ -181,6 +195,7 @@ export class InterestService {
           profilePicture: 1,
           profileInfo: 1,
           title: 1,
+          status: 1,
           createdAt: 1,
           updatedAt: 1,
           churchDetails: 1,
@@ -205,57 +220,42 @@ export class InterestService {
   }
 
   async updateUserStatus(
-    interestId: string,
+    userId: string,
     status: string,
   ) {
     if (!VALID_USER_STATUSES.includes(status as any)) {
       throw new BadRequestException('Invalid status value. Allowed values: pending, accepted, rejected');
     }
 
-    const interest = await this.interestModel.findById(interestId).lean().exec();
-    if (!interest) {
-      throw new NotFoundException('Interest form not found');
+    const user = await this.usersService.findById(userId);
+    if (!user) {
+      throw new NotFoundException(`User with ID ${userId} not found`);
     }
 
-    let userId: string;
+    const updateData: any = { status };
 
-    if (interest.userId) {
-      try {
-        const existingUser = await this.usersService.findById(interest.userId.toString());
-        userId = existingUser.id;
+    if (status === USER_STATUSES.ACCEPTED) {
+      updateData.role = ROLES.PASTOR;
+    } else if (status === USER_STATUSES.REJECTED) {
+      updateData.role = ROLES.PENDING;
+    }
 
-        const updateData: any = { status };
-        if (status === USER_STATUSES.ACCEPTED) {
-          updateData.role = ROLES.PASTOR;
-        }
-        await this.usersService.update(userId, updateData);
-        console.log(`Updated existing user ${userId} with status: ${status}`);
+    await this.usersService.update(userId, updateData);
+    console.log(`Updated user ${userId} with status: ${status}`);
 
-        return this.usersService.findById(userId);
-      } catch (error) {
-        console.warn(`User ${interest.userId} not found, creating new user for interest ${interestId}`);
+    try {
+      const interest = await this.interestModel.findOne({ userId: userId }).exec();
+      if (interest) {
+        await this.interestModel.findByIdAndUpdate(
+          interest._id,
+          { status },
+          { runValidators: true }
+        ).exec();
+        console.log(`Updated interest ${interest._id} status to match user status: ${status}`);
       }
+    } catch (error: any) {
+      console.warn(`Failed to update interest status for user ${userId}:`, error.message);
     }
-
-    const newUser = await this.usersService.create({
-      firstName: interest.firstName,
-      lastName: interest.lastName,
-      email: interest.email,
-      interestId: interest._id,
-      profilePicture: interest.profilePicture,
-      status,
-      role: status === USER_STATUSES.ACCEPTED ? ROLES.PASTOR : ROLES.PENDING,
-    });
-
-    userId = newUser.id;
-    console.log(`Created new user ${userId} from interest form: ${interestId}`);
-
-    await this.interestModel.findByIdAndUpdate(
-      interestId,
-      { userId },
-      { new: true }
-    ).lean().exec();
-    console.log(`Linked interest ${interestId} with user: ${userId}`);
 
     return this.usersService.findById(userId);
   }

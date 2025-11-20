@@ -1,5 +1,6 @@
 import { Prop, Schema, SchemaFactory } from '@nestjs/mongoose';
 import { Document, Types } from 'mongoose';
+import { USER_APPLICATION_STATUSES, VALID_USER_APPLICATION_STATUSES } from '../../../common/constants/status.constants';
 
 export type InterestDocument = Document<unknown, {}, Interest> & Interest & {
     _id: Types.ObjectId;
@@ -76,6 +77,9 @@ export class Interest {
     @Prop()
     comments?: string;
 
+    @Prop({ enum: VALID_USER_APPLICATION_STATUSES, default: USER_APPLICATION_STATUSES.NEW })
+    status: string;
+
 }
 
 export const InterestSchema = SchemaFactory.createForClass(Interest);
@@ -85,4 +89,5 @@ InterestSchema.index({ 'churchDetails.state': 1 });
 InterestSchema.index({ 'churchDetails.conference': 1 });
 InterestSchema.index({ userId: 1 });
 InterestSchema.index({ createdAt: 1 });
+InterestSchema.index({ status: 1 });
 InterestSchema.index({ 'churchDetails.country': 1, 'churchDetails.state': 1 });

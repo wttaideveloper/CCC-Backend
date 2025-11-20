@@ -17,20 +17,28 @@ export class Extras {
 
     @Prop({
         type: [{
-            fileName: { type: String, required: true },
-            fileUrl: { type: String, required: true },
-            fileType: { type: String, required: true },
-            fileSize: { type: Number, required: true },
+            uploadBatchId: { type: String, required: true },
             uploadedAt: { type: Date, default: Date.now },
+            name: { type: String },
+            files: [{
+                fileName: { type: String, required: true },
+                fileUrl: { type: String, required: true },
+                fileType: { type: String, required: true },
+                fileSize: { type: Number, required: true },
+            }]
         }],
         default: [],
     })
     uploadedDocuments: {
-        fileName: string;
-        fileUrl: string;
-        fileType: string;
-        fileSize: number;
+        uploadBatchId: string;
         uploadedAt: Date;
+        name?: string;
+        files: {
+            fileName: string;
+            fileUrl: string;
+            fileType: string;
+            fileSize: number;
+        }[];
     }[];
 
     createdAt?: Date;
