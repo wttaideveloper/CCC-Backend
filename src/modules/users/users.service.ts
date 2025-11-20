@@ -56,14 +56,17 @@ export class UsersService {
         limit?: number;
         search?: string;
     }): Promise<{ users: UserResponseDto[]; total: number; page: number; totalPages: number }> {
+
         const query: any = {};
 
         if (filters?.role) {
             query.role = filters.role;
         }
+
         if (filters?.status) {
             query.status = filters.status;
         }
+
         if (filters?.search) {
             query.$or = [
                 { firstName: { $regex: filters.search, $options: 'i' } },
@@ -77,30 +80,56 @@ export class UsersService {
         const limit = filters?.limit && filters.limit > 0 ? filters.limit : 10;
         const skip = (page - 1) * limit;
 
-        const [users, total] = await Promise.all([
+        const [usersRaw, total] = await Promise.all([
             this.userModel
                 .find(query)
                 .select('-password -refreshToken -uploadedDocuments')
+                .populate({
+                    path: 'interestId',
+                    select: 'profileInfo',
+                })
                 .skip(skip)
                 .limit(limit)
                 .sort({ createdAt: -1 })
                 .lean()
                 .exec(),
+
             this.userModel.countDocuments(query).exec(),
         ]);
 
+        const users = usersRaw.map((user: any) => {
+            const dto = toUserResponseDto(user);
+
+            return {
+                ...dto,
+                profileInfo: user.interestId?.profileInfo ?? null,
+            };
+        });
+
         return {
-            users: users.map((user) => toUserResponseDto(user)),
+            users,
             total,
             page,
             totalPages: Math.ceil(total / limit),
         };
     }
 
-    async findById(id: string): Promise<UserResponseDto> {
-        const user = await this.userModel.findById(id).select('-password -refreshToken -uploadedDocuments').lean().exec();
+    async findById(id: string): Promise<any> {
+        const user = await this.userModel
+            .findById(id)
+            .select('-password -refreshToken -uploadedDocuments')
+            .lean();
+
         if (!user) throw new NotFoundException('User not found');
-        return toUserResponseDto(user);
+
+        const interest = await this.interestModel
+            .findOne({ userId: id })
+            .lean();
+
+        return {
+            ...toUserResponseDto(user),
+            interest: interest || null,
+        };
     }
 
     async findByEmail(email: string): Promise<UserDocument> {
@@ -229,7 +258,7 @@ export class UsersService {
             .find({ userId: { $in: assignedUserIds } })
             .select('userId profileInfo')
             .lean();
-    
+
         const interestMap = new Map<string, string | undefined>();
         for (const it of interests) {
             const key = (it.userId as any).toString();
