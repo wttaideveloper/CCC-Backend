@@ -29,13 +29,36 @@ export class RoadMapsService {
         private readonly s3Service: S3Service,
     ) { }
 
-    async create(dto: CreateRoadMapDto): Promise<RoadMapResponseDto> {
+    async create(dto: CreateRoadMapDto, image?: Express.Multer.File): Promise<RoadMapResponseDto> {
         const existing = await this.roadMapModel.findOne({ name: dto.name }).lean().exec();
         if (existing) {
             throw new BadRequestException(`RoadMap with name '${dto.name}' already exists.`);
         }
 
-        const roadMap = await this.roadMapModel.create(dto);
+        let imageUrl: string | undefined;
+
+        if (image) {
+            const allowedMimeTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/webp'];
+            if (!allowedMimeTypes.includes(image.mimetype)) {
+                throw new BadRequestException('Invalid file type. Only JPEG, PNG, and WebP are allowed');
+            }
+
+            const maxSize = 5 * 1024 * 1024; // 5MB
+            if (image.size > maxSize) {
+                throw new BadRequestException('File size exceeds 5MB limit');
+            }
+
+            const timestamp = Date.now();
+            const fileExtension = image.originalname.split('.').pop();
+            const key = `roadmaps/images/${timestamp}.${fileExtension}`;
+
+            imageUrl = await this.s3Service.uploadFile(key, image.buffer, image.mimetype);
+        }
+
+        const roadMap = await this.roadMapModel.create({
+            ...dto,
+            ...(imageUrl && { imageUrl }),
+        });
         return toRoadMapResponseDto(roadMap);
     }
 
@@ -68,7 +91,7 @@ export class RoadMapsService {
         return toRoadMapResponseDto(roadmap as any);
     }
 
-    async update(id: string, dto: UpdateRoadMapDto): Promise<RoadMapResponseDto> {
+    async update(id: string, dto: UpdateRoadMapDto, image?: Express.Multer.File): Promise<RoadMapResponseDto> {
         if (dto.name) {
             const existing = await this.roadMapModel.findOne({
                 name: dto.name,
@@ -80,10 +103,37 @@ export class RoadMapsService {
             }
         }
 
-        const updatedRoadmap = await this.roadMapModel.findByIdAndUpdate(id, dto, {
-            new: true,
-            runValidators: true
-        }).lean().exec();
+        let imageUrl: string | undefined;
+
+        if (image) {
+            const allowedMimeTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/webp'];
+            if (!allowedMimeTypes.includes(image.mimetype)) {
+                throw new BadRequestException('Invalid file type. Only JPEG, PNG, and WebP are allowed');
+            }
+
+            const maxSize = 5 * 1024 * 1024; // 5MB
+            if (image.size > maxSize) {
+                throw new BadRequestException('File size exceeds 5MB limit');
+            }
+
+            const timestamp = Date.now();
+            const fileExtension = image.originalname.split('.').pop();
+            const key = `roadmaps/${id}/images/${timestamp}.${fileExtension}`;
+
+            imageUrl = await this.s3Service.uploadFile(key, image.buffer, image.mimetype);
+        }
+
+        const updatedRoadmap = await this.roadMapModel.findByIdAndUpdate(
+            id,
+            {
+                ...dto,
+                ...(imageUrl && { imageUrl }),
+            },
+            {
+                new: true,
+                runValidators: true
+            }
+        ).lean().exec();
 
         if (!updatedRoadmap) {
             throw new NotFoundException(`RoadMap with ID "${id}" not found`);
@@ -269,7 +319,7 @@ export class RoadMapsService {
         return toQueriesThreadResponseDto(updatedThread as any);
     }
 
-    async updateNestedRoadMapItem(roadMapId: string, nestedItemId: string, dto: UpdateNestedRoadMapItemDto): Promise<RoadMapResponseDto> {
+    async updateNestedRoadMapItem(roadMapId: string, nestedItemId: string, dto: UpdateNestedRoadMapItemDto, image?: Express.Multer.File): Promise<RoadMapResponseDto> {
         const updateFields: any = {};
 
         Object.keys(dto).forEach(key => {
@@ -277,6 +327,25 @@ export class RoadMapsService {
                 updateFields[`roadmaps.$.${key}`] = dto[key];
             }
         });
+
+        if (image) {
+            const allowedMimeTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/webp'];
+            if (!allowedMimeTypes.includes(image.mimetype)) {
+                throw new BadRequestException('Invalid file type. Only JPEG, PNG, and WebP are allowed');
+            }
+
+            const maxSize = 5 * 1024 * 1024; // 5MB
+            if (image.size > maxSize) {
+                throw new BadRequestException('File size exceeds 5MB limit');
+            }
+
+            const timestamp = Date.now();
+            const fileExtension = image.originalname.split('.').pop();
+            const key = `roadmaps/${roadMapId}/nested/${nestedItemId}/images/${timestamp}.${fileExtension}`;
+
+            const imageUrl = await this.s3Service.uploadFile(key, image.buffer, image.mimetype);
+            updateFields['roadmaps.$.imageUrl'] = imageUrl;
+        }
 
         const updatedRoadmap = await this.roadMapModel.findOneAndUpdate(
             {
@@ -296,14 +365,39 @@ export class RoadMapsService {
         return toRoadMapResponseDto(updatedRoadmap);
     }
 
-    async addNestedRoadMap(roadMapId: string, dto: NestedRoadMapItemDto): Promise<RoadMapResponseDto> {
+    async addNestedRoadMap(roadMapId: string, dto: NestedRoadMapItemDto, image?: Express.Multer.File): Promise<RoadMapResponseDto> {
         const roadMapObjectId = new Types.ObjectId(roadMapId);
         const nestedRoadmapTotalSteps = dto.totalSteps || 0;
+
+        let imageUrl: string | undefined;
+
+        if (image) {
+            const allowedMimeTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/webp'];
+            if (!allowedMimeTypes.includes(image.mimetype)) {
+                throw new BadRequestException('Invalid file type. Only JPEG, PNG, and WebP are allowed');
+            }
+
+            const maxSize = 5 * 1024 * 1024; // 5MB
+            if (image.size > maxSize) {
+                throw new BadRequestException('File size exceeds 5MB limit');
+            }
+
+            const timestamp = Date.now();
+            const fileExtension = image.originalname.split('.').pop();
+            const key = `roadmaps/${roadMapId}/nested/images/${timestamp}.${fileExtension}`;
+
+            imageUrl = await this.s3Service.uploadFile(key, image.buffer, image.mimetype);
+        }
 
         const updatedRoadmap = await this.roadMapModel.findByIdAndUpdate(
             roadMapObjectId,
             {
-                $push: { roadmaps: dto },
+                $push: {
+                    roadmaps: {
+                        ...dto,
+                        ...(imageUrl && { imageUrl }),
+                    }
+                },
                 $inc: { totalSteps: nestedRoadmapTotalSteps },
                 haveNextedRoadMaps: true,
             },
@@ -560,11 +654,12 @@ export class RoadMapsService {
         return { message: 'Extras deleted successfully' };
     }
 
-    async uploadExtrasDocument(
+    async uploadExtrasDocuments(
         roadMapId: string,
         userId: string,
-        file: Express.Multer.File,
-        nestedRoadMapItemId?: string
+        files: Express.Multer.File[],
+        nestedRoadMapItemId?: string,
+        name?: string
     ): Promise<ExtrasDocumentDto> {
         const roadMapObjectId = toObjectId(roadMapId);
         const userObjectId = toObjectId(userId);
@@ -574,7 +669,11 @@ export class RoadMapsService {
             throw new BadRequestException('Invalid RoadMap ID or User ID provided');
         }
 
-        // Validate file type and size
+        if (!files || files.length === 0) {
+            throw new BadRequestException('No files provided');
+        }
+
+        // Validate file types and sizes
         const allowedTypes = [
             'application/pdf',
             'application/msword',
@@ -584,29 +683,48 @@ export class RoadMapsService {
             'image/jpeg',
             'image/png',
             'image/jpg',
+            'video/mp4',
+            'video/mpeg',
+            'video/quicktime',
         ];
 
-        if (!allowedTypes.includes(file.mimetype)) {
-            throw new BadRequestException(
-                'Invalid file type. Only PDF, Word, Excel, and images are allowed'
-            );
-        }
-
         const maxSize = 10 * 1024 * 1024; // 10MB
-        if (file.size > maxSize) {
-            throw new BadRequestException('File size exceeds 10MB limit');
+
+        for (const file of files) {
+            if (!allowedTypes.includes(file.mimetype)) {
+                throw new BadRequestException(
+                    `Invalid file type for ${file.originalname}. Only PDF, Word, Excel, images, and videos are allowed`
+                );
+            }
+
+            if (file.size > maxSize) {
+                throw new BadRequestException(`File ${file.originalname} size exceeds 10MB limit`);
+            }
         }
 
-        // Upload to S3
-        const key = `roadmaps/${roadMapId}/extras/${userId}/${Date.now()}-${file.originalname}`;
-        const fileUrl = await this.s3Service.uploadFile(key, file.buffer, file.mimetype);
+        const uploadBatchId = new Types.ObjectId().toString();
+        const timestamp = Date.now();
 
-        const documentData: ExtrasDocumentDto = {
-            fileName: file.originalname,
-            fileUrl: fileUrl,
-            fileType: file.mimetype,
-            fileSize: file.size,
+        // Upload all files to S3
+        const uploadedFiles = await Promise.all(
+            files.map(async (file) => {
+                const key = `roadmaps/${roadMapId}/extras/${userId}/${uploadBatchId}/${timestamp}-${file.originalname}`;
+                const fileUrl = await this.s3Service.uploadFile(key, file.buffer, file.mimetype);
+
+                return {
+                    fileName: file.originalname,
+                    fileUrl: fileUrl,
+                    fileType: file.mimetype,
+                    fileSize: file.size,
+                };
+            })
+        );
+
+        const documentBatch: ExtrasDocumentDto = {
+            uploadBatchId: uploadBatchId,
             uploadedAt: new Date(),
+            name: name,
+            files: uploadedFiles,
         };
 
         const query: any = {
@@ -626,7 +744,7 @@ export class RoadMapsService {
         await this.extrasModel.findOneAndUpdate(
             query,
             {
-                $push: { uploadedDocuments: documentData },
+                $push: { uploadedDocuments: documentBatch },
                 $setOnInsert: {
                     roadMapId: roadMapObjectId,
                     userId: userObjectId,
@@ -637,7 +755,7 @@ export class RoadMapsService {
             { upsert: true, new: true }
         ).exec();
 
-        return documentData;
+        return documentBatch;
     }
 
     async getExtrasDocuments(
@@ -676,10 +794,10 @@ export class RoadMapsService {
         return extras.uploadedDocuments || [];
     }
 
-    async deleteExtrasDocument(
+    async deleteExtrasDocumentBatch(
         roadMapId: string,
         userId: string,
-        fileUrl: string,
+        uploadBatchId: string,
         nestedRoadMapItemId?: string
     ): Promise<{ message: string }> {
         const roadMapObjectId = toObjectId(roadMapId);
@@ -706,7 +824,7 @@ export class RoadMapsService {
 
         const result = await this.extrasModel.findOneAndUpdate(
             query,
-            { $pull: { uploadedDocuments: { fileUrl: fileUrl } } },
+            { $pull: { uploadedDocuments: { uploadBatchId: uploadBatchId } } },
             { new: true }
         ).exec();
 
@@ -714,6 +832,72 @@ export class RoadMapsService {
             throw new NotFoundException('Extras not found');
         }
 
-        return { message: 'Document deleted successfully' };
+        return { message: 'Document batch deleted successfully' };
+    }
+
+    async deleteSingleFileFromBatch(
+        roadMapId: string,
+        userId: string,
+        uploadBatchId: string,
+        fileUrl: string,
+        nestedRoadMapItemId?: string
+    ): Promise<{ message: string }> {
+        const roadMapObjectId = toObjectId(roadMapId);
+        const userObjectId = toObjectId(userId);
+        const nestedRoadMapItemObjectId = toObjectId(nestedRoadMapItemId);
+
+        if (!roadMapObjectId || !userObjectId) {
+            throw new BadRequestException('Invalid RoadMap ID or User ID provided');
+        }
+
+        const query: any = {
+            roadMapId: roadMapObjectId,
+            userId: userObjectId,
+            'uploadedDocuments.uploadBatchId': uploadBatchId,
+        };
+
+        if (nestedRoadMapItemObjectId) {
+            query.nestedRoadMapItemId = nestedRoadMapItemObjectId;
+        } else {
+            query.$or = [
+                { nestedRoadMapItemId: null },
+                { nestedRoadMapItemId: { $exists: false } }
+            ];
+        }
+
+        // First, remove the specific file from the batch
+        const result = await this.extrasModel.findOneAndUpdate(
+            query,
+            {
+                $pull: {
+                    'uploadedDocuments.$[batch].files': { fileUrl: fileUrl }
+                }
+            },
+            {
+                arrayFilters: [{ 'batch.uploadBatchId': uploadBatchId }],
+                new: true
+            }
+        ).exec();
+
+        if (!result) {
+            throw new NotFoundException('Document batch not found');
+        }
+
+        // If the batch is now empty, remove the entire batch
+        const updatedBatch = result.uploadedDocuments.find(
+            (doc) => doc.uploadBatchId === uploadBatchId
+        );
+
+        if (updatedBatch && updatedBatch.files.length === 0) {
+            await this.extrasModel.findOneAndUpdate(
+                {
+                    roadMapId: roadMapObjectId,
+                    userId: userObjectId,
+                },
+                { $pull: { uploadedDocuments: { uploadBatchId: uploadBatchId } } }
+            ).exec();
+        }
+
+        return { message: 'File deleted successfully' };
     }
 }

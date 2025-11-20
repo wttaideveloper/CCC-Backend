@@ -9,9 +9,10 @@ import {
     Delete,
     UseInterceptors,
     UploadedFile,
+    UploadedFiles,
     // UseGuards,
 } from '@nestjs/common';
-import { FileInterceptor } from '@nestjs/platform-express';
+import { FileInterceptor, FilesInterceptor } from '@nestjs/platform-express';
 import { RoadMapsService } from './roadmaps.service';
 import { BaseResponse } from 'src/shared/interfaces/base-response.interface';
 import { RoadMapResponseDto, CreateRoadMapDto, UpdateRoadMapDto, UpdateNestedRoadMapItemDto, NestedRoadMapItemDto } from './dto/roadmap.dto';
@@ -34,11 +35,13 @@ export class RoadMapsController {
     constructor(private readonly roadMapsService: RoadMapsService) { }
 
     @Post()
+    @UseInterceptors(FileInterceptor('image'))
     // @Roles(ROLES.DIRECTOR, ROLES.MENTOR)
     async createRoadMap(
         @Body() dto: CreateRoadMapDto,
+        @UploadedFile() image?: Express.Multer.File,
     ): Promise<BaseResponse<RoadMapResponseDto>> {
-        const roadmap = await this.roadMapsService.create(dto);
+        const roadmap = await this.roadMapsService.create(dto, image);
         return {
             success: true,
             message: 'RoadMap created successfully',
@@ -83,12 +86,14 @@ export class RoadMapsController {
     }
 
     @Patch(':id')
+    @UseInterceptors(FileInterceptor('image'))
     // @Roles(ROLES.DIRECTOR, ROLES.MENTOR)
     async updateRoadMap(
         @Param('id', ParseMongoIdPipe) id: string,
         @Body() dto: UpdateRoadMapDto,
+        @UploadedFile() image?: Express.Multer.File,
     ): Promise<BaseResponse<RoadMapResponseDto>> {
-        const roadmap = await this.roadMapsService.update(id, dto);
+        const roadmap = await this.roadMapsService.update(id, dto, image);
         return {
             success: true,
             message: 'RoadMap updated successfully',
@@ -110,16 +115,19 @@ export class RoadMapsController {
     }
 
     @Patch(':roadMapId/nested/:nestedItemId')
+    @UseInterceptors(FileInterceptor('image'))
     // @Roles(ROLES.DIRECTOR, ROLES.MENTOR)
     async updateNestedRoadMapItem(
         @Param('roadMapId', ParseMongoIdPipe) roadMapId: string,
         @Param('nestedItemId', ParseMongoIdPipe) nestedItemId: string,
         @Body() dto: UpdateNestedRoadMapItemDto,
+        @UploadedFile() image?: Express.Multer.File,
     ): Promise<BaseResponse<RoadMapResponseDto>> {
         const roadmap = await this.roadMapsService.updateNestedRoadMapItem(
             roadMapId,
             nestedItemId,
             dto,
+            image,
         );
         return {
             success: true,
@@ -129,12 +137,14 @@ export class RoadMapsController {
     }
 
     @Post(':roadMapId/nested')
+    @UseInterceptors(FileInterceptor('image'))
     // @Roles(ROLES.DIRECTOR, ROLES.MENTOR)
     async addNestedRoadMap(
         @Param('roadMapId', ParseMongoIdPipe) roadMapId: string,
         @Body() dto: NestedRoadMapItemDto,
+        @UploadedFile() image?: Express.Multer.File,
     ): Promise<BaseResponse<RoadMapResponseDto>> {
-        const roadmap = await this.roadMapsService.addNestedRoadMap(roadMapId, dto);
+        const roadmap = await this.roadMapsService.addNestedRoadMap(roadMapId, dto, image);
         return {
             success: true,
             message: 'Nested RoadMap item added successfully',
@@ -290,22 +300,24 @@ export class RoadMapsController {
     }
 
     @Post(':roadMapId/extras/documents')
-    @UseInterceptors(FileInterceptor('file'))
+    @UseInterceptors(FilesInterceptor('files', 10)) // Support up to 10 files
     async uploadExtrasDocument(
         @Param('roadMapId', ParseMongoIdPipe) roadMapId: string,
         @Query('userId', ParseMongoIdPipe) userId: string,
         @Query('nestedRoadMapItemId', ParseMongoIdPipe) nestedRoadMapItemId: string | undefined,
-        @UploadedFile() file: Express.Multer.File,
+        @Query('name') name: string | undefined,
+        @UploadedFiles() files: Express.Multer.File[],
     ): Promise<BaseResponse<ExtrasDocumentDto>> {
-        const document = await this.roadMapsService.uploadExtrasDocument(
+        const document = await this.roadMapsService.uploadExtrasDocuments(
             roadMapId,
             userId,
-            file,
+            files,
             nestedRoadMapItemId,
+            name,
         );
         return {
             success: true,
-            message: 'Document uploaded successfully',
+            message: files.length > 1 ? 'Documents uploaded successfully' : 'Document uploaded successfully',
             data: document,
         };
     }
@@ -332,18 +344,40 @@ export class RoadMapsController {
     async deleteExtrasDocument(
         @Param('roadMapId', ParseMongoIdPipe) roadMapId: string,
         @Query('userId', ParseMongoIdPipe) userId: string,
+        @Query('uploadBatchId') uploadBatchId: string,
+        @Query('nestedRoadMapItemId') nestedRoadMapItemId?: string,
+    ): Promise<BaseResponse<{ message: string }>> {
+        const result = await this.roadMapsService.deleteExtrasDocumentBatch(
+            roadMapId,
+            userId,
+            uploadBatchId,
+            nestedRoadMapItemId,
+        );
+        return {
+            success: true,
+            message: 'Document(s) deleted successfully',
+            data: result,
+        };
+    }
+
+    @Delete(':roadMapId/extras/documents/file')
+    async deleteSingleFile(
+        @Param('roadMapId', ParseMongoIdPipe) roadMapId: string,
+        @Query('userId', ParseMongoIdPipe) userId: string,
+        @Query('uploadBatchId') uploadBatchId: string,
         @Query('fileUrl') fileUrl: string,
         @Query('nestedRoadMapItemId') nestedRoadMapItemId?: string,
     ): Promise<BaseResponse<{ message: string }>> {
-        const result = await this.roadMapsService.deleteExtrasDocument(
+        const result = await this.roadMapsService.deleteSingleFileFromBatch(
             roadMapId,
             userId,
+            uploadBatchId,
             fileUrl,
             nestedRoadMapItemId,
         );
         return {
             success: true,
-            message: 'Document deleted successfully',
+            message: 'File deleted successfully',
             data: result,
         };
     }

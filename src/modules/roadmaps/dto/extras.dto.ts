@@ -24,7 +24,7 @@ export class UpdateExtrasDto {
     extras?: Record<string, any>[];
 }
 
-export class ExtrasDocumentDto {
+export class FileDataDto {
     @IsString()
     fileName: string;
 
@@ -36,9 +36,22 @@ export class ExtrasDocumentDto {
 
     @IsNumber()
     fileSize: number;
+}
+
+export class ExtrasDocumentDto {
+    @IsString()
+    uploadBatchId: string;
 
     @IsDate()
     uploadedAt: Date;
+
+    @IsOptional()
+    @IsString()
+    name?: string;
+
+    @IsArray()
+    @Type(() => FileDataDto)
+    files: FileDataDto[];
 }
 
 export class ExtrasResponseDto {

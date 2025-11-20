@@ -99,4 +99,7 @@ export class InterestResponseDto {
     @IsString()
     userId?: string;
 
+    @IsString()
+    status: string;
+
 }
