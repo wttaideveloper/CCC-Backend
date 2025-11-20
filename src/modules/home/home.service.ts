@@ -20,9 +20,9 @@ import {
   NotificationResponseDto,
 } from './dto/notification.dto';
 import { USER_ROLES } from '../../common/constants/status.constants';
-import { Video, VideoDocument } from './schemas/videos.schema';
-import { CreateVideoDto, UpdateVideoDto } from './dto/video.dto';
+import { Media, MediaDocument } from './schemas/media.schema';
 import { S3Service } from '../s3/s3.service';
+import { CreateMediaDto, UpdateMediaDto } from './dto/media.dto';
 
 interface MentorFilterOptions {
   page?: number;
@@ -42,8 +42,8 @@ export class HomeService {
     private readonly userModel: Model<UserDocument>,
     @InjectModel(Notification.name)
     private readonly notificationModel: Model<NotificationDocument>,
-    @InjectModel(Video.name)
-    private videoModel: Model<VideoDocument>,
+    @InjectModel(Media.name)
+    private readonly mediaModel: Model<MediaDocument>,
     private readonly s3Service: S3Service,
   ) { }
 
@@ -317,96 +317,125 @@ export class HomeService {
     };
   }
 
-  async createVideo(dto: CreateVideoDto, file: Express.Multer.File) {
-    if (!file) {
-      throw new BadRequestException('No video file provided');
+  async createMedia(dto: CreateMediaDto, files: Express.Multer.File[]) {
+    if (!files || files.length === 0) {
+      throw new BadRequestException('At least one media file must be uploaded');
     }
 
-    const allowedMimeTypes = ['video/mp4', 'video/webm', 'video/ogg'];
-    if (!allowedMimeTypes.includes(file.mimetype)) {
-      throw new BadRequestException('Invalid video type. Only MP4, WEBM, OGG allowed');
+    const mediaFiles: Media['mediaFiles'] = [];
+
+    for (const file of files) {
+      const mime = file.mimetype;
+
+      const isImage = mime.startsWith('image/');
+      const isVideo = mime.startsWith('video/');
+
+      if (!isImage && !isVideo) {
+        throw new BadRequestException('Only image or video files allowed');
+      }
+
+      if (isImage && file.size > 5 * 1024 * 1024) {
+        throw new BadRequestException('Image exceeds 5MB limit');
+      }
+      if (isVideo && file.size > 50 * 1024 * 1024) {
+        throw new BadRequestException('Video exceeds 50MB limit');
+      }
+
+      const ext = file.originalname.split('.').pop();
+      const timestamp = Date.now();
+      const key = `media/${isVideo ? 'video' : 'image'}/${timestamp}.${ext}`;
+
+      const url = await this.s3Service.uploadFile(
+        key,
+        file.buffer,
+        file.mimetype,
+      );
+
+      mediaFiles.push({
+        url,
+        type: isVideo ? 'video' : 'image',
+        fileName: key,
+        size: file.size,
+        uploadedAt: new Date(),
+      });
     }
 
-    const maxSize = 50 * 1024 * 1024;
-    if (file.size > maxSize) {
-      throw new BadRequestException('Video exceeds 50MB limit');
-    }
-
-    const timestamp = Date.now();
-    const extension = file.originalname.split('.').pop();
-    const fileName = `videos/${timestamp}.${extension}`;
-
-    const videoUrl = await this.s3Service.uploadFile(
-      fileName,
-      file.buffer,
-      file.mimetype,
-    );
-
-    const saved = await this.videoModel.create({
+    const saved = await this.mediaModel.create({
       heading: dto.heading,
       subheading: dto.subheading,
       description: dto.description,
-      video: videoUrl,
+      mediaFiles,
     });
 
     return saved;
   }
 
-  async findAllVideos() {
-    return await this.videoModel.find().sort({ createdAt: -1 }).lean();
+  async findAllMedia() {
+    return await this.mediaModel.find().sort({ createdAt: -1 }).lean();
   }
 
-  async findOneVideo(id: string) {
-    const data = await this.videoModel.findById(id).lean();
-    if (!data) throw new NotFoundException('Video not found');
-    return data;
+  async findOneMedia(id: string) {
+    const media = await this.mediaModel.findById(id).lean();
+    if (!media) throw new NotFoundException('Media not found');
+    return media;
   }
 
-  async updateVideo(
-    id: string,
-    dto: UpdateVideoDto,
-    file?: Express.Multer.File,
-  ) {
-    const video = await this.videoModel.findById(id);
-    if (!video) {
-      throw new NotFoundException('Video not found');
+
+  async updateMedia(id: string, dto: UpdateMediaDto, files?: Express.Multer.File[]) {
+    const media = await this.mediaModel.findById(id);
+    if (!media) throw new NotFoundException('Media not found');
+
+    const updatedFiles = [...media.mediaFiles];
+
+    if (files && files.length > 0) {
+      for (const file of files) {
+        const mime = file.mimetype;
+        const isImage = mime.startsWith('image/');
+        const isVideo = mime.startsWith('video/');
+
+        if (!isImage && !isVideo) {
+          throw new BadRequestException('Only image or video allowed');
+        }
+
+        const ext = file.originalname.split('.').pop();
+        const timestamp = Date.now();
+        const key = `media/${isVideo ? 'video' : 'image'}/${id}_${timestamp}.${ext}`;
+
+        const url = await this.s3Service.uploadFile(
+          key,
+          file.buffer,
+          file.mimetype,
+        );
+
+        updatedFiles.push({
+          url,
+          type: isVideo ? 'video' : 'image',
+          fileName: key,
+        });
+      }
     }
 
-    if (file) {
-      const allowedMimeTypes = ['video/mp4', 'video/webm', 'video/ogg'];
-      if (!allowedMimeTypes.includes(file.mimetype)) {
-        throw new BadRequestException('Invalid video type');
-      }
-
-      const maxSize = 50 * 1024 * 1024;
-      if (file.size > maxSize) {
-        throw new BadRequestException('Video exceeds 50MB limit');
-      }
-
-      const timestamp = Date.now();
-      const ext = file.originalname.split('.').pop();
-      const filename = `videos/${id}_${timestamp}.${ext}`;
-
-      const videoUrl = await this.s3Service.uploadFile(
-        filename,
-        file.buffer,
-        file.mimetype,
-      );
-
-      dto.video = videoUrl;
-    }
-
-    const updated = await this.videoModel
-      .findByIdAndUpdate(id, { $set: dto }, { new: true })
+    const updated = await this.mediaModel
+      .findByIdAndUpdate(
+        id,
+        {
+          $set: {
+            heading: dto.heading ?? media.heading,
+            subheading: dto.subheading ?? media.subheading,
+            description: dto.description ?? media.description,
+            mediaFiles: updatedFiles,
+          },
+        },
+        { new: true },
+      )
       .lean();
 
     return updated;
   }
 
-
-  async deleteVideo(id: string) {
-    const deleted = await this.videoModel.findByIdAndDelete(id).lean();
-    if (!deleted) throw new NotFoundException('Video not found');
+  async deleteMedia(id: string) {
+    const deleted = await this.mediaModel.findByIdAndDelete(id).lean();
+    if (!deleted) throw new NotFoundException('Media not found');
     return deleted;
   }
 }

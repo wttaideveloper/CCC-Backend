@@ -9,9 +9,9 @@ import {
 import { Home, HomeSchema } from './schemas/home.schema';
 import { UsersModule } from '../users/users.module';
 import { User, UserSchema } from '../users/schemas/user.schema';
-import { Video, VideoSchema } from './schemas/videos.schema';
 import { S3Module } from '../s3/s3.module';
 import { MulterModule } from '@nestjs/platform-express';
+import { Media, MediaSchema } from './schemas/media.schema';
 
 @Module({
   imports: [
@@ -19,7 +19,7 @@ import { MulterModule } from '@nestjs/platform-express';
       { name: Home.name, schema: HomeSchema },
       { name: User.name, schema: UserSchema },
       { name: Notification.name, schema: NotificationSchema },
-      { name: Video.name, schema: VideoSchema }
+      { name: Media.name, schema: MediaSchema }
     ]),
     UsersModule,
     S3Module,

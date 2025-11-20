@@ -8,6 +8,7 @@ import {
   Post,
   Query,
   UploadedFile,
+  UploadedFiles,
   UseGuards,
   UseInterceptors,
 } from '@nestjs/common';
@@ -23,8 +24,8 @@ import {
 // import { Roles } from '../../common/decorators';
 // import { ROLES } from '../../common/constants/roles.constants';
 import { ParseMongoIdPipe } from '../../common/pipes/parse-mongo-id.pipe';
-import { CreateVideoDto, UpdateVideoDto } from './dto/video.dto';
-import { FileInterceptor } from '@nestjs/platform-express';
+import { CreateMediaDto, UpdateMediaDto } from './dto/media.dto';
+import { FilesInterceptor } from '@nestjs/platform-express';
 
 @Controller('home')
 // @UseGuards(JwtAuthGuard, RolesGuard)
@@ -106,18 +107,6 @@ export class HomeController {
     };
   }
 
-  @Get(':email')
-  async getHomeDetails(
-    @Param('email') email: string,
-  ): Promise<BaseResponse<HomeResponseDto>> {
-    const home = await this.homeService.getByEmail(email);
-    return {
-      success: true,
-      message: 'Home details fetched successfully',
-      data: home,
-    };
-  }
-
   @Post('notifications')
   async addNotification(
     @Body() dto: AddNotificationDto,
@@ -158,39 +147,54 @@ export class HomeController {
     };
   }
 
-  @Post("videos")
-  @UseInterceptors(FileInterceptor('file'))
-  async create(@Body() dto: CreateVideoDto, @UploadedFile() file: Express.Multer.File) {
-    const data = await this.homeService.createVideo(dto, file);
-    return { success: true, message: 'Video uploaded', data };
-  }
-
-  @Get("videos")
-  async findAllVideos(): Promise<BaseResponse<any>> {
-    const data = await this.homeService.findAllVideos();
-    return { success: true, message: 'Videos fetched', data };
-  }
-
-  @Get('videos/:id')
-  async findOneVideo(@Param('id') id: string): Promise<BaseResponse<any>> {
-    const data = await this.homeService.findOneVideo(id);
-    return { success: true, message: 'Video fetched', data };
-  }
-
-  @Patch('videos/:id')
-  @UseInterceptors(FileInterceptor('file'))
-  async updateVideo(
-    @Param('id') id: string,
-    @Body() dto: UpdateVideoDto,
-    @UploadedFile() file?: Express.Multer.File,
+  @Post("media")
+  @UseInterceptors(FilesInterceptor('files', 10)) // multiple upload
+  async create(
+    @Body() dto: CreateMediaDto,
+    @UploadedFiles() files: Express.Multer.File[],
   ) {
-    const data = await this.homeService.updateVideo(id, dto, file);
-    return { success: true, message: 'Video updated', data };
+    const data = await this.homeService.createMedia(dto, files);
+    return { success: true, message: 'Media created successfully', data };
   }
 
-  @Delete('videos/:id')
-  async deleteVideo(@Param('id') id: string): Promise<BaseResponse<any>> {
-    const data = await this.homeService.deleteVideo(id);
-    return { success: true, message: 'Video deleted', data };
+  @Get("media")
+  async findAll() {
+    const data = await this.homeService.findAllMedia();
+    return { success: true, message: 'Media fetched successfully', data };
+  }
+
+  @Get('media/:id')
+  async findOne(@Param('id') id: string) {
+    const data = await this.homeService.findOneMedia(id);
+    return { success: true, message: 'Media fetched successfully', data };
+  }
+
+  @Patch('media/:id')
+  @UseInterceptors(FilesInterceptor('files', 10))
+  async update(
+    @Param('id') id: string,
+    @Body() dto: UpdateMediaDto,
+    @UploadedFiles() files?: Express.Multer.File[],
+  ) {
+    const data = await this.homeService.updateMedia(id, dto, files);
+    return { success: true, message: 'Media updated successfully', data };
+  }
+
+  @Delete('media/:id')
+  async delete(@Param('id') id: string) {
+    const data = await this.homeService.deleteMedia(id);
+    return { success: true, message: 'Media deleted successfully', data };
+  }
+
+  @Get(':email')
+  async getHomeDetails(
+    @Param('email') email: string,
+  ): Promise<BaseResponse<HomeResponseDto>> {
+    const home = await this.homeService.getByEmail(email);
+    return {
+      success: true,
+      message: 'Home details fetched successfully',
+      data: home,
+    };
   }
 }
