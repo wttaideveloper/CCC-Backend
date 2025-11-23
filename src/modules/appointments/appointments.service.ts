@@ -16,6 +16,15 @@ export class AppointmentsService {
         @InjectModel(Availability.name) private availabilityModel: Model<AvailabilityDocument>,
     ) { }
 
+    private readonly userSelect = 'firstName lastName email phoneNumber profilePicture';
+    private readonly mentorSelect = 'firstName lastName email phoneNumber profilePicture';
+
+    private populateBase(query: any) {
+        return query
+            .populate('userId', this.userSelect)
+            .populate('mentorId', this.mentorSelect);
+    }
+
     async create(dto: CreateAppointmentDto): Promise<AppointmentResponseDto> {
         const mentorId = new Types.ObjectId(dto.mentorId);
 
@@ -79,6 +88,10 @@ export class AppointmentsService {
 
         const saved = await appointment.save();
 
+        const populated = await this.populateBase(
+            this.appointmentModel.findById(saved._id)
+        ).lean();
+
         await this.availabilityModel.updateOne(
             {
                 mentorId,
@@ -94,7 +107,7 @@ export class AppointmentsService {
             }
         );
 
-        return toAppointmentResponseDto(saved);
+        return toAppointmentResponseDto(populated as AppointmentDocument);
     }
 
     async getSchedule(
@@ -111,10 +124,9 @@ export class AppointmentsService {
             query.meetingDate = { $gte: new Date() };
         }
 
-        const appointments = await this.appointmentModel
-            .find(query)
-            .sort({ meetingDate: 1 })
-            .exec();
+        const appointments = await this.populateBase(
+            this.appointmentModel.find(query).sort({ meetingDate: 1 })
+        ).lean().exec();
 
         return appointments.map(toAppointmentResponseDto);
     }
@@ -334,23 +346,21 @@ export class AppointmentsService {
         );
 
         // Update appointment
-        await this.appointmentModel.updateOne(
-            { _id: appointmentId },
-            {
-                $set: {
-                    meetingDate: meetingDateUtc,
-                    endTime: newEndUtc,
-                    status: "rescheduled"
-                }
-            }
-        );
+        const updated = await this.populateBase(
+            this.appointmentModel.findByIdAndUpdate(
+                appointmentId,
+                {
+                    $set: {
+                        meetingDate: meetingDateUtc,
+                        endTime: newEndUtc,
+                        status: "rescheduled"
+                    }
+                },
+                { new: true }
+            )
+        ).lean();
 
-        return {
-            appointmentId,
-            meetingDate: meetingDateUtc,
-            endTime: newEndUtc,
-            status: "rescheduled"
-        };
+        return toAppointmentResponseDto(updated as AppointmentDocument);
     }
 
     async cancel(appointmentId: string, dto: { reason?: string }) {
@@ -420,17 +430,19 @@ export class AppointmentsService {
         // update appointment to cancelled
         const cancelledStatus = (APPOINTMENT_STATUSES && (APPOINTMENT_STATUSES.CANCELED ?? APPOINTMENT_STATUSES.CANCELED)) || 'canceled';
 
-        const updated = await this.appointmentModel.findByIdAndUpdate(
-            appointment._id,
-            {
-                $set: {
-                    status: cancelledStatus,
-                    canceledAt: new Date(),
-                    cancelReason: dto.reason ?? null
-                }
-            },
-            { new: true }
-        ).exec();
+        const updated = await this.populateBase(
+            this.appointmentModel.findByIdAndUpdate(
+                appointment._id,
+                {
+                    $set: {
+                        status: cancelledStatus,
+                        canceledAt: new Date(),
+                        cancelReason: dto.reason ?? null
+                    }
+                },
+                { new: true }
+            )
+        ).lean();
 
         return toAppointmentResponseDto(updated as AppointmentDocument);
     }
