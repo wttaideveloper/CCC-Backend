@@ -66,6 +66,12 @@ export class Appointment {
         required: true
     })
     status: string;
+
+    @Prop({ type: Date, default: null })
+    canceledAt?: Date;
+
+    @Prop({ type: String, default: null })
+    cancelReason?: string;
 }
 
 export const AppointmentSchema = SchemaFactory.createForClass(Appointment);

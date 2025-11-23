@@ -234,9 +234,7 @@ export class AppointmentsService {
             throw new BadRequestException("Invalid meeting duration.");
         }
 
-        // ------------------------
         // Parse new meeting date
-        // ------------------------
         const meetingDateUtc = new Date(dto.newDate);
         const meetingInMentorTz = new Date(meetingDateUtc.getTime() + IST_OFFSET);
 
@@ -247,9 +245,7 @@ export class AppointmentsService {
         if (minute !== 0)
             throw new BadRequestException("Time must start exactly at the hour.");
 
-        // ------------------------
         // Compute start slot for new time
-        // ------------------------
         const selectedPeriod = selectedHour24 >= 12 ? "PM" : "AM";
         let displayHour = selectedHour24 % 12;
         if (displayHour === 0) displayHour = 12;
@@ -271,9 +267,7 @@ export class AppointmentsService {
             endPeriod: endPeriod
         };
 
-        // ------------------------
         // Check availability
-        // ------------------------
         const dayAvailability = availability.weeklySlots.find(d => d.day === weekday);
         if (!dayAvailability || dayAvailability.slots.length === 0)
             throw new BadRequestException("Mentor is not available on this day.");
@@ -288,9 +282,7 @@ export class AppointmentsService {
         if (!slotExists)
             throw new BadRequestException("Selected slot is not available.");
 
-        // ------------------------
         // Overlap check
-        // ------------------------
         const overlap = await this.appointmentModel.findOne({
             mentorId,
             _id: { $ne: appointmentId },
@@ -302,9 +294,7 @@ export class AppointmentsService {
         if (overlap)
             throw new BadRequestException("This slot is already booked by another appointment.");
 
-        // ------------------------
-        // Restore old slot (start + end)
-        // ------------------------
+        // Restore old slot 
         const oldMeetingUtc = new Date(appointment.meetingDate);
         const oldLocal = new Date(oldMeetingUtc.getTime() + IST_OFFSET);
 
@@ -332,9 +322,7 @@ export class AppointmentsService {
             endPeriod: oldEndPeriod
         };
 
-        // ------------------------
         // Update availability: push old, pull new
-        // ------------------------
         await this.availabilityModel.updateOne(
             { mentorId, "weeklySlots.day": oldWeekday },
             { $push: { "weeklySlots.$.slots": oldSlot } }
@@ -345,9 +333,7 @@ export class AppointmentsService {
             { $pull: { "weeklySlots.$.slots": selectedSlot } }
         );
 
-        // ------------------------
         // Update appointment
-        // ------------------------
         await this.appointmentModel.updateOne(
             { _id: appointmentId },
             {
@@ -367,4 +353,85 @@ export class AppointmentsService {
         };
     }
 
+    async cancel(appointmentId: string, dto: { reason?: string }) {
+        const IST_OFFSET = 5.5 * 3600 * 1000;
+
+        // load appointment
+        const appointment = await this.appointmentModel.findById(appointmentId).lean();
+        if (!appointment) throw new NotFoundException("Appointment not found.");
+
+        // only scheduled appointments can be cancelled
+        if (appointment.status !== APPOINTMENT_STATUSES.SCHEDULED) {
+            throw new BadRequestException("Only scheduled appointments can be cancelled.");
+        }
+
+        const mentorId = appointment.mentorId;
+
+        // load availability
+        const availability = await this.availabilityModel.findOne({ mentorId }).lean();
+        if (!availability) {
+            // still cancel the appointment but warn — here we choose to still cancel and skip restoring slot
+            await this.appointmentModel.updateOne(
+                { _id: appointment._id },
+                {
+                    $set: {
+                        status: APPOINTMENT_STATUSES.CANCELED ?? 'canceled',
+                        canceledAt: new Date(),
+                        cancelReason: dto.reason ?? null
+                    }
+                }
+            );
+            return { appointmentId, status: APPOINTMENT_STATUSES.CANCELED ?? 'canceled' };
+        }
+
+        const durationMinutes = availability.meetingDuration ?? 60;
+
+        // compute old slot (start + end) using mentor tz (IST)
+        const oldMeetingUtc = new Date(appointment.meetingDate);
+        const oldLocal = new Date(oldMeetingUtc.getTime() + IST_OFFSET);
+
+        const oldWeekday = oldLocal.getUTCDay();
+        const oldHour24 = oldLocal.getUTCHours();
+        const oldPeriod = oldHour24 >= 12 ? "PM" : "AM";
+        let oldDisplay = oldHour24 % 12;
+        if (oldDisplay === 0) oldDisplay = 12;
+
+        const oldEndUtc = new Date(oldMeetingUtc.getTime() + durationMinutes * 60000);
+        const oldEndLocal = new Date(oldEndUtc.getTime() + IST_OFFSET);
+
+        const oldEndHour24 = oldEndLocal.getUTCHours();
+        const oldEndPeriod = oldEndHour24 >= 12 ? "PM" : "AM";
+        let oldEndDisplay = oldEndHour24 % 12;
+        if (oldEndDisplay === 0) oldEndDisplay = 12;
+
+        const oldSlot = {
+            startTime: oldDisplay.toString(),
+            startPeriod: oldPeriod,
+            endTime: oldEndDisplay.toString(),
+            endPeriod: oldEndPeriod
+        };
+
+        // push slot back into availability
+        await this.availabilityModel.updateOne(
+            { mentorId, "weeklySlots.day": oldWeekday },
+            { $push: { "weeklySlots.$.slots": oldSlot } }
+        );
+
+        // update appointment to cancelled
+        const cancelledStatus = (APPOINTMENT_STATUSES && (APPOINTMENT_STATUSES.CANCELED ?? APPOINTMENT_STATUSES.CANCELED)) || 'canceled';
+
+        const updated = await this.appointmentModel.findByIdAndUpdate(
+            appointment._id,
+            {
+                $set: {
+                    status: cancelledStatus,
+                    canceledAt: new Date(),
+                    cancelReason: dto.reason ?? null
+                }
+            },
+            { new: true }
+        ).exec();
+
+        return toAppointmentResponseDto(updated as AppointmentDocument);
+    }
 }

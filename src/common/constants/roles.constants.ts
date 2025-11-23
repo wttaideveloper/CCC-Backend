@@ -3,6 +3,8 @@ export const ROLES = {
   MENTOR: 'mentor',
   FIELD_MENTOR: 'field mentor',
   PASTOR: 'pastor',
+  LAY_LEADER: 'lay leader',
+  SEMINARIAN: 'seminarian',
   PENDING: 'pending',
 } as const;
 

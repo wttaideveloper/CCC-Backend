@@ -1,6 +1,6 @@
 import { Controller, Post, Body, Get, Param, Patch, Query } from '@nestjs/common';
 import { AppointmentsService } from './appointments.service';
-import { CreateAppointmentDto, AppointmentResponseDto, UpdateAppointmentDto } from './dto/appointment.dto';
+import { CreateAppointmentDto, AppointmentResponseDto, UpdateAppointmentDto, CancelAppointmentDto } from './dto/appointment.dto';
 import { BaseResponse } from 'src/shared/interfaces/base-response.interface';
 import { AvailabilityDto } from './dto/availability.dto';
 
@@ -112,5 +112,14 @@ export class AppointmentsController {
     ) {
         const data = await this.appointmentsService.reschedule(id, dto);
         return { success: true, message: 'Appointment rescheduled', data };
+    }
+
+    @Patch(':id/cancel')
+    async cancel(
+        @Param('id') id: string,
+        @Body() body: CancelAppointmentDto
+    ) {
+        const result = await this.appointmentsService.cancel(id, { reason: body.reason });
+        return { success: true, data: result };
     }
 }

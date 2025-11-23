@@ -46,3 +46,7 @@ export class AppointmentResponseDto {
     status: string;
     notes?: string;
 }
+
+export class CancelAppointmentDto {
+    readonly reason?: string;
+}
