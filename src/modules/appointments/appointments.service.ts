@@ -107,7 +107,9 @@ export class AppointmentsService {
             }
         );
 
-        return toAppointmentResponseDto(populated as AppointmentDocument);
+        const result = toAppointmentResponseDto(populated as AppointmentDocument);
+        return result
+
     }
 
     async getSchedule(

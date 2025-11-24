@@ -35,16 +35,34 @@ export class UpdateAppointmentDto extends PartialType(
     status?: string;
 }
 
+export class PersonInfoDto {
+    id: string;
+    firstName?: string;
+    lastName?: string;
+    email?: string;
+    phoneNumber?: string;
+    profilePicture?: string;
+}
+
 export class AppointmentResponseDto {
     id: string;
+
     userId: string;
     mentorId: string;
+
+    user: PersonInfoDto | null;
+    mentor: PersonInfoDto | null;
+
     meetingDate: Date;
     endTime: Date;
+
     platform: string;
     meetingLink?: string;
-    status: string;
     notes?: string;
+    status: string;
+
+    createdAt?: Date;
+    updatedAt?: Date;
 }
 
 export class CancelAppointmentDto {
