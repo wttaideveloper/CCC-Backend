@@ -1,9 +1,13 @@
-import { IsEmail, IsNotEmpty, IsOptional, IsString } from 'class-validator';
+import { IsNotEmpty, IsOptional, IsString, IsMongoId } from 'class-validator';
 
 export class AddNotificationDto {
-  @IsEmail()
-  @IsNotEmpty()
-  email: string;
+  @IsMongoId()
+  @IsOptional()
+  userId?: string;
+
+  @IsString()
+  @IsOptional()
+  role?: string;
 
   @IsString()
   @IsNotEmpty()
@@ -16,22 +20,26 @@ export class AddNotificationDto {
   @IsString()
   @IsOptional()
   module?: string;
-
-  @IsString()
-  @IsOptional()
-  roleId?: string;
 }
 
 export class GetNotificationDto {
-  @IsEmail()
-  @IsNotEmpty()
-  email: string;
+  @IsMongoId()
+  @IsOptional()
+  userId?: string;
+
+  @IsString()
+  @IsOptional()
+  role?: string;
 }
 
 export class ClearNotificationDto {
-  @IsEmail()
-  @IsNotEmpty()
-  email: string;
+  @IsMongoId()
+  @IsOptional()
+  userId?: string;
+
+  @IsString()
+  @IsOptional()
+  role?: string;
 }
 
 export class NotificationItemResponseDto {
@@ -42,9 +50,12 @@ export class NotificationItemResponseDto {
 
 export class NotificationResponseDto {
   _id: string;
-  email: string;
-  roleId?: string;
+
+  userId?: string;
+  role?: string;
+
   notifications: NotificationItemResponseDto[];
+
   createdAt: Date;
   updatedAt: Date;
 }

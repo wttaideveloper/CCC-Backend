@@ -5,11 +5,13 @@ import { InterestController } from './interests.controller';
 import { InterestService } from './interests.service';
 import { MailerService } from 'src/common/utils/mail.util';
 import { UsersModule } from '../users/users.module';
+import { HomeModule } from '../home/home.module';
 
 @Module({
   imports: [
     MongooseModule.forFeature([{ name: Interest.name, schema: InterestSchema }]),
     UsersModule,
+    HomeModule,
   ],
   controllers: [InterestController],
   providers: [InterestService, MailerService],

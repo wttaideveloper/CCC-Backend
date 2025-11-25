@@ -8,12 +8,15 @@ import { APPOINTMENT_STATUSES } from '../../common/constants/status.constants';
 import { Availability, AvailabilityDocument } from './schemas/availability.schema';
 import { AvailabilityDto } from './dto/availability.dto';
 import { generateMonthlyAvailability, splitIntoDurationSlots } from './utils/availability.utils';
+import { HomeService } from '../home/home.service';
+import { ROLES } from 'src/common/constants/roles.constants';
 
 @Injectable()
 export class AppointmentsService {
     constructor(
         @InjectModel(Appointment.name) private appointmentModel: Model<AppointmentDocument>,
         @InjectModel(Availability.name) private availabilityModel: Model<AvailabilityDocument>,
+        private readonly notificationService: HomeService,
     ) { }
 
     private readonly userSelect = 'firstName lastName email phoneNumber profilePicture';
@@ -108,6 +111,49 @@ export class AppointmentsService {
         );
 
         const result = toAppointmentResponseDto(populated as AppointmentDocument);
+
+        try {
+            let userName = 'User';
+            let mentorName = 'Mentor';
+
+            const userDoc: any = (populated as any).userId;
+            const mentorDoc: any = (populated as any).mentorId;
+
+            if (userDoc) {
+                userName = `${userDoc.firstName ?? ''} ${userDoc.lastName ?? ''}`.trim();
+            }
+
+            if (mentorDoc) {
+                mentorName = `${mentorDoc.firstName ?? ''} ${mentorDoc.lastName ?? ''}`.trim();
+            }
+
+            const meetingIso = result.meetingDate.toISOString();
+
+            await this.notificationService.addNotification({
+                userId: dto.userId,
+                name: 'APPOINTMENT_SCHEDULED',
+                details: `Your appointment with ${mentorName} is scheduled at ${meetingIso}.`,
+                module: 'APPOINTMENT'
+            });
+
+            await this.notificationService.addNotification({
+                userId: dto.mentorId,
+                name: 'NEW_APPOINTMENT',
+                details: `${userName} has booked an appointment with you at ${meetingIso}.`,
+                module: 'APPOINTMENT'
+            });
+
+            await this.notificationService.addNotification({
+                role: ROLES.DIRECTOR,
+                name: 'APPOINTMENT_BOOKED',
+                details: `${userName} booked an appointment with ${mentorName} at ${meetingIso}.`,
+                module: 'APPOINTMENT'
+            });
+
+        } catch (err) {
+            console.warn('Failed to send appointment notifications:', err?.message ?? err);
+        }
+
         return result
 
     }
@@ -150,6 +196,47 @@ export class AppointmentsService {
 
         if (!updatedAppointment) {
             throw new NotFoundException(`Appointment with ID "${id}" not found.`);
+        }
+
+        try {
+            const populated = await this.populateBase(
+                this.appointmentModel.findById(updatedAppointment._id)
+            ).lean();
+
+            let userName = 'User';
+            let mentorName = 'Mentor';
+
+            const userDoc: any = populated.userId;
+            const mentorDoc: any = populated.mentorId;
+
+            if (userDoc) userName = `${userDoc.firstName ?? ''} ${userDoc.lastName ?? ''}`.trim();
+            if (mentorDoc) mentorName = `${mentorDoc.firstName ?? ''} ${mentorDoc.lastName ?? ''}`.trim();
+
+            const newIso = populated.meetingDate.toISOString();
+
+            await this.notificationService.addNotification({
+                userId: populated.userId._id.toString(),
+                name: 'APPOINTMENT_RESCHEDULED',
+                details: `Your appointment with ${mentorName} has been rescheduled to ${newIso}.`,
+                module: 'APPOINTMENT',
+            });
+
+            await this.notificationService.addNotification({
+                userId: populated.mentorId._id.toString(),
+                name: 'APPOINTMENT_RESCHEDULED',
+                details: `${userName} rescheduled their appointment to ${newIso}.`,
+                module: 'APPOINTMENT',
+            });
+
+            await this.notificationService.addNotification({
+                role: ROLES.DIRECTOR,
+                name: 'APPOINTMENT_RESCHEDULED',
+                details: `${userName} rescheduled an appointment with ${mentorName} to ${newIso}.`,
+                module: 'APPOINTMENT',
+            });
+
+        } catch (err) {
+            console.warn('Failed to send reschedule notifications:', err?.message ?? err);
         }
 
         return toAppointmentResponseDto(updatedAppointment as AppointmentDocument);
@@ -445,6 +532,53 @@ export class AppointmentsService {
                 { new: true }
             )
         ).lean();
+
+
+        try {
+            const populated = updated; // already populated via populateBase()
+
+            let userName = 'User';
+            let mentorName = 'Mentor';
+
+            const userDoc: any = populated.userId;
+            const mentorDoc: any = populated.mentorId;
+
+            if (userDoc) {
+                userName = `${userDoc.firstName ?? ''} ${userDoc.lastName ?? ''}`.trim();
+            }
+
+            if (mentorDoc) {
+                mentorName = `${mentorDoc.firstName ?? ''} ${mentorDoc.lastName ?? ''}`.trim();
+            }
+
+            const dateIso = populated.meetingDate.toISOString();
+            const reasonText = dto.reason ? `Reason: ${dto.reason}` : 'No reason provided';
+
+            await this.notificationService.addNotification({
+                userId: populated.userId._id.toString(),
+                name: 'APPOINTMENT_CANCELED',
+                details: `Your appointment with ${mentorName} on ${dateIso} was canceled. ${reasonText}`,
+                module: 'APPOINTMENT',
+            });
+
+            await this.notificationService.addNotification({
+                userId: populated.mentorId._id.toString(),
+                name: 'APPOINTMENT_CANCELED',
+                details: `${userName} canceled their appointment scheduled at ${dateIso}. ${reasonText}`,
+                module: 'APPOINTMENT',
+            });
+
+            await this.notificationService.addNotification({
+                role: ROLES.DIRECTOR,
+                name: 'APPOINTMENT_CANCELED',
+                details: `${userName}'s appointment with ${mentorName} on ${dateIso} was canceled. ${reasonText}`,
+                module: 'APPOINTMENT',
+            });
+
+        } catch (err) {
+            console.warn('Failed to send cancellation notifications:', err?.message ?? err);
+        }
+
 
         return toAppointmentResponseDto(updated as AppointmentDocument);
     }

@@ -4,6 +4,7 @@ import { AppointmentsService } from './appointments.service';
 import { AppointmentsController } from './appointments.controller';
 import { Appointment, AppointmentSchema } from './schemas/appointment.schema';
 import { Availability, AvailabilitySchema } from './schemas/availability.schema';
+import { HomeModule } from '../home/home.module';
 
 @Module({
     imports: [
@@ -11,6 +12,7 @@ import { Availability, AvailabilitySchema } from './schemas/availability.schema'
             { name: Appointment.name, schema: AppointmentSchema },
             { name: Availability.name, schema: AvailabilitySchema }
         ]),
+        HomeModule,
     ],
     controllers: [AppointmentsController],
     providers: [AppointmentsService],

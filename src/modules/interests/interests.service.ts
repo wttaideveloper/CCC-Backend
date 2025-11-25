@@ -21,6 +21,7 @@ import { InterestMetadataDto } from './dto/interestMetadata.dto';
 import { VALID_USER_APPLICATION_STATUSES, USER_APPLICATION_STATUSES, VALID_USER_STATUSES, USER_STATUSES } from '../../common/constants/status.constants';
 import { UsersService } from '../users/users.service';
 import { ROLES } from '../../common/constants/roles.constants';
+import { HomeService } from '../home/home.service';
 
 @Injectable()
 export class InterestService {
@@ -28,6 +29,7 @@ export class InterestService {
     @InjectModel(Interest.name)
     private readonly interestModel: Model<InterestDocument>,
     private readonly usersService: UsersService,
+    private readonly notificationService: HomeService,
   ) { }
 
   async create(dto: CreateInterestDto): Promise<InterestResponseDto> {
@@ -57,6 +59,13 @@ export class InterestService {
       } catch (userError: any) {
         console.warn(`Failed to create user for interest ${interest._id}:`, userError.message);
       }
+
+      await this.notificationService.addNotification({
+        role: ROLES.DIRECTOR,
+        name: "New Interest Form Submitted",
+        details: `${dto.firstName} ${dto.lastName} submitted a new interest form.`,
+        module: "interest"
+      });
 
       return toInterestResponseDto(interest);
     } catch (error: any) {
@@ -134,8 +143,6 @@ export class InterestService {
     const results = await this.interestModel.aggregate(pipeline).exec();
     return results;
   }
-
-
 
   async getMetadata(): Promise<InterestMetadataDto> {
     const countriesList = COUNTRIES_STATES_LIST.map((item) => item.country);
@@ -255,6 +262,19 @@ export class InterestService {
       }
     } catch (error: any) {
       console.warn(`Failed to update interest status for user ${userId}:`, error.message);
+    }
+
+    try {
+      await this.notificationService.addNotification({
+        userId: userId,                    
+        name: "STATUS_UPDATED",
+        details: `Your application status was changed to: ${status}`,
+        module: "user-status",
+      });
+
+      console.log(`Notification added for user ${userId} - status changed`);
+    } catch (err: any) {
+      console.warn(`Failed to send notification to user ${userId}:`, err.message);
     }
 
     return this.usersService.findById(userId);

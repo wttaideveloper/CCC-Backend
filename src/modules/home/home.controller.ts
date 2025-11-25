@@ -119,30 +119,48 @@ export class HomeController {
     };
   }
 
-  @Delete('notifications/:email/:notificationId')
-  async deleteNotification(
-    @Param('email') email: string,
-    @Param('notificationId', ParseMongoIdPipe) notificationId: string,
+  // GET /home/notifications?userId=... OR ?role=DIRECTOR
+  @Get('notifications')
+  async getNotifications(
+    @Query('userId') userId?: string,
+    @Query('role') role?: string,
   ): Promise<BaseResponse<NotificationResponseDto>> {
-    const result = await this.homeService.deleteNotification(
-      email,
-      notificationId,
-    );
+    const result = await this.homeService.getNotifications({ userId, role });
     return {
       success: true,
-      message: 'Notification deleted successfully',
+      message: 'Notifications fetched successfully',
       data: result,
     };
   }
 
-  @Get('notifications/:email')
-  async getNotifications(
-    @Param('email') email: string,
+  @Delete('notifications/user/:userId/:notificationId')
+  async deleteUserNotification(
+    @Param('userId', ParseMongoIdPipe) userId: string,
+    @Param('notificationId') notificationId: string,
   ): Promise<BaseResponse<NotificationResponseDto>> {
-    const result = await this.homeService.getNotifications(email);
+    const result = await this.homeService.deleteNotification({
+      userId,
+      notificationId,
+    });
     return {
       success: true,
-      message: 'Notifications fetched successfully',
+      message: 'Notification marked read successfully',
+      data: result,
+    };
+  }
+
+  @Delete('notifications/role/:role/:notificationId')
+  async deleteRoleNotification(
+    @Param('role') role: string,
+    @Param('notificationId') notificationId: string,
+  ): Promise<BaseResponse<NotificationResponseDto>> {
+    const result = await this.homeService.deleteNotification({
+      role,
+      notificationId,
+    });
+    return {
+      success: true,
+      message: 'Notification marked read successfully',
       data: result,
     };
   }

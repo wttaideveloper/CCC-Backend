@@ -23,6 +23,7 @@ import { USER_ROLES } from '../../common/constants/status.constants';
 import { Media, MediaDocument } from './schemas/media.schema';
 import { S3Service } from '../s3/s3.service';
 import { CreateMediaDto, UpdateMediaDto } from './dto/media.dto';
+import { mapToResponse } from './utils/notification.mapper';
 
 interface MentorFilterOptions {
   page?: number;
@@ -244,12 +245,12 @@ export class HomeService {
     return { mentees, total };
   }
 
-  async addNotification(
-    dto: AddNotificationDto,
-  ): Promise<NotificationResponseDto> {
-    const { email, name, details, module, roleId } = dto;
+  async addNotification(dto: AddNotificationDto): Promise<NotificationResponseDto> {
+    const { userId, role, name, details, module } = dto;
 
-    let notificationDoc = await this.notificationModel.findOne({ email });
+    if (!userId && !role) {
+      throw new BadRequestException("Either userId or role must be provided");
+    }
 
     const newItem: NotificationItem = {
       name,
@@ -258,63 +259,80 @@ export class HomeService {
       read: false,
     };
 
-    if (notificationDoc) {
-      notificationDoc.notifications.push(newItem);
-      if (roleId) notificationDoc.roleId = roleId;
-      await notificationDoc.save();
-    } else {
-      notificationDoc = await this.notificationModel.create({
-        email,
-        roleId,
-        notifications: [newItem],
-      });
+    let filter: any = {};
+
+    if (userId) {
+      filter = { userId };
+    }
+  
+    else if (role) {
+      filter = { role };
     }
 
-    return this.mapToResponse(notificationDoc);
-  }
-
-  async getNotifications(email: string): Promise<NotificationResponseDto> {
-    const notificationDoc = await this.notificationModel.findOne({ email }).lean().exec();
-    if (!notificationDoc) {
-      throw new NotFoundException('No notifications found for this user');
-    }
-    return this.mapToResponse(notificationDoc as any);
-  }
-
-  async deleteNotification(
-    email: string,
-    notificationId: string,
-  ): Promise<NotificationResponseDto> {
-    const doc = await this.notificationModel.findOne({ email });
-    if (!doc) throw new NotFoundException('Notification document not found');
-
-    const target = doc.notifications.find(
-      (item: any) => item._id.toString() === notificationId,
+    const notificationDoc = await this.notificationModel.findOneAndUpdate(
+      filter,
+      {
+        $setOnInsert: {
+          userId: userId ?? null,
+          role: role ?? null,
+        },
+        $push: { notifications: newItem }
+      },
+      { new: true, upsert: true }
     );
 
-    if (!target) {
-      throw new Error('Notification not found');
+    return mapToResponse(notificationDoc);
+  }
+
+  async getNotifications(query: { userId?: string; role?: string }):
+    Promise<NotificationResponseDto> {
+    const { userId, role } = query;
+
+    if (!userId && !role) {
+      throw new BadRequestException("Either userId or role must be provided");
     }
+
+    const filter: any = {};
+    if (userId) filter.userId = userId;
+    if (role) filter.role = role;
+
+    const notificationDoc = await this.notificationModel.findOne(filter).lean();
+
+    if (!notificationDoc) {
+      throw new NotFoundException("No notifications found");
+    }
+
+    return mapToResponse(notificationDoc);
+  }
+
+
+  async deleteNotification(
+    opts: { userId?: string; role?: string; notificationId: string }
+  ): Promise<NotificationResponseDto> {
+
+    const { userId, role, notificationId } = opts;
+
+    if (!userId && !role) {
+      throw new BadRequestException("Either userId or role must be provided");
+    }
+
+    const filter: any = {};
+    if (userId) filter.userId = userId;
+    if (role) filter.role = role;
+
+    const doc = await this.notificationModel.findOne(filter);
+    if (!doc) throw new NotFoundException("Notification document not found");
+
+    const target = doc.notifications.find(
+      (item: any) => item._id.toString() === notificationId
+    );
+
+    if (!target) throw new NotFoundException("Notification not found");
 
     target.read = true;
     await doc.save();
 
-    return this.mapToResponse(doc);
-  }
-
-  private mapToResponse(doc: NotificationDocument | any): NotificationResponseDto {
-    return {
-      _id: doc._id?.toString() || String(doc._id),
-      email: doc.email,
-      roleId: doc.roleId,
-      notifications: doc.notifications?.map((n: any) => ({
-        name: n.name,
-        details: n.details,
-        module: n.module,
-      })) || [],
-      createdAt: doc.createdAt,
-      updatedAt: doc.updatedAt,
-    };
+    return mapToResponse(doc);
   }
 
   async createMedia(dto: CreateMediaDto, files: Express.Multer.File[]) {

@@ -29,14 +29,11 @@ export type NotificationDocument = Document<unknown, {}, Notification> &
 export class Notification {
   readonly _id?: Types.ObjectId;
 
-  @Prop({ required: true, unique: true })
-  email: string;
-
-  @Prop()
+  @Prop({ type: Types.ObjectId, ref: 'User', required: false })
   userId?: string;
 
-  @Prop()
-  roleId?: string;
+  @Prop({ required: false })
+  role?: string;
 
   @Prop({
     type: [NotificationItemSchema],
@@ -48,7 +45,7 @@ export class Notification {
 export const NotificationSchema = SchemaFactory.createForClass(Notification);
 
 NotificationSchema.index({ userId: 1 });
+NotificationSchema.index({ role: 1 });
 NotificationSchema.index({ 'notifications.read': 1 });
 NotificationSchema.index({ createdAt: 1 });
 NotificationSchema.index({ updatedAt: -1 });
-NotificationSchema.index({ email: 1, 'notifications.read': 1 });
