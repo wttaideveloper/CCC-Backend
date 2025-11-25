@@ -50,6 +50,10 @@ services:
       # CORS
       ALLOWED_ORIGINS: ${ALLOWED_ORIGINS}
 
+      #Super Admin
+      SUPER_ADMIN_EMAIL: ${SUPER_ADMIN_EMAIL}
+      SUPER_ADMIN_PASSWORD: ${SUPER_ADMIN_PASSWORD}
+      
       # Email
       MAIL_HOST: ${MAIL_HOST:-smtp.gmail.com}
       MAIL_PORT: ${MAIL_PORT:-587}
