@@ -1,13 +1,24 @@
-import { Body, Controller, Get, Param, Patch, Post, Query } from '@nestjs/common';
+import { Body, Controller, Delete, Get, Param, Patch, Post, Query } from '@nestjs/common';
 import { InterestService } from './interests.service';
 import { CreateInterestDto, UpdateInterestDto } from './dto/create-interest.dto';
 import { BaseResponse } from '../../shared/interfaces/base-response.interface';
 import { InterestResponseDto } from './dto/interest-response.dto';
 import { InterestMetadataDto } from './dto/interestMetadata.dto';
+import { InterestFormFieldsService } from './services/interest-form-fields.service';
+import {
+    AddDynamicFieldDto,
+    DynamicFieldDto,
+    UpdateDynamicFieldsDto,
+    InterestFormFieldsResponseDto,
+    DynamicFieldsConfigResponseDto,
+} from './dto/interest-form-fields.dto';
 
 @Controller('interests')
 export class InterestController {
-    constructor(private readonly interestService: InterestService) { }
+    constructor(
+        private readonly interestService: InterestService,
+        private readonly formFieldsService: InterestFormFieldsService,
+    ) { }
 
     @Post()
     async create(@Body() dto: CreateInterestDto): Promise<BaseResponse<InterestResponseDto>> {
@@ -38,6 +49,87 @@ export class InterestController {
         return {
             success: true,
             message: 'Metadata fetched successfully',
+            data,
+        };
+    }
+
+    @Get('form-fields')
+    async getFormFields(): Promise<BaseResponse<InterestFormFieldsResponseDto>> {
+        const data = await this.formFieldsService.getFormFields();
+        return {
+            success: true,
+            message: 'Form fields fetched successfully',
+            data,
+        };
+    }
+
+    @Get('dynamic-fields')
+    async getDynamicFieldsConfig(): Promise<BaseResponse<DynamicFieldsConfigResponseDto>> {
+        const data = await this.formFieldsService.getDynamicFieldsConfig();
+        return {
+            success: true,
+            message: 'Dynamic fields configuration fetched successfully',
+            data,
+        };
+    }
+
+    @Post('dynamic-fields')
+    async addDynamicField(
+        @Body() dto: AddDynamicFieldDto,
+    ): Promise<BaseResponse<DynamicFieldsConfigResponseDto>> {
+        const data = await this.formFieldsService.addField(dto);
+        return {
+            success: true,
+            message: 'Dynamic field added successfully',
+            data,
+        };
+    }
+
+    @Patch('dynamic-fields/:fieldId')
+    async updateDynamicField(
+        @Param('fieldId') fieldId: string,
+        @Body() dto: Partial<DynamicFieldDto>,
+    ): Promise<BaseResponse<DynamicFieldsConfigResponseDto>> {
+        const data = await this.formFieldsService.updateField(fieldId, dto);
+        return {
+            success: true,
+            message: 'Dynamic field updated successfully',
+            data,
+        };
+    }
+
+    @Delete('dynamic-fields/:fieldId')
+    async removeDynamicField(
+        @Param('fieldId') fieldId: string,
+    ): Promise<BaseResponse<DynamicFieldsConfigResponseDto>> {
+        const data = await this.formFieldsService.removeField(fieldId);
+        return {
+            success: true,
+            message: 'Dynamic field removed successfully',
+            data,
+        };
+    }
+
+    @Patch('dynamic-fields')
+    async replaceAllDynamicFields(
+        @Body() dto: UpdateDynamicFieldsDto,
+    ): Promise<BaseResponse<DynamicFieldsConfigResponseDto>> {
+        const data = await this.formFieldsService.replaceAllFields(dto.fields);
+        return {
+            success: true,
+            message: 'Dynamic fields updated successfully',
+            data,
+        };
+    }
+
+    @Patch('dynamic-fields/reorder')
+    async reorderDynamicFields(
+        @Body('fieldIds') fieldIds: string[],
+    ): Promise<BaseResponse<DynamicFieldsConfigResponseDto>> {
+        const data = await this.formFieldsService.reorderFields(fieldIds);
+        return {
+            success: true,
+            message: 'Dynamic fields reordered successfully',
             data,
         };
     }

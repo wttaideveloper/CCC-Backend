@@ -10,6 +10,11 @@ export default () => ({
         ? process.env.ALLOWED_ORIGINS.split(',')
         : ['http://localhost:3000', 'http://localhost:3001', 'http://localhost:5173'],
 
+    superAdmin: {
+        email: process.env.SUPER_ADMIN_EMAIL,
+        password: process.env.SUPER_ADMIN_PASSWORD,
+    },
+
     mail: {
         host: process.env.MAIL_HOST || 'smtp.gmail.com',
         port: parseInt(process.env.MAIL_PORT ?? '587', 10),
