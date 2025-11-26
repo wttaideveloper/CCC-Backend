@@ -32,12 +32,30 @@ export class InterestService {
     private readonly notificationService: HomeService,
   ) { }
 
+  private mapTitleToRole(title?: string): string {
+    if (!title) return ROLES.PENDING;
+
+    const normalizedTitle = title.toLowerCase().trim().replace(/\.$/, ''); // Remove trailing dot
+
+    const titleRoleMap: Record<string, string> = {
+      'pastor': ROLES.PASTOR,
+      'lay leader': ROLES.LAY_LEADER,
+      'seminarian': ROLES.SEMINARIAN,
+      'mentor': ROLES.MENTOR,
+      'field mentor': ROLES.FIELD_MENTOR,
+    };
+
+    return titleRoleMap[normalizedTitle] || ROLES.PENDING;
+  }
+
   async create(dto: CreateInterestDto): Promise<InterestResponseDto> {
     try {
       const interest = await this.interestModel.create(dto);
       console.log(`Interest form created successfully for email: ${dto.email}, interestId: ${interest._id}`);
 
       try {
+        const assignedRole = this.mapTitleToRole(dto.title);
+
         const newUser = await this.usersService.create({
           firstName: dto.firstName,
           lastName: dto.lastName,
@@ -45,7 +63,7 @@ export class InterestService {
           interestId: interest._id,
           profilePicture: dto.profilePicture,
           status: USER_STATUSES.PENDING,
-          role: ROLES.PENDING,
+          role: assignedRole,
         });
 
         interest.userId = newUser.id as any;
@@ -55,7 +73,7 @@ export class InterestService {
           { userId: newUser.id }
         ).exec();
 
-        console.log(`User ${newUser.id} created and linked to interest ${interest._id}`);
+        console.log(`User ${newUser.id} created with role "${assignedRole}" (based on title: "${dto.title}") and linked to interest ${interest._id}`);
       } catch (userError: any) {
         console.warn(`Failed to create user for interest ${interest._id}:`, userError.message);
       }
@@ -81,7 +99,7 @@ export class InterestService {
       {
         $lookup: {
           from: 'users',
-          localField: 'email', // join via email (since interestId may be missing)
+          localField: 'email',
           foreignField: 'email',
           as: 'user',
         },
@@ -89,7 +107,7 @@ export class InterestService {
       {
         $unwind: {
           path: '$user',
-          preserveNullAndEmptyArrays: true, // keep interests even if user not found
+          preserveNullAndEmptyArrays: true,
         },
       },
     ];

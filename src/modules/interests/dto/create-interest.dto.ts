@@ -1,6 +1,6 @@
 import { PartialType } from '@nestjs/mapped-types';
 import { Type } from 'class-transformer';
-import { IsArray, IsEmail, IsEnum, IsNotEmpty, IsOptional, IsString, ValidateNested } from 'class-validator';
+import { IsArray, IsEmail, IsEnum, IsNotEmpty, IsObject, IsOptional, IsString, ValidateNested } from 'class-validator';
 import { VALID_USER_APPLICATION_STATUSES } from '../../../common/constants/status.constants';
 
 class ChurchDetailsDto {
@@ -96,6 +96,10 @@ export class CreateInterestDto {
     @IsEnum(VALID_USER_APPLICATION_STATUSES)
     @IsOptional()
     status?: string;
+
+    @IsOptional()
+    @IsObject()
+    dynamicFieldValues?: Record<string, string | string[] | boolean | number>;
 }
 
 export class UpdateInterestDto extends PartialType(CreateInterestDto) {}

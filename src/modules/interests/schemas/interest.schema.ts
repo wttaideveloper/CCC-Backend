@@ -1,10 +1,11 @@
 import { Prop, Schema, SchemaFactory } from '@nestjs/mongoose';
-import { Document, Types } from 'mongoose';
+import { Document, Schema as MongooseSchema, Types } from 'mongoose';
 import { USER_APPLICATION_STATUSES, VALID_USER_APPLICATION_STATUSES } from '../../../common/constants/status.constants';
 
 export type InterestDocument = Document<unknown, {}, Interest> & Interest & {
     _id: Types.ObjectId;
 };
+
 @Schema()
 export class ChurchDetails {
     @Prop({ required: true })
@@ -79,6 +80,9 @@ export class Interest {
 
     @Prop({ enum: VALID_USER_APPLICATION_STATUSES, default: USER_APPLICATION_STATUSES.NEW })
     status: string;
+
+    @Prop({ type: MongooseSchema.Types.Mixed, default: {} })
+    dynamicFieldValues: Record<string, string | string[] | boolean | number>;
 
 }
 

@@ -1,4 +1,5 @@
 export const ROLES = {
+  SUPER_ADMIN: 'super admin',
   DIRECTOR: 'director',
   MENTOR: 'mentor',
   FIELD_MENTOR: 'field mentor',
@@ -13,7 +14,10 @@ export const ROLE_HIERARCHY = [
   ROLES.PASTOR,
   ROLES.MENTOR,
   ROLES.FIELD_MENTOR,
+  ROLES.LAY_LEADER,
+  ROLES.SEMINARIAN,
   ROLES.DIRECTOR,
+  ROLES.SUPER_ADMIN,
 ] as const;
 
 export function hasRolePermission(userRole: string, requiredRole: string): boolean {
