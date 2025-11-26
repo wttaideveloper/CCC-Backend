@@ -23,6 +23,7 @@ import {
 } from './dto/user-operations.dto';
 import { ROLES } from '../../common/constants/roles.constants';
 import { nanoid } from 'nanoid';
+import { HomeService } from '../home/home.service';
 
 @Injectable()
 export class UsersService {
@@ -30,6 +31,7 @@ export class UsersService {
         @InjectModel(User.name) private readonly userModel: Model<UserDocument>,
         @InjectModel(Interest.name) private interestModel: Model<InterestDocument>,
         private readonly s3Service: S3Service,
+        private readonly notificationService: HomeService,
     ) { }
 
     async create(dto: CreateUserDto): Promise<UserResponseDto> {
@@ -184,12 +186,14 @@ export class UsersService {
     }
 
     async assignUsers(userId: string, dto: AssignMentorMenteeDto) {
-        const user = await this.userModel.findById(userId);
-        if (!user) throw new NotFoundException('User not found');
+        const assigningUser = await this.userModel.findById(userId)
+            .select('_id firstName lastName');
+
+        if (!assigningUser) throw new NotFoundException('User not found');
 
         const targetUsers = await this.userModel.find({
             _id: { $in: dto.assignedId }
-        }).select('_id').lean();
+        }).select('_id firstName lastName').lean();
 
         if (targetUsers.length !== dto.assignedId.length) {
             throw new NotFoundException('One or more users not found');
@@ -205,8 +209,28 @@ export class UsersService {
 
         await this.userModel.updateMany(
             { _id: { $in: targetIds } },
-            { $addToSet: { assignedId: user._id } }
+            { $addToSet: { assignedId: assigningUser._id } }
         );
+
+        for (const target of targetUsers) {
+            await this.notificationService.addNotification({
+                userId: target._id.toString(),
+                name: "Assigned",
+                details: `You have been assigned to ${assigningUser.firstName} ${assigningUser.lastName}.`,
+                module: "assignment",
+            });
+        }
+
+        const assignedNames = targetUsers
+            .map(u => `${u.firstName} ${u.lastName}`)
+            .join(', ');
+
+        await this.notificationService.addNotification({
+            userId,
+            name: "Assignment Completed",
+            details: `You assigned: ${assignedNames}.`,
+            module: "assignment",
+        });
 
         return this.userModel.findById(userId).populate('assignedId');
     }

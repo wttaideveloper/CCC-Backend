@@ -8,6 +8,7 @@ import { Queries, QueriesSchema } from './schemas/queries.schema';
 import { Extras, ExtrasSchema } from './schemas/extras.schema';
 import { Progress, ProgressSchema } from '../progress/schemas/progress.schema';
 import { S3Module } from '../s3/s3.module';
+import { HomeModule } from '../home/home.module';
 
 @Module({
     imports: [
@@ -19,6 +20,7 @@ import { S3Module } from '../s3/s3.module';
             { name: Progress.name, schema: ProgressSchema },
         ]),
         S3Module,
+        HomeModule
     ],
     controllers: [RoadMapsController],
     providers: [RoadMapsService],

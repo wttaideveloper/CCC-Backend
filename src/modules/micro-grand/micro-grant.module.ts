@@ -13,6 +13,7 @@ import {
 import { User, UserSchema } from '../users/schemas/user.schema';
 import { S3Module } from '../s3/s3.module';
 import { MulterModule } from '@nestjs/platform-express';
+import { HomeModule } from '../home/home.module';
 
 @Module({
   imports: [
@@ -25,6 +26,7 @@ import { MulterModule } from '@nestjs/platform-express';
     MulterModule.register({
       storage: require('multer').memoryStorage(),
     }),
+    HomeModule
   ],
   controllers: [MicroGrantController],
   providers: [MicroGrantService],

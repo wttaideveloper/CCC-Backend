@@ -19,6 +19,7 @@ import {
 } from './dto/micro-grant.dto';
 import { User, UserDocument } from '../users/schemas/user.schema';
 import { S3Service } from '../s3/s3.service';
+import { HomeService } from '../home/home.service';
 
 @Injectable()
 export class MicroGrantService {
@@ -30,6 +31,7 @@ export class MicroGrantService {
     @InjectModel(User.name)
     private readonly userModel: Model<UserDocument>,
     private readonly s3Service: S3Service,
+    private readonly notificationService: HomeService,
   ) { }
 
   async createOrUpdateForm(dto: CreateOrUpdateFormDto) {
@@ -136,6 +138,24 @@ export class MicroGrantService {
       supportingDocs: uploadedDocs,
     });
 
+    await this.notificationService.addNotification({
+      userId: dto.userId,
+      name: "Microgrant Application Submitted",
+      details: "Your microgrant application has been submitted successfully.",
+      module: "microgrant"
+    });
+
+    const directors = await this.userModel.find({ role: "DIRECTOR" }).select("_id").lean();
+
+    for (const director of directors) {
+      await this.notificationService.addNotification({
+        userId: director._id.toString(),
+        name: "New Microgrant Application",
+        details: "A new microgrant application has been submitted.",
+        module: "microgrant"
+      });
+    }
+
     return application;
   }
 
@@ -200,6 +220,13 @@ export class MicroGrantService {
     if (!application) {
       throw new NotFoundException('Application not found');
     }
+
+    await this.notificationService.addNotification({
+      userId: application.userId.toString(),
+      name: "Microgrant Status Updated",
+      details: `Your microgrant application status is now: ${status}.`,
+      module: "microgrant"
+    });
 
     return {
       message: `Application status updated to ${status}`,

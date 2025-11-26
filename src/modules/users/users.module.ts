@@ -1,4 +1,4 @@
-import { Module } from '@nestjs/common';
+import { forwardRef, Module } from '@nestjs/common';
 import { MongooseModule } from '@nestjs/mongoose';
 import { UsersService } from './users.service';
 import { UsersController } from './users.controller';
@@ -8,6 +8,7 @@ import { User, UserSchema } from './schemas/user.schema';
 import { S3Module } from '../s3/s3.module';
 import { MulterModule } from '@nestjs/platform-express';
 import { Interest, InterestSchema } from '../interests/schemas/interest.schema';
+import { HomeModule } from '../home/home.module';
 
 @Module({
     imports: [
@@ -18,6 +19,7 @@ import { Interest, InterestSchema } from '../interests/schemas/interest.schema';
         MulterModule.register({
             storage: require('multer').memoryStorage(),
         }),
+        forwardRef(() => HomeModule),
     ],
     controllers: [UsersController, SuperAdminController],
     providers: [UsersService, SuperAdminInitService],

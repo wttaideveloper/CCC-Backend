@@ -1,4 +1,4 @@
-import { Module } from '@nestjs/common';
+import { forwardRef, Module } from '@nestjs/common';
 import { MongooseModule } from '@nestjs/mongoose';
 import { HomeService } from './home.service';
 import { HomeController } from './home.controller';
@@ -21,7 +21,7 @@ import { Media, MediaSchema } from './schemas/media.schema';
       { name: Notification.name, schema: NotificationSchema },
       { name: Media.name, schema: MediaSchema }
     ]),
-    UsersModule,
+    forwardRef(() => UsersModule),
     S3Module,
     MulterModule.register({
       storage: require('multer').memoryStorage(),
