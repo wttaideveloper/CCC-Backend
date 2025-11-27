@@ -137,7 +137,7 @@ export class InterestService {
     // Sort by newest
     pipeline.push({ $sort: { createdAt: -1 } });
 
-    // Only project Interest fields (no user info)
+    // Project Interest fields with necessary user info
     pipeline.push({
       $project: {
         _id: 1,
@@ -155,6 +155,10 @@ export class InterestService {
         status: 1,
         createdAt: 1,
         updatedAt: 1,
+        'user._id': 1,
+        'user.role': 1,
+        'user.roleId': 1,
+        'user.isEmailVerified': 1,
       },
     });
 
