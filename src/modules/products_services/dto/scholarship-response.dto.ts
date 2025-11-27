@@ -28,13 +28,7 @@ export class ScholarshipResponseDto {
   @IsString()
   id: string;
 
-  @IsEnum([
-    'Full Scholarship',
-    'Partial Scholarship',
-    'Full Cost',
-    'Half Scholarship',
-    'ADRA Discount',
-  ])
+  @IsString()
   type: string;
 
   @IsNumber()

@@ -6,10 +6,10 @@ import {
   IsNumber,
   Min,
 } from 'class-validator';
-import { VALID_SCHOLARSHIP_TYPES, VALID_SCHOLARSHIP_STATUSES } from '../../../common/constants/status.constants';
+import { VALID_SCHOLARSHIP_STATUSES } from '../../../common/constants/status.constants';
 
 export class CreateScholarshipDto {
-  @IsEnum(VALID_SCHOLARSHIP_TYPES)
+  @IsString()
   @IsNotEmpty()
   type: string;
 

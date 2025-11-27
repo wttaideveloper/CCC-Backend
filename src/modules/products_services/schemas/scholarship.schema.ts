@@ -1,6 +1,6 @@
 import { Prop, Schema, SchemaFactory } from '@nestjs/mongoose';
 import { Document, Types } from 'mongoose';
-import { VALID_SCHOLARSHIP_TYPES, VALID_SCHOLARSHIP_STATUSES, SCHOLARSHIP_STATUSES, VALID_AWARD_STATUSES, AWARD_STATUSES } from '../../../common/constants/status.constants';
+import { VALID_SCHOLARSHIP_STATUSES, SCHOLARSHIP_STATUSES, VALID_AWARD_STATUSES, AWARD_STATUSES } from '../../../common/constants/status.constants';
 
 export type ScholarshipDocument = Document<unknown, {}, Scholarship> &
   Scholarship & {
@@ -35,8 +35,8 @@ export class Scholarship {
 
   @Prop({
     required: true,
-    enum: VALID_SCHOLARSHIP_TYPES,
     unique: true,
+    trim: true,
   })
   type: string;
 
