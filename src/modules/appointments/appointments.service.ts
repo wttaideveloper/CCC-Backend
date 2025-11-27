@@ -179,6 +179,29 @@ export class AppointmentsService {
         return appointments.map(toAppointmentResponseDto);
     }
 
+    async getAllUpcoming(): Promise<AppointmentResponseDto[]> {
+        const now = new Date();
+
+        const upcoming = await this.appointmentModel
+            .find({
+                meetingDate: { $gte: now },
+                status: APPOINTMENT_STATUSES.SCHEDULED,
+            })
+            .sort({ meetingDate: 1 })
+            .lean();
+
+        const populated = await this.populateBase(
+            this.appointmentModel.find({
+                meetingDate: { $gte: now },
+                status: APPOINTMENT_STATUSES.SCHEDULED,
+            }).sort({ meetingDate: 1 })
+        ).lean();
+
+        return populated.map((a: any) =>
+            toAppointmentResponseDto(a)
+        );
+    }
+
     async update(id: string, dto: UpdateAppointmentDto): Promise<AppointmentResponseDto> {
         const updatePayload: any = { ...dto };
 
