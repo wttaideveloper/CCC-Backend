@@ -35,19 +35,29 @@ export class AppointmentsController {
         };
     }
 
-    @Get('mentor/:mentorId')
+    @Get('upcoming')
+    async getAllUpcomingAppointments(): Promise<BaseResponse<AppointmentResponseDto[]>> {
+        const data = await this.appointmentsService.getAllUpcoming();
+        return {
+            success: true,
+            message: 'Upcoming appointments fetched successfully.',
+            data,
+        };
+    }
+
+    @Get('mentor/:userId')
     async getMentorSchedule(
-        @Param('mentorId') mentorId: string,
+        @Param('userId') userId: string,
         @Query('futureOnly') futureOnly: string = 'true'
     ): Promise<BaseResponse<AppointmentResponseDto[]>> {
         const data = await this.appointmentsService.getSchedule(
-            mentorId,
+            userId,
             'mentor',
             futureOnly === 'true'
         );
         return {
             success: true,
-            message: `Schedule fetched for mentor ${mentorId}.`,
+            message: `Schedule fetched for mentor ${userId}.`,
             data,
         };
     }
