@@ -85,19 +85,6 @@ export class InterestController {
         };
     }
 
-    @Patch('dynamic-fields/:fieldId')
-    async updateDynamicField(
-        @Param('fieldId') fieldId: string,
-        @Body() dto: Partial<DynamicFieldDto>,
-    ): Promise<BaseResponse<DynamicFieldsConfigResponseDto>> {
-        const data = await this.formFieldsService.updateField(fieldId, dto);
-        return {
-            success: true,
-            message: 'Dynamic field updated successfully',
-            data,
-        };
-    }
-
     @Delete('dynamic-fields/:fieldId')
     async removeDynamicField(
         @Param('fieldId') fieldId: string,
@@ -130,6 +117,19 @@ export class InterestController {
         return {
             success: true,
             message: 'Dynamic fields reordered successfully',
+            data,
+        };
+    }
+
+    @Patch('dynamic-fields/:fieldId')
+    async updateDynamicField(
+        @Param('fieldId') fieldId: string,
+        @Body() dto: Partial<DynamicFieldDto>,
+    ): Promise<BaseResponse<DynamicFieldsConfigResponseDto>> {
+        const data = await this.formFieldsService.updateField(fieldId, dto);
+        return {
+            success: true,
+            message: 'Dynamic field updated successfully',
             data,
         };
     }
