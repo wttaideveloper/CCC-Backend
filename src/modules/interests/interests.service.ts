@@ -12,6 +12,7 @@ import {
 } from './dto/create-interest.dto';
 import { InterestResponseDto } from './dto/interest-response.dto';
 import { toInterestResponseDto } from './utils/interest.mapper';
+import { UserResponseDto } from '../users/dto/user-response.dto';
 import {
   COUNTRIES_STATES_LIST,
   INTERESTS_LIST,
@@ -259,58 +260,32 @@ export class InterestService {
     return this.interestModel.aggregate(pipeline).exec();
   }
 
-  async updateUserStatus(
-    userId: string,
-    status: string,
-  ) {
+  async updateUserStatus(userId: string, status: string): Promise<UserResponseDto> {
     if (!VALID_USER_STATUSES.includes(status as any)) {
       throw new BadRequestException('Invalid status value. Allowed values: pending, accepted, rejected');
     }
 
-    const user = await this.usersService.findById(userId);
-    if (!user) {
-      throw new NotFoundException(`User with ID ${userId} not found`);
-    }
-
-    const updateData: any = { status };
-
-    if (status === USER_STATUSES.ACCEPTED) {
-      updateData.role = ROLES.PASTOR;
-    } else if (status === USER_STATUSES.REJECTED) {
-      updateData.role = ROLES.PENDING;
-    }
-
-    await this.usersService.update(userId, updateData);
+    const updatedUser = await this.usersService.update(userId, { status });
     console.log(`Updated user ${userId} with status: ${status}`);
 
-    try {
-      const interest = await this.interestModel.findOne({ userId: userId }).exec();
-      if (interest) {
-        await this.interestModel.findByIdAndUpdate(
-          interest._id,
-          { status },
-          { runValidators: true }
-        ).exec();
-        console.log(`Updated interest ${interest._id} status to match user status: ${status}`);
-      }
-    } catch (error: any) {
-      console.warn(`Failed to update interest status for user ${userId}:`, error.message);
-    }
+    this.interestModel.updateOne(
+      { userId: userId },
+      { $set: { status } },
+      { runValidators: true }
+    ).exec()
+      .then(() => console.log(`Updated interest form status for user ${userId}`))
+      .catch((error) => console.warn(`Failed to update interest status for user ${userId}:`, error.message));
 
-    try {
-      await this.notificationService.addNotification({
-        userId: userId,                    
-        name: "STATUS_UPDATED",
-        details: `Your application status was changed to: ${status}`,
-        module: "user-status",
-      });
+    this.notificationService.addNotification({
+      userId: userId,
+      name: "STATUS_UPDATED",
+      details: `Your application status was changed to: ${status}`,
+      module: "user-status",
+    })
+      .then(() => console.log(`Notification sent to user ${userId}`))
+      .catch((err) => console.warn(`Failed to send notification to user ${userId}:`, err.message));
 
-      console.log(`Notification added for user ${userId} - status changed`);
-    } catch (err: any) {
-      console.warn(`Failed to send notification to user ${userId}:`, err.message);
-    }
-
-    return this.usersService.findById(userId);
+    return updatedUser;
   }
 
   async findById(id: string): Promise<InterestResponseDto> {

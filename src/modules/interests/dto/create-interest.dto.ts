@@ -1,7 +1,8 @@
 import { PartialType } from '@nestjs/mapped-types';
 import { Type } from 'class-transformer';
-import { IsArray, IsEmail, IsEnum, IsNotEmpty, IsObject, IsOptional, IsString, ValidateNested } from 'class-validator';
+import { IsArray, IsEmail, IsEnum, IsIn, IsNotEmpty, IsObject, IsOptional, IsString, ValidateNested } from 'class-validator';
 import { VALID_USER_APPLICATION_STATUSES } from '../../../common/constants/status.constants';
+import { TITLES_LIST } from '../../../shared/constants/metadata.constants';
 
 class ChurchDetailsDto {
     @IsString()
@@ -70,6 +71,7 @@ export class CreateInterestDto {
 
     @IsString()
     @IsOptional()
+    @IsIn(TITLES_LIST, { message: 'Title must be one of the following: ' + TITLES_LIST.join(', ') })
     title?: string;
 
     @IsString()
