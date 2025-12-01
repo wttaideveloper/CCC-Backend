@@ -54,6 +54,7 @@ export class UsersController {
     @Query('page') page?: string,
     @Query('limit') limit?: string,
     @Query('search') search?: string,
+    @Query('roleMatch') roleMatch?: 'exact' | 'mixed',
   ): Promise<BaseResponse<{
     users: UserResponseDto[];
     total: number;
@@ -66,6 +67,7 @@ export class UsersController {
       page: page ? parseInt(page, 10) : undefined,
       limit: limit ? parseInt(limit, 10) : undefined,
       search,
+      roleMatch,
     };
     const result = await this.usersService.findAll(filters);
     return {
