@@ -19,8 +19,8 @@ export class AppointmentsService {
         private readonly notificationService: HomeService,
     ) { }
 
-    private readonly userSelect = 'firstName lastName email phoneNumber profilePicture';
-    private readonly mentorSelect = 'firstName lastName email phoneNumber profilePicture';
+    private readonly userSelect = 'firstName lastName email phoneNumber profilePicture role roleId status';
+    private readonly mentorSelect = 'firstName lastName email phoneNumber profilePicture role roleId status';
 
     private populateBase(query: any) {
         return query
@@ -158,18 +158,39 @@ export class AppointmentsService {
 
     }
 
-    async getSchedule(
-        id: string,
-        role: 'user' | 'mentor',
-        futureOnly: boolean = true
-    ): Promise<AppointmentResponseDto[]> {
-        const objectId = new Types.ObjectId(id);
+    async getAppointments(options?: {
+        userId?: string;
+        mentorId?: string;
+        futureOnly?: boolean;
+        status?: string;
+    }): Promise<AppointmentResponseDto[]> {
+        const { userId, mentorId, futureOnly = true, status } = options || {};
         const query: any = {};
 
-        query[role === 'user' ? 'userId' : 'mentorId'] = objectId;
+        if (userId && mentorId) {
+            // If both provided, find appointments where EITHER matches
+            const userObjId = new Types.ObjectId(userId);
+            const mentorObjId = new Types.ObjectId(mentorId);
+            query.$or = [
+                { userId: userObjId },
+                { mentorId: mentorObjId }
+            ];
+        } else if (userId) {
+            // Filter by userId only
+            query.userId = new Types.ObjectId(userId);
+        } else if (mentorId) {
+            // Filter by mentorId only
+            query.mentorId = new Types.ObjectId(mentorId);
+        }
 
+        // Time filtering
         if (futureOnly) {
             query.meetingDate = { $gte: new Date() };
+        }
+
+        // Status filtering
+        if (status) {
+            query.status = status;
         }
 
         const appointments = await this.populateBase(
@@ -179,27 +200,34 @@ export class AppointmentsService {
         return appointments.map(toAppointmentResponseDto);
     }
 
-    async getAllUpcoming(): Promise<AppointmentResponseDto[]> {
-        const now = new Date();
+    // Backward compatibility methods - delegate to unified method
+    async getSchedule(
+        id: string,
+        role: 'user' | 'mentor',
+        futureOnly: boolean = true
+    ): Promise<AppointmentResponseDto[]> {
+        // Map role to userId or mentorId parameter
+        if (role === 'user') {
+            return this.getAppointments({ userId: id, futureOnly });
+        } else {
+            return this.getAppointments({ mentorId: id, futureOnly });
+        }
+    }
 
-        const upcoming = await this.appointmentModel
-            .find({
-                meetingDate: { $gte: now },
-                status: APPOINTMENT_STATUSES.SCHEDULED,
-            })
-            .sort({ meetingDate: 1 })
-            .lean();
-
-        const populated = await this.populateBase(
-            this.appointmentModel.find({
-                meetingDate: { $gte: now },
-                status: APPOINTMENT_STATUSES.SCHEDULED,
-            }).sort({ meetingDate: 1 })
-        ).lean();
-
-        return populated.map((a: any) =>
-            toAppointmentResponseDto(a)
-        );
+    async getAllUpcoming(userId?: string): Promise<AppointmentResponseDto[]> {
+        if (userId) {
+            // Check both userId and mentorId fields (user as mentee OR mentor)
+            return this.getAppointments({
+                userId,
+                mentorId: userId,
+                futureOnly: true,
+                status: APPOINTMENT_STATUSES.SCHEDULED
+            });
+        }
+        return this.getAppointments({
+            futureOnly: true,
+            status: APPOINTMENT_STATUSES.SCHEDULED
+        });
     }
 
     async update(id: string, dto: UpdateAppointmentDto): Promise<AppointmentResponseDto> {
@@ -211,20 +239,19 @@ export class AppointmentsService {
             updatePayload.endTime = new Date(newMeetingDate.getTime() + 60 * 60 * 1000);
         }
 
-        const updatedAppointment = await this.appointmentModel.findByIdAndUpdate(
-            new Types.ObjectId(id),
-            { $set: updatePayload },
-            { new: true }
-        ).exec();
+        const populated = await this.populateBase(
+            this.appointmentModel.findByIdAndUpdate(
+                new Types.ObjectId(id),
+                { $set: updatePayload },
+                { new: true }
+            )
+        ).lean().exec();
 
-        if (!updatedAppointment) {
+        if (!populated) {
             throw new NotFoundException(`Appointment with ID "${id}" not found.`);
         }
 
         try {
-            const populated = await this.populateBase(
-                this.appointmentModel.findById(updatedAppointment._id)
-            ).lean();
 
             let userName = 'User';
             let mentorName = 'Mentor';
@@ -262,7 +289,7 @@ export class AppointmentsService {
             console.warn('Failed to send reschedule notifications:', err?.message ?? err);
         }
 
-        return toAppointmentResponseDto(updatedAppointment as AppointmentDocument);
+        return toAppointmentResponseDto(populated as AppointmentDocument);
     }
 
     async upsertAvailability(dto: AvailabilityDto) {

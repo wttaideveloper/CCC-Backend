@@ -18,6 +18,26 @@ export class AppointmentsController {
         };
     }
 
+    @Get('upcoming')
+    async getAllUpcomingAppointments(
+        @Query('userId') userId?: string,
+        @Query('mentorId') mentorId?: string,
+        @Query('status') status?: string,
+        @Query('futureOnly') futureOnly?: string,
+    ): Promise<BaseResponse<AppointmentResponseDto[]>> {
+        const data = await this.appointmentsService.getAppointments({
+            userId,
+            mentorId,
+            status: status || 'scheduled',
+            futureOnly: futureOnly !== 'false',
+        });
+        return {
+            success: true,
+            message: 'Appointments fetched successfully.',
+            data,
+        };
+    }
+
     @Get('user/:userId')
     async getUserSchedule(
         @Param('userId') userId: string,
@@ -31,16 +51,6 @@ export class AppointmentsController {
         return {
             success: true,
             message: `Schedule fetched for user ${userId}.`,
-            data,
-        };
-    }
-
-    @Get('upcoming')
-    async getAllUpcomingAppointments(): Promise<BaseResponse<AppointmentResponseDto[]>> {
-        const data = await this.appointmentsService.getAllUpcoming();
-        return {
-            success: true,
-            message: 'Upcoming appointments fetched successfully.',
             data,
         };
     }

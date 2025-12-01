@@ -49,49 +49,60 @@ export class InterestService {
   }
 
   async create(dto: CreateInterestDto): Promise<InterestResponseDto> {
+    const existingInterest = await this.interestModel.findOne({ email: dto.email }).exec();
+
+    if (existingInterest) {
+      console.log(`Interest form already exists for email: ${dto.email}, rejecting duplicate submission`);
+      throw new BadRequestException('An interest form with this email already exists. Please use a different email or contact support.');
+    }
+
+    let interest = await this.interestModel.create(dto);
+    console.log(`Interest form created successfully for email: ${dto.email}, interestId: ${interest._id}`);
+
+    const assignedRole = this.mapTitleToRole(dto.title);
+
     try {
-      const interest = await this.interestModel.create(dto);
-      console.log(`Interest form created successfully for email: ${dto.email}, interestId: ${interest._id}`);
+      const newUser = await this.usersService.create({
+        firstName: dto.firstName,
+        lastName: dto.lastName,
+        email: dto.email,
+        interestId: interest._id,
+        profilePicture: dto.profilePicture,
+        status: USER_STATUSES.PENDING,
+        role: assignedRole,
+      });
 
-      try {
-        const assignedRole = this.mapTitleToRole(dto.title);
+      const updatedInterest = await this.interestModel.findByIdAndUpdate(
+        interest._id,
+        { userId: newUser.id },
+        { new: true }
+      ).exec();
 
-        const newUser = await this.usersService.create({
-          firstName: dto.firstName,
-          lastName: dto.lastName,
-          email: dto.email,
-          interestId: interest._id,
-          profilePicture: dto.profilePicture,
-          status: USER_STATUSES.PENDING,
-          role: assignedRole,
-        });
-
-        interest.userId = newUser.id as any;
-
-        await this.interestModel.findByIdAndUpdate(
-          interest._id,
-          { userId: newUser.id }
-        ).exec();
-
-        console.log(`User ${newUser.id} created with role "${assignedRole}" (based on title: "${dto.title}") and linked to interest ${interest._id}`);
-      } catch (userError: any) {
-        console.warn(`Failed to create user for interest ${interest._id}:`, userError.message);
+      if (updatedInterest) {
+        interest = updatedInterest;
       }
 
+      console.log(`User ${newUser.id} created with role "${assignedRole}" (based on title: "${dto.title}") and linked to interest ${interest._id}`);
+    } catch (userError: any) {
+      console.error(`Failed to create user for interest ${interest._id}:`, userError.message);
+
+      if (userError.code === 11000) {
+        console.error(`CRITICAL: User with email ${dto.email} already exists but no interest form was found. This indicates a data consistency issue.`);
+      }
+    }
+
+    try {
       await this.notificationService.addNotification({
         role: ROLES.DIRECTOR,
         name: "New Interest Form Submitted",
         details: `${dto.firstName} ${dto.lastName} submitted a new interest form.`,
         module: "interest"
       });
-
-      return toInterestResponseDto(interest);
-    } catch (error: any) {
-      if (error.code === 11000 && error.keyPattern?.email) {
-        throw new BadRequestException('An interest form with this email already exists');
-      }
-      throw error;
+    } catch (notificationError: any) {
+      console.warn(`Failed to send notification for interest ${interest._id}:`, notificationError.message);
     }
+
+    return toInterestResponseDto(interest);
   }
 
   async findAll(filters?: { search?: string; status?: string }) {

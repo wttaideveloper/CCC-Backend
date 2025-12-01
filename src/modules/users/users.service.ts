@@ -62,7 +62,15 @@ export class UsersService {
         const query: any = {};
 
         if (filters?.role) {
-            query.role = filters.role;
+            if (filters.role === 'mentor') {
+                query.role = { $in: ['mentor', 'field mentor'] };
+            }
+            else if(filters.role === 'pastor') {
+                query.role = { $in: ['pastor', 'lay leader', 'seminarian'] };
+            }
+            else {
+                query.role = filters.role;
+            }
         }
 
         if (filters?.status) {

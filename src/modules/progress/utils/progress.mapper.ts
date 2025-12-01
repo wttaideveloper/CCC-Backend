@@ -54,6 +54,51 @@ export class ProgressResponseDto {
     // updatedAt: Date;
 }
 
+export class UserOverallProgressDto {
+    userId: string;
+    firstName: string;
+    lastName: string;
+    email: string;
+    role: string;
+    profilePicture?: string;
+    totalRoadmaps: number;
+    completedRoadmaps: number;
+    overallRoadmapProgress: number;
+    totalAssessments: number;
+    completedAssessments: number;
+    overallAssessmentProgress: number;
+    totalItems: number;
+    completedItems: number;
+    overallProgress: number;
+    overallCompleted: boolean;
+}
+
+export class MonthlyCompletionDto {
+    month: number;
+    year: number;
+    monthName: string;
+    mentorsCompleted: number;
+    pastorsCompleted: number;
+}
+
+export class DirectorOverviewDto {
+    totalMentors: number;
+    completedMentors: number;
+    mentorsOverallProgress: number;
+
+    totalPastors: number;
+    completedPastors: number;
+    pastorsOverallProgress: number;
+
+    totalUsers: number;
+    completedUsers: number;
+    overallCombinedProgress: number;
+
+    monthlyData: MonthlyCompletionDto[];
+
+    users?: UserOverallProgressDto[];
+}
+
 export function toProgressResponseDto(doc: ProgressDocument): ProgressResponseDto {
     return {
         _id: doc._id,
