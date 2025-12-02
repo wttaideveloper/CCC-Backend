@@ -30,8 +30,10 @@ export class InterestFormFieldsService {
         private readonly formFieldsModel: Model<InterestFormFieldsDocument>,
     ) {}
 
-    // Define static fields from the existing Interest schema
     private getStaticFields(): StaticFieldResponseDto[] {
+        const countriesList = COUNTRIES_STATES_LIST.map((item) => item.country);
+        const allStates = COUNTRIES_STATES_LIST.flatMap((item) => item.states);
+
         return [
             // Personal Information
             {
@@ -49,13 +51,6 @@ export class InterestFormFieldsService {
                 section: 'Personal Information',
             },
             {
-                fieldId: 'email',
-                label: 'Email',
-                type: 'email',
-                required: true,
-                section: 'Personal Information',
-            },
-            {
                 fieldId: 'phoneNumber',
                 label: 'Phone Number',
                 type: 'phone',
@@ -63,27 +58,26 @@ export class InterestFormFieldsService {
                 section: 'Personal Information',
             },
             {
-                fieldId: 'title',
-                label: 'Title',
-                type: 'select',
-                required: false,
-                section: 'Personal Information',
-                options: TITLES_LIST,
-            },
-            {
-                fieldId: 'profilePicture',
-                label: 'Profile Picture',
-                type: 'text_field',
-                required: false,
+                fieldId: 'email',
+                label: 'Email',
+                type: 'email',
+                required: true,
                 section: 'Personal Information',
             },
-            {
-                fieldId: 'profileInfo',
-                label: 'Profile Info',
-                type: 'text_area',
-                required: false,
-                section: 'Personal Information',
-            },
+            // {
+            //     fieldId: 'profilePicture',
+            //     label: 'Profile Picture',
+            //     type: 'text_field',
+            //     required: false,
+            //     section: 'Personal Information',
+            // },
+            // {
+            //     fieldId: 'profileInfo',
+            //     label: 'Profile Info',
+            //     type: 'text_area',
+            //     required: false,
+            //     section: 'Personal Information',
+            // },
             // Church Details
             {
                 fieldId: 'churchDetails.churchName',
@@ -121,11 +115,20 @@ export class InterestFormFieldsService {
                 section: 'Church Details',
             },
             {
+                fieldId: 'churchDetails.country',
+                label: 'Country',
+                type: 'select',
+                required: false,
+                section: 'Church Details',
+                options: countriesList,
+            },
+            {
                 fieldId: 'churchDetails.state',
                 label: 'State',
                 type: 'select',
                 required: false,
                 section: 'Church Details',
+                options: allStates,
             },
             {
                 fieldId: 'churchDetails.zipCode',
@@ -134,24 +137,25 @@ export class InterestFormFieldsService {
                 required: false,
                 section: 'Church Details',
             },
-            {
-                fieldId: 'churchDetails.country',
-                label: 'Country',
-                type: 'select',
-                required: false,
-                section: 'Church Details',
-            },
             // Ministry Information
             {
-                fieldId: 'conference',
-                label: 'Conference',
+                fieldId: 'title',
+                label: 'Title',
+                type: 'select',
+                required: false,
+                section: 'Ministry Information',
+                options: TITLES_LIST,
+            },
+            {
+                fieldId: 'yearsInMinistry',
+                label: 'Years in Ministry',
                 type: 'text_field',
                 required: false,
                 section: 'Ministry Information',
             },
             {
-                fieldId: 'yearsInMinistry',
-                label: 'Years in Ministry',
+                fieldId: 'conference',
+                label: 'Conference',
                 type: 'text_field',
                 required: false,
                 section: 'Ministry Information',
@@ -191,17 +195,10 @@ export class InterestFormFieldsService {
 
     async getFormFields(): Promise<InterestFormFieldsResponseDto> {
         const config = await this.getOrCreateConfig();
-        const countriesList = COUNTRIES_STATES_LIST.map((item) => item.country);
 
         return {
             staticFields: this.getStaticFields(),
             dynamicFields: config.fields.map((field) => this.toFieldResponseDto(field)),
-            metadata: {
-                titles: TITLES_LIST,
-                countries: countriesList,
-                countryStates: COUNTRIES_STATES_LIST,
-                interests: INTERESTS_LIST,
-            },
         };
     }
 

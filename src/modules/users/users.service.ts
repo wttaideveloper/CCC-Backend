@@ -57,12 +57,27 @@ export class UsersService {
         page?: number;
         limit?: number;
         search?: string;
+        roleMatch?: 'exact' | 'mixed';
     }): Promise<{ users: UserResponseDto[]; total: number; page: number; totalPages: number }> {
 
         const query: any = {};
 
         if (filters?.role) {
-            query.role = filters.role;
+            const roleMatch = filters.roleMatch ?? 'exact';
+
+            if (roleMatch === 'exact') {
+                query.role = filters.role;
+            } else if (roleMatch === 'mixed') {
+                if (filters.role === 'mentor' || filters.role === 'field mentor') {
+                    query.role = { $in: ['mentor', 'field mentor'] };
+                } else if (filters.role === 'pastor' || filters.role === 'lay leader' || filters.role === 'seminarian') {
+                    query.role = { $in: ['pastor', 'lay leader', 'seminarian'] };
+                } else {
+                    query.role = filters.role;
+                }
+            } else {
+                query.role = filters.role;
+            }
         }
 
         if (filters?.status) {

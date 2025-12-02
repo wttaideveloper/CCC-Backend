@@ -77,12 +77,6 @@ export class StaticFieldResponseDto {
 export class InterestFormFieldsResponseDto {
     staticFields: StaticFieldResponseDto[];
     dynamicFields: DynamicFieldResponseDto[];
-    metadata: {
-        titles: string[];
-        countries: string[];
-        countryStates: { country: string; states: string[] }[];
-        interests: string[];
-    };
 }
 
 export class DynamicFieldsConfigResponseDto {

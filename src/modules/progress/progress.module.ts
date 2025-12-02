@@ -5,6 +5,7 @@ import { ProgressService } from './progress.service';
 import { ProgressController } from './progress.controller';
 import { RoadMap, RoadMapSchema } from '../roadmaps/schemas/roadmap.schema';
 import { Assessment, AssessmentSchema } from '../assessment/schemas/assessment.schema';
+import { User, UserSchema } from '../users/schemas/user.schema';
 
 @Module({
     imports: [
@@ -12,6 +13,7 @@ import { Assessment, AssessmentSchema } from '../assessment/schemas/assessment.s
             { name: Progress.name, schema: ProgressSchema },
             { name: RoadMap.name, schema: RoadMapSchema },
             { name: Assessment.name, schema: AssessmentSchema },
+            { name: User.name, schema: UserSchema },
         ]),
     ],
     controllers: [ProgressController],

@@ -1,4 +1,4 @@
-import { Controller, Get, Param, Patch, Post, Body, Delete } from '@nestjs/common';
+import { Controller, Get, Param, Patch, Post, Body, Delete, Query } from '@nestjs/common';
 import { ProgressService } from './progress.service';
 import { Types } from 'mongoose';
 import {
@@ -10,13 +10,47 @@ import {
     UpdateFinalCommentDto,
     DeleteFinalCommentDto,
 } from './dto/progress.dto';
-import { ProgressResponseDto } from './utils/progress.mapper';
+import { ProgressResponseDto, UserOverallProgressDto, DirectorOverviewDto } from './utils/progress.mapper';
 import { BaseResponse } from '../../shared/interfaces/base-response.interface';
 import { ParseMongoIdPipe } from 'src/common/pipes/parse-mongo-id.pipe';
 
 @Controller('progress')
 export class ProgressController {
     constructor(private readonly progressService: ProgressService) { }
+
+    @Get('overview/director')
+    async getDirectorOverview(
+        @Query('period') period?: string,
+        @Query('year') year?: string,
+        @Query('includeUsers') includeUsers?: string,
+    ): Promise<BaseResponse<DirectorOverviewDto>> {
+        const periodType = period || 'yearly';
+        const yearNumber = year ? parseInt(year) : new Date().getFullYear();
+        const includeUserDetails = includeUsers === 'true';
+
+        const data = await this.progressService.getDirectorOverview(periodType, yearNumber, includeUserDetails);
+        return {
+            success: true,
+            message: 'Director overview fetched successfully.',
+            data,
+        };
+    }
+
+    @Get('overview/all')
+    async getOverallProgress(
+        @Query('roles') roles?: string,
+    ): Promise<BaseResponse<UserOverallProgressDto[]>> {
+        const roleArray = roles
+            ? roles.split(',').map(r => r.trim())
+            : ['pastor', 'lay-leader', 'seminarian', 'mentor', 'field-mentor'];
+
+        const data = await this.progressService.getOverallProgressByRoles(roleArray);
+        return {
+            success: true,
+            message: 'Overall progress fetched successfully for all users.',
+            data,
+        };
+    }
 
     @Get(':userId')
     async getProgress(

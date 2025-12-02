@@ -42,6 +42,9 @@ export class PersonInfoDto {
     email?: string;
     phoneNumber?: string;
     profilePicture?: string;
+    role?: string;
+    roleId?: string;
+    status?: string;
 }
 
 export class AppointmentResponseDto {

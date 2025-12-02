@@ -4,6 +4,7 @@ import { CreateInterestDto, UpdateInterestDto } from './dto/create-interest.dto'
 import { BaseResponse } from '../../shared/interfaces/base-response.interface';
 import { InterestResponseDto } from './dto/interest-response.dto';
 import { InterestMetadataDto } from './dto/interestMetadata.dto';
+import { UserResponseDto } from '../users/dto/user-response.dto';
 import { InterestFormFieldsService } from './services/interest-form-fields.service';
 import {
     AddDynamicFieldDto,
@@ -152,7 +153,7 @@ export class InterestController {
     async updateUserStatus(
         @Param('userId') userId: string,
         @Body('status') status: string,
-    ): Promise<BaseResponse<any>> {
+    ): Promise<BaseResponse<UserResponseDto>> {
         const data = await this.interestService.updateUserStatus(userId, status);
         return {
             success: true,

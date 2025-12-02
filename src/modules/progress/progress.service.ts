@@ -4,7 +4,8 @@ import { Model, Types } from 'mongoose';
 import { Progress, ProgressDocument } from './schemas/progress.schema';
 import { RoadMap, RoadMapDocument } from '../roadmaps/schemas/roadmap.schema';
 import { Assessment, AssessmentDocument } from '../assessment/schemas/assessment.schema';
-import { ProgressResponseDto, toProgressResponseDto } from './utils/progress.mapper';
+import { User, UserDocument } from '../users/schemas/user.schema';
+import { ProgressResponseDto, toProgressResponseDto, UserOverallProgressDto, DirectorOverviewDto, MonthlyCompletionDto } from './utils/progress.mapper';
 import {
     AssignRoadmapDto,
     AssignAssessmentDto,
@@ -22,6 +23,7 @@ export class ProgressService {
         @InjectModel(Progress.name) private progressModel: Model<ProgressDocument>,
         @InjectModel(RoadMap.name) private roadMapModel: Model<RoadMapDocument>,
         @InjectModel(Assessment.name) private assessmentModel: Model<AssessmentDocument>,
+        @InjectModel(User.name) private userModel: Model<UserDocument>,
     ) { }
 
     async findByUserId(userId: Types.ObjectId): Promise<ProgressResponseDto | null> {
@@ -292,5 +294,269 @@ export class ProgressService {
         }
 
         return toProgressResponseDto(updatedProgress);
+    }
+
+    async getOverallProgressByRoles(roles: string[]): Promise<UserOverallProgressDto[]> {
+        const users = await this.userModel.find(
+            { role: { $in: roles } },
+            { _id: 1, firstName: 1, lastName: 1, email: 1, role: 1, profilePicture: 1 }
+        ).lean().exec();
+
+        if (users.length === 0) {
+            return [];
+        }
+
+        const userIds = users.map(u => u._id);
+
+        const progressRecords = await this.progressModel.find(
+            { userId: { $in: userIds } },
+            {
+                userId: 1,
+                totalRoadmaps: 1,
+                completedRoadmaps: 1,
+                overallRoadmapProgress: 1,
+                totalAssessments: 1,
+                completedAssessments: 1,
+                overallAssessmentProgress: 1,
+                totalItems: 1,
+                completedItems: 1,
+                overallProgress: 1,
+                overallCompleted: 1,
+            }
+        ).lean().exec();
+
+        const progressMap = new Map(
+            progressRecords.map(p => [p.userId.toString(), p])
+        );
+
+        const result: UserOverallProgressDto[] = users.map(user => {
+            const progress = progressMap.get(user._id.toString());
+
+            return {
+                userId: user._id.toString(),
+                firstName: user.firstName,
+                lastName: user.lastName,
+                email: user.email,
+                role: user.role,
+                profilePicture: user.profilePicture || undefined,
+                totalRoadmaps: progress?.totalRoadmaps || 0,
+                completedRoadmaps: progress?.completedRoadmaps || 0,
+                overallRoadmapProgress: progress?.overallRoadmapProgress || 0,
+                totalAssessments: progress?.totalAssessments || 0,
+                completedAssessments: progress?.completedAssessments || 0,
+                overallAssessmentProgress: progress?.overallAssessmentProgress || 0,
+                totalItems: progress?.totalItems || 0,
+                completedItems: progress?.completedItems || 0,
+                overallProgress: progress?.overallProgress || 0,
+                overallCompleted: progress?.overallCompleted || false,
+            };
+        });
+
+        return result;
+    }
+
+    async getDirectorOverview(period: string = 'yearly', year: number = new Date().getFullYear(), includeUserDetails: boolean = false): Promise<DirectorOverviewDto> {
+        const mentorRoles = ['mentor', 'field-mentor'];
+        const pastorRoles = ['pastor', 'lay-leader', 'seminarian'];
+        const allRoles = [...mentorRoles, ...pastorRoles];
+
+        const allUsers = await this.userModel.find(
+            { role: { $in: allRoles } },
+            { _id: 1, firstName: 1, lastName: 1, email: 1, role: 1, profilePicture: 1, createdAt: 1 }
+        ).lean().exec();
+
+        const mentorUsers = allUsers.filter(u => mentorRoles.includes(u.role));
+        const pastorUsers = allUsers.filter(u => pastorRoles.includes(u.role));
+
+        const allUserIds = allUsers.map(u => u._id);
+        const mentorUserIds = mentorUsers.map(u => u._id);
+        const pastorUserIds = pastorUsers.map(u => u._id);
+
+        const progressRecords = await this.progressModel.find(
+            { userId: { $in: allUserIds } },
+            {
+                userId: 1,
+                totalRoadmaps: 1,
+                completedRoadmaps: 1,
+                overallRoadmapProgress: 1,
+                totalAssessments: 1,
+                completedAssessments: 1,
+                overallAssessmentProgress: 1,
+                totalItems: 1,
+                completedItems: 1,
+                overallProgress: 1,
+                overallCompleted: 1,
+                updatedAt: 1,
+            }
+        ).lean().exec();
+
+        const progressMap = new Map(
+            progressRecords.map(p => [p.userId.toString(), p])
+        );
+
+        let completedMentorsCount = 0;
+        let totalMentorsProgress = 0;
+        let mentorsWithProgress = 0;
+
+        mentorUserIds.forEach(userId => {
+            const progress = progressMap.get(userId.toString());
+            if (progress) {
+                if (progress.overallCompleted) {
+                    completedMentorsCount++;
+                }
+                totalMentorsProgress += progress.overallProgress || 0;
+                mentorsWithProgress++;
+            }
+        });
+
+        const mentorsOverallProgress = mentorsWithProgress > 0
+            ? parseFloat((totalMentorsProgress / mentorUserIds.length).toFixed(2))
+            : 0;
+
+        let completedPastorsCount = 0;
+        let totalPastorsProgress = 0;
+        let pastorsWithProgress = 0;
+
+        pastorUserIds.forEach(userId => {
+            const progress = progressMap.get(userId.toString());
+            if (progress) {
+                if (progress.overallCompleted) {
+                    completedPastorsCount++;
+                }
+                totalPastorsProgress += progress.overallProgress || 0;
+                pastorsWithProgress++;
+            }
+        });
+
+        const pastorsOverallProgress = pastorsWithProgress > 0
+            ? parseFloat((totalPastorsProgress / pastorUserIds.length).toFixed(2))
+            : 0;
+
+        const totalUsers = allUsers.length;
+        const completedUsers = completedMentorsCount + completedPastorsCount;
+        const combinedTotalProgress = totalMentorsProgress + totalPastorsProgress;
+        const overallCombinedProgress = totalUsers > 0
+            ? parseFloat((combinedTotalProgress / totalUsers).toFixed(2))
+            : 0;
+
+        const monthlyData = this.generateMonthlyData(
+            progressRecords,
+            mentorUserIds,
+            pastorUserIds,
+            period,
+            year
+        );
+
+        let userDetails: UserOverallProgressDto[] | undefined = undefined;
+        if (includeUserDetails) {
+            userDetails = allUsers.map(user => {
+                const progress = progressMap.get(user._id.toString());
+                return {
+                    userId: user._id.toString(),
+                    firstName: user.firstName,
+                    lastName: user.lastName,
+                    email: user.email,
+                    role: user.role,
+                    profilePicture: user.profilePicture || undefined,
+                    totalRoadmaps: progress?.totalRoadmaps || 0,
+                    completedRoadmaps: progress?.completedRoadmaps || 0,
+                    overallRoadmapProgress: progress?.overallRoadmapProgress || 0,
+                    totalAssessments: progress?.totalAssessments || 0,
+                    completedAssessments: progress?.completedAssessments || 0,
+                    overallAssessmentProgress: progress?.overallAssessmentProgress || 0,
+                    totalItems: progress?.totalItems || 0,
+                    completedItems: progress?.completedItems || 0,
+                    overallProgress: progress?.overallProgress || 0,
+                    overallCompleted: progress?.overallCompleted || false,
+                };
+            });
+        }
+
+        return {
+            totalMentors: mentorUsers.length,
+            completedMentors: completedMentorsCount,
+            mentorsOverallProgress,
+
+            totalPastors: pastorUsers.length,
+            completedPastors: completedPastorsCount,
+            pastorsOverallProgress,
+
+            totalUsers,
+            completedUsers,
+            overallCombinedProgress,
+
+            monthlyData,
+            users: userDetails,
+        };
+    }
+
+    private generateMonthlyData(
+        progressRecords: any[],
+        mentorUserIds: Types.ObjectId[],
+        pastorUserIds: Types.ObjectId[],
+        period: string,
+        year: number
+    ): MonthlyCompletionDto[] {
+        const monthNames = [
+            'January', 'February', 'March', 'April', 'May', 'June',
+            'July', 'August', 'September', 'October', 'November', 'December'
+        ];
+
+        // Determine the months to include based on period
+        let months: number[] = [];
+        if (period === 'yearly') {
+            months = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11]; // All 12 months
+        } else if (period === 'half-yearly') {
+            const currentMonth = new Date().getMonth();
+            if (currentMonth < 6) {
+                months = [0, 1, 2, 3, 4, 5]; // First half
+            } else {
+                months = [6, 7, 8, 9, 10, 11]; // Second half
+            }
+        }
+
+        // Create a map of userId to progress completion date
+        const completionMap = new Map<string, Date>();
+        progressRecords.forEach(progress => {
+            if (progress.overallCompleted && progress.updatedAt) {
+                completionMap.set(progress.userId.toString(), new Date(progress.updatedAt));
+            }
+        });
+
+        // Calculate completions per month
+        const monthlyResults: MonthlyCompletionDto[] = months.map(month => {
+            let mentorsCompleted = 0;
+            let pastorsCompleted = 0;
+
+            // Count mentor completions for this month
+            mentorUserIds.forEach(userId => {
+                const completionDate = completionMap.get(userId.toString());
+                if (completionDate &&
+                    completionDate.getFullYear() === year &&
+                    completionDate.getMonth() === month) {
+                    mentorsCompleted++;
+                }
+            });
+
+            // Count pastor completions for this month
+            pastorUserIds.forEach(userId => {
+                const completionDate = completionMap.get(userId.toString());
+                if (completionDate &&
+                    completionDate.getFullYear() === year &&
+                    completionDate.getMonth() === month) {
+                    pastorsCompleted++;
+                }
+            });
+
+            return {
+                month: month + 1,
+                year,
+                monthName: monthNames[month],
+                mentorsCompleted,
+                pastorsCompleted,
+            };
+        });
+
+        return monthlyResults;
     }
 }

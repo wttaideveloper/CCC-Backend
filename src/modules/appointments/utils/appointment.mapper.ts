@@ -23,6 +23,9 @@ export const toAppointmentResponseDto = (
                 email: appointment.userId.email,
                 phoneNumber: appointment.userId.phoneNumber,
                 profilePicture: appointment.userId.profilePicture || null,
+                role: appointment.userId.role,
+                roleId: appointment.userId.roleId?.toString(),
+                status: appointment.userId.status,
             }
             : null;
 
@@ -35,6 +38,9 @@ export const toAppointmentResponseDto = (
                 email: appointment.mentorId.email,
                 phoneNumber: appointment.mentorId.phoneNumber,
                 profilePicture: appointment.mentorId.profilePicture || null,
+                role: appointment.mentorId.role,
+                roleId: appointment.mentorId.roleId?.toString(),
+                status: appointment.mentorId.status,
             }
             : null;
 
