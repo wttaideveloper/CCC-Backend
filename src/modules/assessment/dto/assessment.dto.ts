@@ -52,10 +52,6 @@ export class SectionDto {
   @IsNotEmpty()
   description: string;
 
-  @IsOptional()
-  @IsString()
-  bannerImage?: string;
-
   @IsArray()
   layers: LayerDto[];
 }

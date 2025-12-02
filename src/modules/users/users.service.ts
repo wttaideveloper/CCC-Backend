@@ -88,7 +88,7 @@ export class UsersService {
                 .select('-password -refreshToken -uploadedDocuments')
                 .populate({
                     path: 'interestId',
-                    select: 'profileInfo',
+                    select: 'profileInfo phoneNumber',
                 })
                 .skip(skip)
                 .limit(limit)
@@ -101,10 +101,10 @@ export class UsersService {
 
         const users = usersRaw.map((user: any) => {
             const dto = toUserResponseDto(user);
-
             return {
                 ...dto,
                 profileInfo: user.interestId?.profileInfo ?? null,
+                phoneNumber: user.interestId?.phoneNumber ?? null,
             };
         });
 
@@ -266,36 +266,62 @@ export class UsersService {
     async getAssignedUsers(userId: string) {
         const user = await this.userModel
             .findById(userId)
-            .select('assignedId')
-            .populate('assignedId', 'firstName lastName email role status profilePicture')
+            .select("assignedId")
             .lean();
 
-        if (!user) throw new NotFoundException('User not found');
+        if (!user) throw new NotFoundException("User not found");
 
-        const assigned = user.assignedId || [];
+        const assignedIds = (user.assignedId || []).map((id) => id.toString());
 
-        if (assigned.length === 0) return [];
+        if (assignedIds.length === 0) return [];
 
-        const assignedUserIds = assigned.map((u: any) => (u._id ? u._id.toString() : u.toString()));
+        const assignedUsers = await this.userModel.aggregate([
+            {
+                $match: {
+                    _id: { $in: assignedIds.map((id) => new Types.ObjectId(id)) },
+                },
+            },
 
-        const interests = await this.interestModel
-            .find({ userId: { $in: assignedUserIds } })
-            .select('userId profileInfo')
-            .lean();
+            {
+                $lookup: {
+                    from: "interests",
+                    let: { userId: { $toString: "$_id" } },
+                    pipeline: [
+                        {
+                            $match: {
+                                $expr: { $eq: ["$userId", "$$userId"] }
+                            }
+                        }
+                    ],
+                    as: "interestData"
+                }
+            },
 
-        const interestMap = new Map<string, string | undefined>();
-        for (const it of interests) {
-            const key = (it.userId as any).toString();
-            interestMap.set(key, (it as any).profileInfo);
-        }
+            {
+                $addFields: {
+                    phoneNumber: { $arrayElemAt: ["$interestData.phoneNumber", 0] },
+                    profileInfo: { $arrayElemAt: ["$interestData.profileInfo", 0] },
+                }
+            },
 
-        const result = assigned.map((u: any) => ({
-            ...u,
-            profileInfo: interestMap.get(u._id.toString()) ?? null,
-        }));
+            {
+                $project: {
+                    _id: 1,
+                    firstName: 1,
+                    lastName: 1,
+                    email: 1,
+                    role: 1,
+                    status: 1,
+                    profilePicture: 1,
+                    phoneNumber: 1,
+                    profileInfo: 1,
+                },
+            },
+        ]);
 
-        return result;
+        return assignedUsers;
     }
+
 
     async updateProfilePicture(
         userId: string,

@@ -92,38 +92,39 @@ export class HomeService {
       : { $in: [USER_ROLES.MENTOR, 'field mentor'] };
 
     const pipeline: any[] = [
-      {
-        $match: {
-          role: roleFilter,
-        },
-      },
+      { $match: { role: roleFilter } },
 
       {
         $lookup: {
-          from: 'interests',
-          localField: '_id',
-          foreignField: 'userId',
-          as: 'interestData',
-        },
+          from: "interests",
+          let: { userId: { $toString: "$_id" } },
+          pipeline: [
+            {
+              $match: {
+                $expr: { $eq: ["$userId", "$$userId"] }
+              }
+            }
+          ],
+          as: "interestData"
+        }
+      },
+
+      {
+        $addFields: {
+          phoneNumber: { $arrayElemAt: ["$interestData.phoneNumber", 0] },
+          profileInfo: { $arrayElemAt: ["$interestData.profileInfo", 0] },
+        }
       },
     ];
 
     if (country || state || conference) {
       const matchConditions: any = {};
 
-      if (country) {
-        matchConditions['interestData.churchDetails.country'] = country;
-      }
-      if (state) {
-        matchConditions['interestData.churchDetails.state'] = state;
-      }
-      if (conference) {
-        matchConditions['interestData.conference'] = conference;
-      }
+      if (country) matchConditions["interestData.churchDetails.country"] = country;
+      if (state) matchConditions["interestData.churchDetails.state"] = state;
+      if (conference) matchConditions["interestData.conference"] = conference;
 
-      pipeline.push({
-        $match: matchConditions,
-      });
+      pipeline.push({ $match: matchConditions });
     }
 
     pipeline.push({
@@ -134,19 +135,21 @@ export class HomeService {
         email: 1,
         username: 1,
         role: 1,
+        roleId: 1,
         profilePicture: 1,
+        phoneNumber: 1,
+        profileInfo: 1,
       },
     });
 
     pipeline.push({
       $facet: {
-        metadata: [{ $count: 'total' }],
+        metadata: [{ $count: "total" }],
         data: [{ $skip: skip }, { $limit: limit }],
       },
     });
 
     const result = await this.userModel.aggregate(pipeline).exec();
-
     const total = result[0]?.metadata[0]?.total || 0;
     const mentorsData = result[0]?.data || [];
 
@@ -158,6 +161,9 @@ export class HomeService {
       dto.email = mentor.email;
       dto.username = mentor.username || '';
       dto.role = mentor.role;
+      dto.roleId = mentor.roleId;
+      dto.profileInfo = mentor.profileInfo || "";
+      dto.phoneNumber = mentor.phoneNumber || "";
       return dto;
     });
 
@@ -184,11 +190,24 @@ export class HomeService {
 
       {
         $lookup: {
-          from: 'interests',
-          localField: '_id',
-          foreignField: 'userId',
-          as: 'interestData',
-        },
+          from: "interests",
+          let: { userId: { $toString: "$_id" } },
+          pipeline: [
+            {
+              $match: {
+                $expr: { $eq: ["$userId", "$$userId"] }
+              }
+            }
+          ],
+          as: "interestData"
+        }
+      },
+
+      {
+        $addFields: {
+          phoneNumber: { $arrayElemAt: ["$interestData.phoneNumber", 0] },
+          profileInfo: { $arrayElemAt: ["$interestData.profileInfo", 0] },
+        }
       },
     ];
 
@@ -202,9 +221,7 @@ export class HomeService {
         matchConditions['interestData.churchDetails.state'] = phase;
       }
 
-      pipeline.push({
-        $match: matchConditions,
-      });
+      pipeline.push({ $match: matchConditions });
     }
 
     pipeline.push({
@@ -215,7 +232,10 @@ export class HomeService {
         email: 1,
         username: 1,
         role: 1,
+        roleId: 1,
         profilePicture: 1,
+        phoneNumber: 1,
+        profileInfo: 1,
       },
     });
 
@@ -239,6 +259,8 @@ export class HomeService {
       dto.email = mentee.email;
       dto.username = mentee.username || '';
       dto.role = mentee.role;
+      dto.profileInfo = mentee.profileInfo || "";
+      dto.phoneNumber = mentee.phoneNumber || "";
       return dto;
     });
 
@@ -264,7 +286,7 @@ export class HomeService {
     if (userId) {
       filter = { userId };
     }
-  
+
     else if (role) {
       filter = { role };
     }

@@ -75,9 +75,6 @@ export class Section {
   @Prop({ required: true })
   description: string;
 
-  @Prop()
-  bannerImage?: string;
-
   @Prop({ type: [LayerSchema], default: [] })
   layers: Layer[];
 }

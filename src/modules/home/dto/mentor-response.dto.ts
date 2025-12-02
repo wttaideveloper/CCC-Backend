@@ -1,4 +1,4 @@
-import { IsEmail, IsNotEmpty, IsOptional, IsString } from 'class-validator';
+import { IsEmail, IsNotEmpty, IsOptional, isString, IsString } from 'class-validator';
 
 export class MentorResponseDto {
     @IsString()
@@ -32,4 +32,8 @@ export class MentorResponseDto {
     @IsString()
     @IsOptional()
     profileInfo?: string;
+
+    @IsString()
+    @IsOptional()
+    phoneNumber?: string;
 }
