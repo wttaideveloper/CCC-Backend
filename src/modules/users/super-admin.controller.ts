@@ -18,7 +18,6 @@ import { BaseResponse } from '../../shared/interfaces/base-response.interface';
 import { CreateUserDto } from './dto/create-user.dto';
 import { UserResponseDto } from './dto/user-response.dto';
 import { UpdateUserDto } from './dto/update-user.dto';
-import { hashPassword } from '../../common/utils/bcrypt.util';
 import { USER_STATUSES } from '../../common/constants/status.constants';
 
 @Controller('super-admin')
@@ -39,11 +38,8 @@ export class SuperAdminController {
             };
         }
 
-        const hashedPassword = await hashPassword(dto.password);
-
         const director = await this.usersService.create({
             ...dto,
-            password: hashedPassword,
             role: ROLES.DIRECTOR,
             status: USER_STATUSES.ACCEPTED,
             isEmailVerified: true,
@@ -108,10 +104,6 @@ export class SuperAdminController {
                 message: 'Cannot change director role through this endpoint',
                 data: null,
             };
-        }
-
-        if (dto.password) {
-            dto.password = await hashPassword(dto.password);
         }
 
         const updatedDirector = await this.usersService.update(id, dto);
