@@ -18,6 +18,7 @@ import { ProductsServicesModule } from './modules/products_services/products_ser
 import { MicroGrantModule } from './modules/micro-grand/micro-grant.module';
 import { HealthModule } from './health/health.module';
 import { S3Module } from './modules/s3/s3.module';
+// import { CalendlyModule } from './modules/calendly/calendly.module';
 
 @Module({
   imports: [
@@ -56,6 +57,7 @@ import { S3Module } from './modules/s3/s3.module';
     HomeModule,
     RoadMapsModule,
     AppointmentsModule,
+    // CalendlyModule,
     AssessmentModule,
     MicroGrantModule,
     ProgressModule,

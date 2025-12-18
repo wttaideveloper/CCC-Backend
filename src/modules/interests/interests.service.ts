@@ -57,8 +57,18 @@ export class InterestService {
       throw new BadRequestException('An interest form with this email already exists. Please use a different email or contact support.');
     }
 
-    let interest = await this.interestModel.create(dto);
-    console.log(`Interest form created successfully for email: ${dto.email}, interestId: ${interest._id}`);
+    const interestStatus = dto.createdBy === 'admin'
+      ? USER_APPLICATION_STATUSES.ACCEPTED
+      : (dto.status || USER_APPLICATION_STATUSES.NEW);
+
+    const interestData = {
+      ...dto,
+      status: interestStatus,
+      createdBy: dto.createdBy || 'self',
+    };
+
+    let interest = await this.interestModel.create(interestData);
+    console.log(`Interest form created successfully for email: ${dto.email}, interestId: ${interest._id}, createdBy: ${interest.createdBy}`);
 
     const assignedRole = this.mapTitleToRole(dto.title);
 
@@ -69,8 +79,9 @@ export class InterestService {
         email: dto.email,
         interestId: interest._id,
         profilePicture: dto.profilePicture,
-        status: USER_STATUSES.PENDING,
+        status: interestStatus,
         role: assignedRole,
+        isEmailVerified: dto.createdBy === 'admin',
       });
 
       const updatedInterest = await this.interestModel.findByIdAndUpdate(

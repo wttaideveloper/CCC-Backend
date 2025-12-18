@@ -52,12 +52,17 @@ export class CreateInterestDto {
     lastName: string;
 
     @IsString()
-    @IsNotEmpty()
-    phoneNumber: string;
+    @IsOptional()
+    phoneNumber?: string;
 
     @IsEmail()
     @IsNotEmpty()
     email: string;
+
+    @IsString()
+    @IsOptional()
+    @IsIn(['self', 'admin'], { message: 'createdBy must be either "self" or "admin"' })
+    createdBy?: 'self' | 'admin';
 
     @IsString()
     @IsOptional()
@@ -70,9 +75,9 @@ export class CreateInterestDto {
     churchDetails?: ChurchDetailsDto[];
 
     @IsString()
-    @IsOptional()
+    @IsNotEmpty()
     @IsIn(TITLES_LIST, { message: 'Title must be one of the following: ' + TITLES_LIST.join(', ') })
-    title?: string;
+    title: string;
 
     @IsString()
     @IsOptional()

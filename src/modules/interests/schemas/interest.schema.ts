@@ -1,6 +1,7 @@
 import { Prop, Schema, SchemaFactory } from '@nestjs/mongoose';
 import { Document, Schema as MongooseSchema, Types } from 'mongoose';
 import { USER_APPLICATION_STATUSES, VALID_USER_APPLICATION_STATUSES } from '../../../common/constants/status.constants';
+import { TITLES_LIST } from '../../../shared/constants/metadata.constants';
 
 export type InterestDocument = Document<unknown, {}, Interest> & Interest & {
     _id: Types.ObjectId;
@@ -48,11 +49,14 @@ export class Interest {
     @Prop({ required: true })
     lastName: string;
 
-    @Prop({ required: true })
+    @Prop()
     phoneNumber: string;
 
     @Prop({ required: true, unique: true })
     email: string;
+
+    @Prop({ enum: ['self', 'admin'], default: 'self' })
+    createdBy: string;
 
     @Prop()
     profilePicture?: string;
@@ -60,8 +64,8 @@ export class Interest {
     @Prop({ type: [ChurchDetails], default: [] })
     churchDetails: ChurchDetails[];
 
-    @Prop()
-    title?: string;
+    @Prop({ required: true, enum: TITLES_LIST })
+    title: string;
 
     @Prop()
     conference?: string;

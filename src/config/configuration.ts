@@ -29,4 +29,10 @@ export default () => ({
         accessKeyId: process.env.AWS_ACCESS_KEY_ID,
         secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY,
     },
+    // calendly: {
+    //     apiKey: process.env.CALENDLY_API_KEY,
+    //     webhookSecret: process.env.CALENDLY_WEBHOOK_SECRET,
+    //     webhookUrl: process.env.CALENDLY_WEBHOOK_URL,
+    // },
+    // calendlyWebhookSecret: process.env.CALENDLY_WEBHOOK_SECRET,
 });

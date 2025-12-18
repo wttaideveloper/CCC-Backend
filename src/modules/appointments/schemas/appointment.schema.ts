@@ -72,6 +72,27 @@ export class Appointment {
 
     @Prop({ type: String, default: null })
     cancelReason?: string;
+
+    // @Prop({ type: String, default: null })
+    // calendlyEventUri?: string;
+
+    // @Prop({ type: String, default: null })
+    // calendlyInviteeUri?: string;
+
+    // @Prop({ type: String, enum: ['manual', 'calendly'], default: 'manual', index: true })
+    // source: string;
+
+    // @Prop({ type: Object, default: null })
+    // calendlyMetadata?: {
+    //     eventTypeUri?: string;
+    //     eventTypeName?: string;
+    //     inviteeName?: string;
+    //     inviteeEmail?: string;
+    //     questionsAndAnswers?: Array<{
+    //         question: string;
+    //         answer: string;
+    //     }>;
+    // };
 }
 
 export const AppointmentSchema = SchemaFactory.createForClass(Appointment);
@@ -91,3 +112,5 @@ AppointmentSchema.index({ status: 1 });
 AppointmentSchema.index({ status: 1, mentorId: 1 });
 AppointmentSchema.index({ status: 1, userId: 1 });
 AppointmentSchema.index({ status: 1, meetingDate: -1 });
+// AppointmentSchema.index({ calendlyEventUri: 1 });
+// AppointmentSchema.index({ source: 1 });
