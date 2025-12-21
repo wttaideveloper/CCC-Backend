@@ -3,7 +3,7 @@ interface CountryState {
     states: string[];
 }
 
-export const TITLES_LIST: string[] = ['Pastor', 'Lay Leader', 'Seminarian', 'Mentor', 'Field Mentor'];
+export const TITLES_LIST: string[] = ['Pastor', 'Lay Leader', 'Seminarian', 'Mentor', 'Field Mentor', 'Director'];
 
 export const INTERESTS_LIST: string[] = [
     'Children/Youth Ministry',

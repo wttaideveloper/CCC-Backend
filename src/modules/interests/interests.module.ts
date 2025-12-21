@@ -1,4 +1,4 @@
-import { Module } from '@nestjs/common';
+import { forwardRef, Module } from '@nestjs/common';
 import { MongooseModule } from '@nestjs/mongoose';
 import { Interest, InterestSchema } from './schemas/interest.schema';
 import { InterestFormFields, InterestFormFieldsSchema } from './schemas/interest-form-fields.schema';
@@ -15,7 +15,7 @@ import { HomeModule } from '../home/home.module';
       { name: Interest.name, schema: InterestSchema },
       { name: InterestFormFields.name, schema: InterestFormFieldsSchema },
     ]),
-    UsersModule,
+    forwardRef(() => UsersModule),
     HomeModule,
   ],
   controllers: [InterestController],

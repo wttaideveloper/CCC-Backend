@@ -18,13 +18,16 @@ import { BaseResponse } from '../../shared/interfaces/base-response.interface';
 import { CreateUserDto } from './dto/create-user.dto';
 import { UserResponseDto } from './dto/user-response.dto';
 import { UpdateUserDto } from './dto/update-user.dto';
-import { USER_STATUSES } from '../../common/constants/status.constants';
+import { InterestService } from '../interests/interests.service';
 
 @Controller('super-admin')
 // @UseGuards(JwtAuthGuard, RolesGuard)
 // @Roles(ROLES.SUPER_ADMIN)
 export class SuperAdminController {
-    constructor(private readonly usersService: UsersService) { }
+    constructor(
+        private readonly usersService: UsersService,
+        private readonly interestService: InterestService,
+    ) { }
 
     @Post('directors')
     async createDirector(
@@ -38,11 +41,17 @@ export class SuperAdminController {
             };
         }
 
-        const director = await this.usersService.create({
-            ...dto,
-            role: ROLES.DIRECTOR,
-            status: USER_STATUSES.ACCEPTED,
-            isEmailVerified: true,
+        const interest = await this.interestService.create({
+            firstName: dto.firstName,
+            lastName: dto.lastName,
+            email: dto.email,
+            title: 'Director',
+            profilePicture: dto.profilePicture,
+            createdBy: 'admin',
+        });
+
+        const director = await this.usersService.update(interest.userId as string, {
+            password: dto.password,
         });
 
         return {

@@ -20,6 +20,7 @@ import { HomeModule } from '../home/home.module';
             storage: require('multer').memoryStorage(),
         }),
         forwardRef(() => HomeModule),
+        forwardRef(() => require('../interests/interests.module').InterestModule),
     ],
     controllers: [UsersController, SuperAdminController],
     providers: [UsersService, SuperAdminInitService],
