@@ -40,29 +40,33 @@ export class MicroGrantService {
       .sort({ updatedAt: -1 })
       .exec();
 
-    if (existingForm) {
-      const updated = await this.formModel
-        .findByIdAndUpdate(
-          existingForm._id,
-          {
-            title: dto.title,
-            description: dto.description ?? '',
-            fields: dto.fields.map((f) => ({
-              label: f.label,
-              type: f.type,
-              required: f.required ?? false,
-              options: f.options ?? [],
-            })),
-          },
-          { new: true }
-        )
-        .exec();
+    const payload = {
+      title: dto.title,
+      description: dto.description ?? '',
+      sections: dto.sections.map((section) => ({
+        section_title: section.section_title,
+        section_intro: section.section_intro ?? '',
+        reportingProcedure: section.reportingProcedure ?? '',
+        fields: section.fields.map((field) => ({
+          label: field.label,
+          type: field.type,
+          description: field.description ?? '',
+          placeholder: field.placeholder ?? '',
+          required: field.required ?? false,
+          options: field.options ?? [],
+        })),
+      })),
+    };
 
-      return updated;
+    if (existingForm) {
+      return this.formModel
+        .findByIdAndUpdate(existingForm._id, payload, { new: true })
+        .exec();
     }
-    const newForm = await this.formModel.create(dto);
-    return newForm;
+
+    return this.formModel.create(payload);
   }
+
 
   async getForm() {
     const form = await this.formModel
@@ -105,9 +109,25 @@ export class MicroGrantService {
       throw new BadRequestException('You have already applied for this grant.');
     }
 
-    const missingRequired = form.fields.filter(
-      f => f.required && (!answers[f.label] || answers[f.label].trim() === '')
+    const requiredFields = form.sections
+      .flatMap(section => section.fields)
+      .filter(field => field.required);
+
+    const missingRequired = requiredFields.filter(
+      field =>
+        !answers[field.label] ||
+        (typeof answers[field.label] === 'string' &&
+          answers[field.label].trim() === '')
     );
+
+    if (missingRequired.length > 0) {
+      throw new BadRequestException(
+        `Missing answers for required fields: ${missingRequired
+          .map(f => f.label)
+          .join(', ')}`
+      );
+    }
+
 
     if (missingRequired.length > 0) {
       throw new BadRequestException(

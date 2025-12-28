@@ -9,32 +9,45 @@ export class MicroGrantForm {
   title: string;
 
   @Prop({ default: '' })
-  description: string;
+  description?: string;
 
   @Prop({
     type: [
       {
-        label: { type: String, required: true },
-        type: { type: String, required: true },
-        required: { type: Boolean, default: false },
-        options: { type: [String], default: [] },
+        section_title: { type: String, required: true },
+        section_intro: { type: String, default: '' },
+        reportingProcedure: { type: String, default: '' },
+        fields: [
+          {
+            label: { type: String, required: true },
+            type: { type: String, required: true },
+            description: { type: String, default: '' },
+            placeholder: { type: String, default: '' },
+            required: { type: Boolean, default: false },
+            options: { type: [String], default: [] },
+          },
+        ],
       },
     ],
     default: [],
   })
-  fields: {
-    label: string;
-    type: string;
-    required: boolean;
-    options?: string[];
+  sections: {
+    section_title: string;
+    section_intro?: string;
+    reportingProcedure?: string;
+    fields: {
+      label: string;
+      type: string;
+      description?: string;
+      placeholder?: string;
+      required?: boolean;
+      options?: string[];
+    }[];
   }[];
-
-  @Prop({ type: String, default: '' })
-  reportingProcedure: string;
 }
 
 export const MicroGrantFormSchema =
   SchemaFactory.createForClass(MicroGrantForm);
 
-MicroGrantFormSchema.index({ updatedAt: -1 });
 MicroGrantFormSchema.index({ createdAt: -1 });
+MicroGrantFormSchema.index({ updatedAt: -1 });

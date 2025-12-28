@@ -12,7 +12,7 @@ import {
 import { Type } from 'class-transformer';
 import { VALID_USER_APPLICATION_STATUSES } from '../../../common/constants/status.constants';
 
-class FieldDto {
+export class FieldDto {
   @IsString()
   @IsNotEmpty()
   label: string;
@@ -21,28 +21,56 @@ class FieldDto {
   @IsNotEmpty()
   type: string;
 
-  @IsBoolean()
   @IsOptional()
+  @IsString()
+  description?: string;
+
+  @IsOptional()
+  @IsString()
+  placeholder?: string;
+
+  @IsOptional()
+  @IsBoolean()
   required?: boolean;
 
-  @IsArray()
   @IsOptional()
+  @IsArray()
   options?: string[];
 }
+
+export class SectionDto {
+  @IsString()
+  @IsNotEmpty()
+  section_title: string;
+
+  @IsOptional()
+  @IsString()
+  section_intro?: string;
+
+  @IsOptional()
+  @IsString()
+  reportingProcedure?: string;
+
+  @IsArray()
+  @ValidateNested({ each: true })
+  @Type(() => FieldDto)
+  fields: FieldDto[];
+}
+
 
 export class CreateOrUpdateFormDto {
   @IsString()
   @IsNotEmpty()
   title: string;
 
-  @IsString()
   @IsOptional()
+  @IsString()
   description?: string;
 
   @IsArray()
   @ValidateNested({ each: true })
-  @Type(() => FieldDto)
-  fields: FieldDto[];
+  @Type(() => SectionDto)
+  sections: SectionDto[];
 
   @IsString()
   @IsOptional()
