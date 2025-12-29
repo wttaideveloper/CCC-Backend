@@ -54,3 +54,10 @@ pids
 
 # Diagnostic reports (https://nodejs.org/api/report.html)
 report.[0-9]*.[0-9]*.[0-9]*.[0-9]*.json
+
+# SSL Certificates (sensitive - never commit)
+nginx/ssl/*.crt
+nginx/ssl/*.key
+nginx/ssl/*.pem
+nginx/ssl/*.p12
+nginx/ssl/*.pfx
