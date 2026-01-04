@@ -99,3 +99,4 @@ InterestSchema.index({ userId: 1 });
 InterestSchema.index({ createdAt: 1 });
 InterestSchema.index({ status: 1 });
 InterestSchema.index({ 'churchDetails.country': 1, 'churchDetails.state': 1 });
+InterestSchema.index({ firstName: 'text', lastName: 'text', email: 'text', title: 'text', conference: 'text' });

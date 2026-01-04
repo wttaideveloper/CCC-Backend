@@ -44,6 +44,7 @@ export class InterestService {
       'seminarian': ROLES.SEMINARIAN,
       'mentor': ROLES.MENTOR,
       'field mentor': ROLES.FIELD_MENTOR,
+      'director': ROLES.DIRECTOR,
     };
 
     return titleRoleMap[normalizedTitle] || ROLES.PENDING;
@@ -60,6 +61,10 @@ export class InterestService {
     const interestStatus = dto.createdBy === 'admin'
       ? USER_APPLICATION_STATUSES.ACCEPTED
       : (dto.status || USER_APPLICATION_STATUSES.NEW);
+
+    const userStatus = interestStatus === USER_APPLICATION_STATUSES.NEW
+      ? USER_STATUSES.PENDING
+      : interestStatus;
 
     const interestData = {
       ...dto,
@@ -79,7 +84,7 @@ export class InterestService {
         email: dto.email,
         interestId: interest._id,
         profilePicture: dto.profilePicture,
-        status: interestStatus,
+        status: userStatus,
         role: assignedRole,
         isEmailVerified: dto.createdBy === 'admin',
       });
