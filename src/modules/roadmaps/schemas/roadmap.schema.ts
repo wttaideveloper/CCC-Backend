@@ -232,10 +232,7 @@ export type RoadMapDocument = Document<unknown, {}, RoadMap> & RoadMap & {
     _id: Types.ObjectId;
 };
 
-RoadMapSchema.index({ name: 1 });
-RoadMapSchema.index({ status: 1 });
-RoadMapSchema.index({ name: 1, status: 1 });
-RoadMapSchema.index({ name: 'text', description: 'text' });
+RoadMapSchema.index({ name: 'text', description: 'text', roadMapDetails: 'text' });
 RoadMapSchema.index({ status: 1, createdAt: -1 });
 RoadMapSchema.index({ type: 1, status: 1 });
 

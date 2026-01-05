@@ -108,9 +108,9 @@ AppointmentSchema.pre('save', function (next) {
 AppointmentSchema.index({ meetingDate: 1, endTime: 1 });
 AppointmentSchema.index({ userId: 1, meetingDate: 1 });
 AppointmentSchema.index({ mentorId: 1, meetingDate: 1 });
-AppointmentSchema.index({ status: 1 });
 AppointmentSchema.index({ status: 1, mentorId: 1 });
 AppointmentSchema.index({ status: 1, userId: 1 });
 AppointmentSchema.index({ status: 1, meetingDate: -1 });
+AppointmentSchema.index({ platform: 'text', status: 'text', notes: 'text' });
 // AppointmentSchema.index({ calendlyEventUri: 1 });
 // AppointmentSchema.index({ source: 1 });

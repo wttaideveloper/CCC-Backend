@@ -129,13 +129,10 @@ export class Assessment {
 
 export const AssessmentSchema = SchemaFactory.createForClass(Assessment);
 
-AssessmentSchema.index({ 'assignments.userId': 1 });
 AssessmentSchema.index({ 'assignments.status': 1 });
 AssessmentSchema.index({ 'userAnswers.userId': 1 });
+AssessmentSchema.index({ createdAt: -1 });
 AssessmentSchema.index({ 'assignments.userId': 1, 'assignments.status': 1 });
-AssessmentSchema.index({ name: 1 });
-AssessmentSchema.index({ createdAt: 1 });
 AssessmentSchema.index({ 'assignments.status': 1, createdAt: -1 });
-AssessmentSchema.index({ type: 1 });
 AssessmentSchema.index({ type: 1, createdAt: -1 });
-AssessmentSchema.index({ type: 1, 'assignments.status': 1 });
+AssessmentSchema.index({ name: 'text', description: 'text', type: 'text' });

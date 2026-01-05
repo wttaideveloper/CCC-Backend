@@ -93,3 +93,4 @@ ScholarshipSchema.index({ type: 1, status: 1 });
 ScholarshipSchema.index({ 'awardedList.userId': 1 });
 ScholarshipSchema.index({ createdAt: 1 });
 ScholarshipSchema.index({ updatedAt: -1 });
+ScholarshipSchema.index({ type: 'text', description: 'text' });

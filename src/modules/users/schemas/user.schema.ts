@@ -130,6 +130,7 @@ export const UserSchema = SchemaFactory.createForClass(User);
 
 UserSchema.index({ role: 1 });
 UserSchema.index({ status: 1 });
-UserSchema.index({ role: 1, status: 1 });
 UserSchema.index({ interestId: 1 });
-UserSchema.index({ createdAt: 1 });
+UserSchema.index({ createdAt: -1 });
+UserSchema.index({ assignedId: 1, status: 1 });
+UserSchema.index({ firstName: 'text', lastName: 'text', email: 'text', username: 'text' });
