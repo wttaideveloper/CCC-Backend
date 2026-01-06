@@ -44,6 +44,12 @@ export class Layer {
 
   @Prop({ type: [ChoiceSchema], default: [] })
   choices: Choice[];
+
+  @Prop({
+    type: [String],
+    default: [],
+  })
+  recommendations: string[];
 }
 export const LayerSchema = SchemaFactory.createForClass(Layer);
 

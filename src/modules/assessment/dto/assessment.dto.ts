@@ -24,6 +24,11 @@ export class LayerDto {
   @IsArray()
   @IsOptional()
   choices?: ChoiceDto[];
+
+  @IsArray()
+  @IsString({ each: true })
+  @IsOptional()
+  recommendations?: string[];
 }
 
 export class PreSurveyQuestionDto {
