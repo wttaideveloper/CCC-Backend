@@ -80,11 +80,12 @@ export class ProgressController {
     @Post('assign-assessment')
     async assignAssessment(
         @Body() dto: AssignAssessmentDto,
-    ): Promise<BaseResponse<ProgressResponseDto>> {
+    ): Promise<BaseResponse<ProgressResponseDto[]>> {
         const progress = await this.progressService.assignAssessment(dto);
+        const totalAssignments = dto.userIds.length * dto.assessmentIds.length;
         return {
             success: true,
-            message: 'Assessment assigned and progress record updated.',
+            message: `Successfully assigned ${dto.assessmentIds.length} assessment(s) to ${dto.userIds.length} user(s). Total: ${totalAssignments} assignments.`,
             data: progress,
         };
     }

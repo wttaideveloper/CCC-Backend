@@ -15,13 +15,15 @@ export class AssignRoadmapDto {
 }
 
 export class AssignAssessmentDto {
-    @IsMongoId()
-    @IsNotEmpty()
-    userId: Types.ObjectId;
+    @IsArray()
+    @ArrayMinSize(1)
+    @IsMongoId({ each: true })
+    userIds: Types.ObjectId[];
 
-    @IsMongoId()
-    @IsNotEmpty()
-    assessmentId: Types.ObjectId;
+    @IsArray()
+    @ArrayMinSize(1)
+    @IsMongoId({ each: true })
+    assessmentIds: Types.ObjectId[];
 }
 
 export class UpdateRoadmapProgressDto {

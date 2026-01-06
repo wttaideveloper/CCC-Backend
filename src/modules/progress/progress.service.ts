@@ -48,7 +48,7 @@ export class ProgressService {
         const roadMaps = await this.roadMapModel.find(
             { _id: { $in: dto.roadMapIds } },
             { _id: 1, totalSteps: 1, roadmaps: 1 }
-        ).exec();
+        ).lean().exec();
 
         if (roadMaps.length !== dto.roadMapIds.length) {
             const foundIds = roadMaps.map(r => r._id.toString());
@@ -68,7 +68,7 @@ export class ProgressService {
         // Step 2: Fetch all existing progress records for all users in a single query (prevents N+1 problem)
         const existingProgressRecords = await this.progressModel.find(
             { userId: { $in: dto.userIds } }
-        ).exec();
+        ).lean().exec();
 
         // Create a map for O(1) lookup of existing progress by userId
         const progressByUserMap = new Map(
@@ -149,43 +149,98 @@ export class ProgressService {
         return results;
     }
 
-    async assignAssessment(dto: AssignAssessmentDto): Promise<ProgressResponseDto> {
-        const existingProgress = await this.progressModel.findOne({
-            userId: dto.userId,
-            'assessments.assessmentId': dto.assessmentId,
-        }).exec();
+    async assignAssessment(dto: AssignAssessmentDto): Promise<ProgressResponseDto[]> {
+        // Step 1: Validate all assessments exist and fetch their data
+        const assessments = await this.assessmentModel.find(
+            { _id: { $in: dto.assessmentIds } },
+            { _id: 1, sections: 1 }
+        ).lean().exec();
 
-        if (existingProgress) {
-            throw new BadRequestException(`Assessment ${dto.assessmentId} is already assigned to this user.`);
+        if (assessments.length !== dto.assessmentIds.length) {
+            const foundIds = assessments.map(a => a._id.toString());
+            const missingIds = dto.assessmentIds.filter(id => !foundIds.includes(id.toString()));
+            throw new NotFoundException(`Assessment(s) not found: ${missingIds.join(', ')}`);
         }
 
-        const assessment = await this.assessmentModel.findById(dto.assessmentId).exec();
-        if (!assessment) {
-            throw new NotFoundException(`Assessment with ID ${dto.assessmentId} not found.`);
-        }
-        const totalSections = assessment.sections?.length || 0;
-
-        const newAssessmentEntry = {
-            assessmentId: dto.assessmentId,
-            completedSections: 0,
-            totalSections: totalSections,
-            progressPercentage: 0,
-            status: PROGRESS_STATUSES.NOT_STARTED,
-        };
-
-        const updatedProgress = await this.progressModel.findOneAndUpdate(
-            { userId: dto.userId },
+        // Create a map for O(1) lookup of assessment data by assessmentId
+        const assessmentDataMap = new Map(assessments.map(a => [
+            a._id.toString(),
             {
-                $push: { assessments: newAssessmentEntry },
-                $setOnInsert: { userId: dto.userId }
-            },
-            {
-                new: true,
-                upsert: true,
+                totalSections: a.sections?.length || 0
             }
-        ).exec();
+        ]));
 
-        return toProgressResponseDto(updatedProgress);
+        // Step 2: Fetch all existing progress records for all users in a single query (prevents N+1 problem)
+        const existingProgressRecords = await this.progressModel.find(
+            { userId: { $in: dto.userIds } }
+        ).lean().exec();
+
+        // Create a map for O(1) lookup of existing progress by userId
+        const progressByUserMap = new Map(
+            existingProgressRecords.map(p => [p.userId.toString(), p])
+        );
+
+        const results: ProgressResponseDto[] = [];
+        const errors: string[] = [];
+
+        // Step 3: Process each user and assign assessments
+        for (const userId of dto.userIds) {
+            try {
+                const existingProgress = progressByUserMap.get(userId.toString());
+
+                // Get list of already assigned assessment IDs for this user
+                const existingAssessmentIds = existingProgress
+                    ? existingProgress.assessments.map(a => a.assessmentId.toString())
+                    : [];
+
+                // Filter out assessments that are already assigned
+                const newAssessmentIds = dto.assessmentIds.filter(
+                    id => !existingAssessmentIds.includes(id.toString())
+                );
+
+                if (newAssessmentIds.length === 0) {
+                    errors.push(`All assessments already assigned to user ${userId}`);
+                    continue;
+                }
+
+                // Create entries for new assessments
+                const newAssessmentEntries = newAssessmentIds.map(assessmentId => {
+                    const assessmentData = assessmentDataMap.get(assessmentId.toString());
+
+                    return {
+                        assessmentId: assessmentId,
+                        completedSections: 0,
+                        totalSections: assessmentData?.totalSections || 0,
+                        progressPercentage: 0,
+                        status: PROGRESS_STATUSES.NOT_STARTED,
+                    };
+                });
+
+                // Update progress with all new assessments in a single atomic operation
+                const updatedProgress = await this.progressModel.findOneAndUpdate(
+                    { userId: userId },
+                    {
+                        $push: { assessments: { $each: newAssessmentEntries } },
+                        $setOnInsert: { userId: userId }
+                    },
+                    {
+                        new: true,
+                        upsert: true,
+                    }
+                ).exec();
+
+                results.push(toProgressResponseDto(updatedProgress));
+            } catch (error) {
+                errors.push(`Failed to assign assessments to user ${userId}: ${error.message}`);
+            }
+        }
+
+        // If all assignments failed, throw an error
+        if (errors.length > 0 && results.length === 0) {
+            throw new BadRequestException(`Failed to assign assessments to all users: ${errors.join(', ')}`);
+        }
+
+        return results;
     }
 
     async updateRoadmapProgress(dto: UpdateRoadmapProgressDto): Promise<ProgressResponseDto> {
