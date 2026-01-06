@@ -90,3 +90,17 @@ export class CreateAssessmentDto {
   @IsArray()
   sections: SectionDto[];
 }
+
+export class UpdateAssessmentDto {
+  @IsOptional()
+  @IsString()
+  name?: string;
+
+  @IsOptional()
+  @IsString()
+  description?: string;
+
+  @IsOptional()
+  @IsArray()
+  instructions?: string[];
+}

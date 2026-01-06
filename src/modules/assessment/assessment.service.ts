@@ -6,13 +6,14 @@ import {
 import { InjectModel } from '@nestjs/mongoose';
 import { Model, Types } from 'mongoose';
 import { Assessment, AssessmentDocument } from './schemas/assessment.schema';
-import { CreateAssessmentDto, SectionDto } from './dto/assessment.dto';
+import { CreateAssessmentDto, SectionDto, UpdateAssessmentDto } from './dto/assessment.dto';
 import { User, UserDocument } from '../users/schemas/user.schema';
 import { ASSESSMENT_ASSIGNMENT_STATUSES } from '../../common/constants/status.constants';
 import { UserAnswer } from './schemas/answer.schema';
 import { SubmitSectionAnswersDto } from './dto/submit-section-answers.dto';
 import { SubmitPreSurveyDto } from './dto/submit-pre-survey.dto';
 import { Progress, ProgressDocument } from '../progress/schemas/progress.schema';
+import { S3Service } from '../s3/s3.service';
 
 @Injectable()
 export class AssessmentService {
@@ -25,6 +26,7 @@ export class AssessmentService {
     private readonly userAnswerModel: Model<UserAnswer>,
     @InjectModel(Progress.name)
     private readonly progressModel: Model<ProgressDocument>,
+    private readonly s3Service: S3Service,
   ) { }
 
   async create(dto: CreateAssessmentDto): Promise<Assessment> {
@@ -63,19 +65,29 @@ export class AssessmentService {
     return this.assessmentModel.findByIdAndDelete(id).exec();
   }
 
-  async updateInstructions(
+  async updateAssessment(
     id: string,
-    instructions: string[],
+    updates: UpdateAssessmentDto,
   ): Promise<Assessment> {
     if (!Types.ObjectId.isValid(id)) {
       throw new BadRequestException('Invalid assessment ID format');
     }
 
+    if (!updates || Object.keys(updates).length === 0) {
+      throw new BadRequestException('No update data provided');
+    }
+
     const assessment = await this.assessmentModel
-      .findByIdAndUpdate(id, { instructions }, { new: true })
-      .lean()
+      .findByIdAndUpdate(id, updates, {
+        new: true,
+        runValidators: true,
+      })
       .exec();
-    if (!assessment) throw new NotFoundException('Assessment not found');
+
+    if (!assessment) {
+      throw new NotFoundException('Assessment not found');
+    }
+
     return assessment;
   }
 
@@ -460,4 +472,79 @@ export class AssessmentService {
 
     return updated;
   }
+
+  async updateBannerImage(
+    assessmentId: string,
+    file: Express.Multer.File,
+  ): Promise<Assessment> {
+    if (!file) {
+      throw new BadRequestException('No file provided');
+    }
+
+    const allowedMimeTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/webp'];
+
+    if (!allowedMimeTypes.includes(file.mimetype)) {
+      throw new BadRequestException('Invalid file type. Only JPEG, PNG, and WebP are allowed');
+    }
+
+    const maxSize = 5 * 1024 * 1024;
+    if (file.size > maxSize) {
+      throw new BadRequestException('File size exceeds 5MB limit');
+    }
+
+    const assessment = await this.assessmentModel.findById(assessmentId);
+    if (!assessment) {
+      throw new NotFoundException('Assessment not found');
+    }
+
+    const timestamp = Date.now();
+    const fileExtension = file.originalname.split('.').pop();
+    const sanitizedFileName = file.originalname.replace(/[^a-zA-Z0-9.-]/g, '_');
+    const fileName = `assessment-banners/${assessmentId}/${timestamp}_${sanitizedFileName}`;
+
+    const fileUrl = await this.s3Service.uploadFile(
+      fileName,
+      file.buffer,
+      file.mimetype,
+    );
+
+    const updated = await this.assessmentModel
+      .findByIdAndUpdate(
+        assessmentId,
+        { bannerImage: fileUrl },
+        { new: true, runValidators: true },
+      )
+      .exec();
+
+    if (!updated) {
+      throw new NotFoundException('Assessment not found');
+    }
+    return updated;
+  }
+
+  async updatePreSurvey(
+    assessmentId: string,
+    dto: { preSurvey: any[] },
+  ): Promise<Assessment> {
+    if (!Types.ObjectId.isValid(assessmentId)) {
+      throw new BadRequestException('Invalid assessment ID format');
+    }
+
+    if (!dto.preSurvey || dto.preSurvey.length === 0) {
+      throw new BadRequestException('Pre-survey questions cannot be empty');
+    }
+
+    const assessment = await this.assessmentModel.findById(assessmentId);
+    if (!assessment) {
+      throw new NotFoundException('Assessment not found');
+    }
+
+    assessment.preSurvey = dto.preSurvey as any;
+
+    await assessment.save();
+
+    return assessment;
+  }
+
+
 }

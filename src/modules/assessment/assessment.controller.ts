@@ -9,9 +9,11 @@ import {
   Post,
   HttpCode,
   HttpStatus,
+  UseInterceptors,
+  UploadedFile,
   // UseGuards,
 } from '@nestjs/common';
-import { CreateAssessmentDto, SectionDto } from './dto/assessment.dto';
+import { CreateAssessmentDto, SectionDto, UpdateAssessmentDto } from './dto/assessment.dto';
 import { Assessment } from './schemas/assessment.schema';
 import { AssessmentService } from './assessment.service';
 // import { JwtAuthGuard, RolesGuard } from '../../common/guards';
@@ -19,7 +21,8 @@ import { AssessmentService } from './assessment.service';
 // import { Roles } from '../../common/decorators';
 import { ParseMongoIdPipe } from '../../common/pipes/parse-mongo-id.pipe';
 import { SubmitSectionAnswersDto } from './dto/submit-section-answers.dto';
-import { SubmitPreSurveyDto } from './dto/submit-pre-survey.dto';
+import { SubmitPreSurveyDto, UpdatePreSurveyDto } from './dto/submit-pre-survey.dto';
+import { FileInterceptor } from '@nestjs/platform-express';
 
 @Controller('assessment')
 // @UseGuards(JwtAuthGuard, RolesGuard)
@@ -55,11 +58,11 @@ export class AssessmentController {
 
   @Patch(':id/instructions')
   // @Roles(ROLES.DIRECTOR, ROLES.MENTOR)
-  async updateInstructions(
+  async updateAssessment(
     @Param('id', ParseMongoIdPipe) id: string,
-    @Body('instructions') instructions: string[],
+    @Body() dto: UpdateAssessmentDto,
   ): Promise<Assessment> {
-    return this.assessmentService.updateInstructions(id, instructions);
+    return this.assessmentService.updateAssessment(id, dto);
   }
 
   @Patch(':id/sections')
@@ -195,5 +198,28 @@ export class AssessmentController {
       message: 'Section answers submitted successfully',
       data: result,
     };
+  }
+
+  @Patch(':id/banner-image')
+  @UseInterceptors(FileInterceptor('file'))
+  async updateBannerImage(
+    @Param('id', ParseMongoIdPipe) id: string,
+    @UploadedFile() file: Express.Multer.File,
+  ) {
+    const updated = await this.assessmentService.updateBannerImage(id, file);
+
+    return {
+      success: true,
+      message: 'Banner image updated successfully',
+      data: updated,
+    };
+  }
+
+  @Patch(':id/pre-survey')
+  async updatePreSurvey(
+    @Param('id', ParseMongoIdPipe) id: string,
+    @Body() dto: UpdatePreSurveyDto,
+  ): Promise<Assessment> {
+    return this.assessmentService.updatePreSurvey(id, dto);
   }
 }

@@ -1,4 +1,4 @@
-import { IsString, IsNotEmpty, IsArray, ValidateNested } from 'class-validator';
+import { IsString, IsNotEmpty, IsArray, ValidateNested, IsIn, IsBoolean } from 'class-validator';
 import { Type } from 'class-transformer';
 
 export class PreSurveyAnswerDto {
@@ -19,4 +19,25 @@ export class SubmitPreSurveyDto {
     @ValidateNested({ each: true })
     @Type(() => PreSurveyAnswerDto)
     preSurveyAnswers: PreSurveyAnswerDto[];
+}
+
+export class PreSurveyQuestionDto {
+    @IsString()
+    text: string;
+
+    @IsIn(['text', 'number', 'date', 'select'])
+    type: string;
+
+    @IsBoolean()
+    required: boolean;
+
+    @IsString()
+    placeholder?: string;
+}
+
+export class UpdatePreSurveyDto {
+    @IsArray()
+    @ValidateNested({ each: true })
+    @Type(() => PreSurveyQuestionDto)
+    preSurvey: PreSurveyQuestionDto[];
 }

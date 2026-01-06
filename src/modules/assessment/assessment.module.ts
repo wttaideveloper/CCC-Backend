@@ -6,6 +6,8 @@ import { AssessmentService } from './assessment.service';
 import { User, UserSchema } from '../users/schemas/user.schema';
 import { UserAnswer, UserAnswerSchema } from './schemas/answer.schema';
 import { Progress, ProgressSchema } from '../progress/schemas/progress.schema';
+import { S3Module } from '../s3/s3.module';
+import { MulterModule } from '@nestjs/platform-express';
 
 @Module({
   imports: [
@@ -15,8 +17,12 @@ import { Progress, ProgressSchema } from '../progress/schemas/progress.schema';
       { name: UserAnswer.name, schema: UserAnswerSchema },
       { name: Progress.name, schema: ProgressSchema },
     ]),
+    S3Module,
+    MulterModule.register({
+      storage: require('multer').memoryStorage(),
+    }),
   ],
   controllers: [AssessmentController],
   providers: [AssessmentService],
 })
-export class AssessmentModule {}
+export class AssessmentModule { }
