@@ -103,27 +103,6 @@ export class User {
     token: string;
     expiresAt: Date;
   };
-
-  // @Prop({
-  //   type: {
-  //     calendlyUsername: { type: String },
-  //     eventTypes: [{
-  //       name: { type: String },
-  //       url: { type: String },
-  //       duration: { type: Number },
-  //       targetRole: { type: String }
-  //     }]
-  //   },
-  // })
-  // calendlyConfig?: {
-  //   calendlyUsername: string;
-  //   eventTypes: Array<{
-  //     name: string;
-  //     url: string;
-  //     duration: number;
-  //     targetRole: string;
-  //   }>;
-  // };
 }
 
 export const UserSchema = SchemaFactory.createForClass(User);

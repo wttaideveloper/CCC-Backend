@@ -8,6 +8,8 @@ type LooseAppointment = AppointmentDocument & {
     mentorId?: any;
     createdAt?: Date;
     updatedAt?: Date;
+    zoomMeetingId?: string;
+    zoomMeeting?: any;
 };
 
 export const toAppointmentResponseDto = (
@@ -60,6 +62,18 @@ export const toAppointmentResponseDto = (
         meetingLink: appointment.meetingLink,
         status: appointment.status,
         notes: appointment.notes,
+
+        // Zoom meeting details
+        zoomMeetingId: appointment.zoomMeetingId ?? undefined,
+        zoomMeeting: appointment.zoomMeeting ? {
+            meetingId: appointment.zoomMeeting.meetingId,
+            joinUrl: appointment.zoomMeeting.joinUrl,
+            startUrl: appointment.zoomMeeting.startUrl,
+            password: appointment.zoomMeeting.password,
+            hostEmail: appointment.zoomMeeting.hostEmail,
+            topic: appointment.zoomMeeting.topic,
+            duration: appointment.zoomMeeting.duration,
+        } : undefined,
 
         createdAt: appointment.createdAt ?? undefined,
         updatedAt: appointment.updatedAt ?? undefined,

@@ -47,6 +47,16 @@ export class PersonInfoDto {
     status?: string;
 }
 
+export class ZoomMeetingDto {
+    meetingId?: string;
+    joinUrl?: string;
+    startUrl?: string;
+    password?: string;
+    hostEmail?: string;
+    topic?: string;
+    duration?: number;
+}
+
 export class AppointmentResponseDto {
     id: string;
 
@@ -63,6 +73,10 @@ export class AppointmentResponseDto {
     meetingLink?: string;
     notes?: string;
     status: string;
+
+    // Zoom meeting details
+    zoomMeetingId?: string;
+    zoomMeeting?: ZoomMeetingDto;
 
     createdAt?: Date;
     updatedAt?: Date;

@@ -19,7 +19,7 @@ import { MicroGrantModule } from './modules/micro-grand/micro-grant.module';
 import { HealthModule } from './health/health.module';
 import { S3Module } from './modules/s3/s3.module';
 import { SearchModule } from './modules/search/search.module';
-// import { CalendlyModule } from './modules/calendly/calendly.module';
+import { ZoomModule } from './modules/zoom/zoom.module';
 
 @Module({
   imports: [
@@ -58,7 +58,7 @@ import { SearchModule } from './modules/search/search.module';
     HomeModule,
     RoadMapsModule,
     AppointmentsModule,
-    // CalendlyModule,
+    ZoomModule,
     AssessmentModule,
     MicroGrantModule,
     ProgressModule,

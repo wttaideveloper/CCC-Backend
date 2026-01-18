@@ -48,7 +48,7 @@ export class Appointment {
     @Prop({
         type: String,
         enum: VALID_APPOINTMENT_PLATFORMS,
-        default: APPOINTMENT_PLATFORMS.TEAMS,
+        default: APPOINTMENT_PLATFORMS.ZOOM,
         required: true
     })
     platform: string;
@@ -73,26 +73,37 @@ export class Appointment {
     @Prop({ type: String, default: null })
     cancelReason?: string;
 
-    // @Prop({ type: String, default: null })
-    // calendlyEventUri?: string;
+    // Zoom meeting fields
+    @Prop({ type: String, default: null, index: true })
+    zoomMeetingId?: string;
 
-    // @Prop({ type: String, default: null })
-    // calendlyInviteeUri?: string;
-
-    // @Prop({ type: String, enum: ['manual', 'calendly'], default: 'manual', index: true })
-    // source: string;
-
-    // @Prop({ type: Object, default: null })
-    // calendlyMetadata?: {
-    //     eventTypeUri?: string;
-    //     eventTypeName?: string;
-    //     inviteeName?: string;
-    //     inviteeEmail?: string;
-    //     questionsAndAnswers?: Array<{
-    //         question: string;
-    //         answer: string;
-    //     }>;
-    // };
+    @Prop({
+        type: {
+            meetingId: { type: String },
+            joinUrl: { type: String },
+            startUrl: { type: String },
+            password: { type: String },
+            hostEmail: { type: String },
+            hostId: { type: String },
+            topic: { type: String },
+            duration: { type: Number },
+            timezone: { type: String },
+            createdAt: { type: Date },
+        },
+        default: null
+    })
+    zoomMeeting?: {
+        meetingId: string;
+        joinUrl: string;
+        startUrl?: string;
+        password?: string;
+        hostEmail?: string;
+        hostId?: string;
+        topic?: string;
+        duration?: number;
+        timezone?: string;
+        createdAt?: Date;
+    };
 }
 
 export const AppointmentSchema = SchemaFactory.createForClass(Appointment);
@@ -112,5 +123,4 @@ AppointmentSchema.index({ status: 1, mentorId: 1 });
 AppointmentSchema.index({ status: 1, userId: 1 });
 AppointmentSchema.index({ status: 1, meetingDate: -1 });
 AppointmentSchema.index({ platform: 'text', status: 'text', notes: 'text' });
-// AppointmentSchema.index({ calendlyEventUri: 1 });
-// AppointmentSchema.index({ source: 1 });
+AppointmentSchema.index({ zoomMeetingId: 1 });

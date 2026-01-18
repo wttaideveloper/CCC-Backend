@@ -1,22 +1,26 @@
-import { Injectable, BadRequestException, NotFoundException } from '@nestjs/common';
+import { Injectable, BadRequestException, NotFoundException, Logger } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model, Types } from 'mongoose';
 import { Appointment, AppointmentDocument } from './schemas/appointment.schema';
 import { CreateAppointmentDto, AppointmentResponseDto, UpdateAppointmentDto } from './dto/appointment.dto';
 import { toAppointmentResponseDto } from './utils/appointment.mapper';
-import { APPOINTMENT_STATUSES } from '../../common/constants/status.constants';
+import { APPOINTMENT_STATUSES, APPOINTMENT_PLATFORMS } from '../../common/constants/status.constants';
 import { Availability, AvailabilityDocument } from './schemas/availability.schema';
 import { AvailabilityDto } from './dto/availability.dto';
 import { generateMonthlyAvailability, splitIntoDurationSlots } from './utils/availability.utils';
 import { HomeService } from '../home/home.service';
 import { ROLES } from 'src/common/constants/roles.constants';
+import { ZoomService } from '../zoom/zoom.service';
 
 @Injectable()
 export class AppointmentsService {
+    private readonly logger = new Logger(AppointmentsService.name);
+
     constructor(
         @InjectModel(Appointment.name) private appointmentModel: Model<AppointmentDocument>,
         @InjectModel(Availability.name) private availabilityModel: Model<AvailabilityDocument>,
         private readonly notificationService: HomeService,
+        private readonly zoomService: ZoomService,
     ) { }
 
     private readonly userSelect = 'firstName lastName email phoneNumber profilePicture role roleId status';
@@ -41,7 +45,6 @@ export class AppointmentsService {
 
         const weekday = meetingInMentorTz.getUTCDay();
         const selectedHour24 = meetingInMentorTz.getUTCHours();
-        const selectedMinute = meetingInMentorTz.getUTCMinutes();
 
         const selectedPeriod = selectedHour24 >= 12 ? "PM" : "AM";
         let displayHour = selectedHour24 % 12;
@@ -68,7 +71,8 @@ export class AppointmentsService {
         }
 
         const meetingDate = meetingDateUtc;
-        const endTime = new Date(meetingDate.getTime() + 60 * 60 * 1000);
+        const durationMinutes = availability.meetingDuration || 60;
+        const endTime = new Date(meetingDate.getTime() + durationMinutes * 60 * 1000);
 
         const overlap = await this.appointmentModel.findOne({
             mentorId,
@@ -81,12 +85,64 @@ export class AppointmentsService {
             throw new BadRequestException("This time slot is already booked.");
         }
 
+        // Get user and mentor details for Zoom meeting topic
+        const userDoc = await this.appointmentModel.db.model('User').findById(dto.userId).lean() as any;
+        const mentorDoc = await this.appointmentModel.db.model('User').findById(dto.mentorId).lean() as any;
+
+        const userName = userDoc ? `${userDoc.firstName || ''} ${userDoc.lastName || ''}`.trim() : 'Student';
+        const mentorName = mentorDoc ? `${mentorDoc.firstName || ''} ${mentorDoc.lastName || ''}`.trim() : 'Mentor';
+
+        // Create Zoom meeting automatically
+        let zoomMeeting: any = null;
+        let meetingLink = dto.meetingLink || null;
+
+        if (this.zoomService.isConfigured()) {
+            try {
+                this.logger.log(`Creating Zoom meeting for appointment: ${userName} with ${mentorName}`);
+
+                const zoomResponse = await this.zoomService.createMeeting({
+                    topic: `Mentoring Session: ${userName} with ${mentorName}`,
+                    startTime: meetingDate.toISOString(),
+                    duration: durationMinutes,
+                    timezone: 'Asia/Kolkata',
+                    agenda: dto.notes || `Scheduled mentoring session between ${userName} and ${mentorName}`,
+                });
+
+                zoomMeeting = {
+                    meetingId: zoomResponse.meetingId,
+                    joinUrl: zoomResponse.joinUrl,
+                    startUrl: zoomResponse.startUrl,
+                    password: zoomResponse.password,
+                    hostEmail: zoomResponse.hostEmail,
+                    hostId: zoomResponse.hostId,
+                    topic: zoomResponse.topic,
+                    duration: zoomResponse.duration,
+                    timezone: zoomResponse.timezone,
+                    createdAt: zoomResponse.createdAt,
+                };
+
+                meetingLink = zoomResponse.joinUrl;
+
+                this.logger.log(`Zoom meeting created successfully: ${zoomResponse.meetingId}`);
+
+            } catch (error) {
+                this.logger.error(`Failed to create Zoom meeting: ${error.message}`);
+                // Continue without Zoom meeting - don't fail the appointment creation
+            }
+        } else {
+            this.logger.warn('Zoom is not configured. Creating appointment without Zoom meeting.');
+        }
+
         const appointment = new this.appointmentModel({
             ...dto,
             meetingDate,
             endTime,
             userId: new Types.ObjectId(dto.userId),
-            mentorId
+            mentorId,
+            platform: APPOINTMENT_PLATFORMS.ZOOM,
+            meetingLink,
+            zoomMeetingId: zoomMeeting?.meetingId || null,
+            zoomMeeting,
         });
 
         const saved = await appointment.save();
@@ -113,33 +169,20 @@ export class AppointmentsService {
         const result = toAppointmentResponseDto(populated as AppointmentDocument);
 
         try {
-            let userName = 'User';
-            let mentorName = 'Mentor';
-
-            const userDoc: any = (populated as any).userId;
-            const mentorDoc: any = (populated as any).mentorId;
-
-            if (userDoc) {
-                userName = `${userDoc.firstName ?? ''} ${userDoc.lastName ?? ''}`.trim();
-            }
-
-            if (mentorDoc) {
-                mentorName = `${mentorDoc.firstName ?? ''} ${mentorDoc.lastName ?? ''}`.trim();
-            }
-
             const meetingIso = result.meetingDate.toISOString();
+            const zoomInfo = meetingLink ? ` Zoom link: ${meetingLink}` : '';
 
             await this.notificationService.addNotification({
                 userId: dto.userId,
                 name: 'APPOINTMENT_SCHEDULED',
-                details: `Your appointment with ${mentorName} is scheduled at ${meetingIso}.`,
+                details: `Your appointment with ${mentorName} is scheduled at ${meetingIso}.${zoomInfo}`,
                 module: 'APPOINTMENT'
             });
 
             await this.notificationService.addNotification({
                 userId: dto.mentorId,
                 name: 'NEW_APPOINTMENT',
-                details: `${userName} has booked an appointment with you at ${meetingIso}.`,
+                details: `${userName} has booked an appointment with you at ${meetingIso}.${zoomInfo}`,
                 module: 'APPOINTMENT'
             });
 
@@ -154,8 +197,7 @@ export class AppointmentsService {
             console.warn('Failed to send appointment notifications:', err?.message ?? err);
         }
 
-        return result
-
+        return result;
     }
 
     async getAppointments(options?: {
@@ -506,12 +548,24 @@ export class AppointmentsService {
         const IST_OFFSET = 5.5 * 3600 * 1000;
 
         // load appointment
-        const appointment = await this.appointmentModel.findById(appointmentId).lean();
+        const appointment = await this.appointmentModel.findById(appointmentId).lean() as any;
         if (!appointment) throw new NotFoundException("Appointment not found.");
 
         // only scheduled appointments can be cancelled
         if (appointment.status !== APPOINTMENT_STATUSES.SCHEDULED) {
             throw new BadRequestException("Only scheduled appointments can be cancelled.");
+        }
+
+        // Delete Zoom meeting if exists
+        if (appointment.zoomMeetingId && this.zoomService.isConfigured()) {
+            try {
+                this.logger.log(`Deleting Zoom meeting: ${appointment.zoomMeetingId}`);
+                await this.zoomService.deleteMeeting(appointment.zoomMeetingId);
+                this.logger.log(`Zoom meeting ${appointment.zoomMeetingId} deleted successfully`);
+            } catch (error) {
+                this.logger.warn(`Failed to delete Zoom meeting ${appointment.zoomMeetingId}: ${error.message}`);
+                // Continue with cancellation even if Zoom deletion fails
+            }
         }
 
         const mentorId = appointment.mentorId;
