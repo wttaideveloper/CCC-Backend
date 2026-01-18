@@ -104,26 +104,95 @@ export class User {
     expiresAt: Date;
   };
 
-  // @Prop({
-  //   type: {
-  //     calendlyUsername: { type: String },
-  //     eventTypes: [{
-  //       name: { type: String },
-  //       url: { type: String },
-  //       duration: { type: Number },
-  //       targetRole: { type: String }
-  //     }]
-  //   },
-  // })
-  // calendlyConfig?: {
-  //   calendlyUsername: string;
-  //   eventTypes: Array<{
-  //     name: string;
-  //     url: string;
-  //     duration: number;
-  //     targetRole: string;
-  //   }>;
-  // };
+  @Prop({
+    type: {
+      calendlyUsername: { type: String },
+      calendlyUserUri: { type: String },
+      organizationUri: { type: String },
+      accessToken: { type: String },
+      refreshToken: { type: String },
+      tokenExpiresAt: { type: Date },
+      eventTypes: [{
+        uuid: { type: String },
+        name: { type: String },
+        url: { type: String },
+        duration: { type: Number },
+        targetRole: { type: String },
+        active: { type: Boolean, default: true },
+        pooling: { type: Boolean, default: false },
+        color: { type: String },
+        internalNote: { type: String }
+      }],
+      connectedAt: { type: Date },
+      lastSyncedAt: { type: Date }
+    },
+  })
+  calendlyConfig?: {
+    calendlyUsername: string;
+    calendlyUserUri: string;
+    organizationUri: string;
+    accessToken: string;
+    refreshToken: string;
+    tokenExpiresAt: Date;
+    eventTypes: Array<{
+      uuid: string;
+      name: string;
+      url: string;
+      duration: number;
+      targetRole: string;
+      active: boolean;
+      pooling: boolean;
+      color: string;
+      internalNote?: string;
+    }>;
+    connectedAt: Date;
+    lastSyncedAt?: Date;
+  };
+
+  @Prop({
+    type: {
+      accountId: { type: String },
+      email: { type: String },
+      accessToken: { type: String },
+      refreshToken: { type: String },
+      tokenExpiresAt: { type: Date },
+      tokenType: { type: String },
+      scope: { type: String },
+      connectedAt: { type: Date },
+      lastSyncedAt: { type: Date },
+      settings: {
+        autoCreateMeetings: { type: Boolean, default: true },
+        defaultDuration: { type: Number, default: 60 },
+        enableWaitingRoom: { type: Boolean, default: true },
+        enableJoinBeforeHost: { type: Boolean, default: true },
+        muteUponEntry: { type: Boolean, default: false },
+        autoRecording: { type: String, enum: ['none', 'local', 'cloud'], default: 'none' },
+        hostVideo: { type: Boolean, default: true },
+        participantVideo: { type: Boolean, default: true }
+      }
+    },
+  })
+  zoomConfig?: {
+    accountId: string;
+    email: string;
+    accessToken: string;
+    refreshToken: string;
+    tokenExpiresAt: Date;
+    tokenType: string;
+    scope: string;
+    connectedAt: Date;
+    lastSyncedAt?: Date;
+    settings: {
+      autoCreateMeetings: boolean;
+      defaultDuration: number;
+      enableWaitingRoom: boolean;
+      enableJoinBeforeHost: boolean;
+      muteUponEntry: boolean;
+      autoRecording: 'none' | 'local' | 'cloud';
+      hostVideo: boolean;
+      participantVideo: boolean;
+    };
+  };
 }
 
 export const UserSchema = SchemaFactory.createForClass(User);

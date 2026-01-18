@@ -142,4 +142,43 @@ export class AppointmentsController {
         const result = await this.appointmentsService.cancel(id, { reason: body.reason });
         return { success: true, data: result };
     }
+
+    /**
+     * UNIFIED AVAILABILITY ENDPOINT (RECOMMENDED FOR STUDENTS)
+     * GET /appointments/availability/unified?targetRole=pastor&mentorRoles[]=mentor&startDate=2024-01-01&endDate=2024-01-31
+     *
+     * Returns combined availability from:
+     * - Calendly (real-time) for mentors with Calendly configured
+     * - Manual DB slots for mentors without Calendly
+     *
+     * Use this endpoint for students (pastors, seminarians, etc.) to see all available mentors
+     */
+    @Get('availability/unified')
+    async getUnifiedAvailability(
+        @Query('targetRole') targetRole?: string,
+        @Query('mentorRoles') mentorRoles?: string[],
+        @Query('startDate') startDate?: string,
+        @Query('endDate') endDate?: string,
+    ): Promise<BaseResponse<any>> {
+        const start = startDate ? new Date(startDate) : undefined;
+        const end = endDate ? new Date(endDate) : undefined;
+
+        const data = await this.appointmentsService.getUnifiedAvailability(
+            targetRole,
+            mentorRoles,
+            start,
+            end
+        );
+
+        return {
+            success: true,
+            message: 'Unified availability fetched successfully',
+            data: {
+                mentors: data,
+                count: data.length,
+                calendlyEnabled: data.filter(m => m.source === 'calendly').length,
+                manualAvailability: data.filter(m => m.source === 'manual').length,
+            },
+        };
+    }
 }

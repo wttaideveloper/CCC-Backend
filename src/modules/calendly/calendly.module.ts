@@ -7,6 +7,7 @@ import { Appointment, AppointmentSchema } from '../appointments/schemas/appointm
 import { User, UserSchema } from '../users/schemas/user.schema';
 import { HomeModule } from '../home/home.module';
 import { MailerService } from '../../common/utils/mail.util';
+import { EncryptionService } from '../../common/utils/encryption.util';
 
 @Module({
     imports: [
@@ -18,7 +19,7 @@ import { MailerService } from '../../common/utils/mail.util';
         forwardRef(() => HomeModule),
     ],
     controllers: [CalendlyController],
-    providers: [CalendlyService, MailerService],
+    providers: [CalendlyService, MailerService, EncryptionService],
     exports: [CalendlyService],
 })
 export class CalendlyModule {}

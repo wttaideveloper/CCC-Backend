@@ -73,26 +73,56 @@ export class Appointment {
     @Prop({ type: String, default: null })
     cancelReason?: string;
 
-    // @Prop({ type: String, default: null })
-    // calendlyEventUri?: string;
+    @Prop({ type: String, default: null, index: true })
+    calendlyEventUri?: string;
 
-    // @Prop({ type: String, default: null })
-    // calendlyInviteeUri?: string;
+    @Prop({ type: String, default: null })
+    calendlyInviteeUri?: string;
 
-    // @Prop({ type: String, enum: ['manual', 'calendly'], default: 'manual', index: true })
-    // source: string;
+    @Prop({ type: String, enum: ['manual', 'calendly', 'zoom'], default: 'manual', index: true })
+    source: string;
 
-    // @Prop({ type: Object, default: null })
-    // calendlyMetadata?: {
-    //     eventTypeUri?: string;
-    //     eventTypeName?: string;
-    //     inviteeName?: string;
-    //     inviteeEmail?: string;
-    //     questionsAndAnswers?: Array<{
-    //         question: string;
-    //         answer: string;
-    //     }>;
-    // };
+    @Prop({ type: Object, default: null })
+    calendlyMetadata?: {
+        eventTypeUri?: string;
+        eventTypeName?: string;
+        inviteeName?: string;
+        inviteeEmail?: string;
+        location?: {
+            type?: string;
+            location?: string;
+            join_url?: string;
+        };
+        questionsAndAnswers?: Array<{
+            question: string;
+            answer: string;
+            position?: number;
+        }>;
+        tracking?: {
+            utm_source?: string;
+            utm_campaign?: string;
+            utm_medium?: string;
+            utm_content?: string;
+            utm_term?: string;
+        };
+        canceledBy?: string;
+        cancelerType?: string;
+    };
+
+    @Prop({ type: String, default: null })
+    zoomMeetingId?: string;
+
+    @Prop({ type: Object, default: null })
+    zoomMetadata?: {
+        meetingId: string;
+        meetingPassword?: string;
+        joinUrl: string;
+        startUrl?: string;
+        hostEmail: string;
+        hostId?: string;
+        createdAt?: Date;
+        createdBy?: 'calendly' | 'custom_api'; // Track Zoom meeting source
+    };
 }
 
 export const AppointmentSchema = SchemaFactory.createForClass(Appointment);
@@ -112,5 +142,7 @@ AppointmentSchema.index({ status: 1, mentorId: 1 });
 AppointmentSchema.index({ status: 1, userId: 1 });
 AppointmentSchema.index({ status: 1, meetingDate: -1 });
 AppointmentSchema.index({ platform: 'text', status: 'text', notes: 'text' });
-// AppointmentSchema.index({ calendlyEventUri: 1 });
-// AppointmentSchema.index({ source: 1 });
+AppointmentSchema.index({ calendlyEventUri: 1 });
+AppointmentSchema.index({ calendlyInviteeUri: 1 });
+AppointmentSchema.index({ zoomMeetingId: 1 });
+AppointmentSchema.index({ source: 1 });

@@ -1,22 +1,32 @@
-import { Injectable, BadRequestException, NotFoundException } from '@nestjs/common';
+import { Injectable, BadRequestException, NotFoundException, Logger, Inject, forwardRef } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model, Types } from 'mongoose';
 import { Appointment, AppointmentDocument } from './schemas/appointment.schema';
+import { User, UserDocument } from '../users/schemas/user.schema';
 import { CreateAppointmentDto, AppointmentResponseDto, UpdateAppointmentDto } from './dto/appointment.dto';
 import { toAppointmentResponseDto } from './utils/appointment.mapper';
-import { APPOINTMENT_STATUSES } from '../../common/constants/status.constants';
+import { APPOINTMENT_STATUSES, APPOINTMENT_PLATFORMS } from '../../common/constants/status.constants';
 import { Availability, AvailabilityDocument } from './schemas/availability.schema';
 import { AvailabilityDto } from './dto/availability.dto';
 import { generateMonthlyAvailability, splitIntoDurationSlots } from './utils/availability.utils';
 import { HomeService } from '../home/home.service';
+import { ZoomService } from '../zoom/zoom.service';
+import { CalendlyService } from '../calendly/calendly.service';
 import { ROLES } from 'src/common/constants/roles.constants';
 
 @Injectable()
 export class AppointmentsService {
+    private readonly logger = new Logger(AppointmentsService.name);
+
     constructor(
         @InjectModel(Appointment.name) private appointmentModel: Model<AppointmentDocument>,
         @InjectModel(Availability.name) private availabilityModel: Model<AvailabilityDocument>,
+        @InjectModel(User.name) private userModel: Model<UserDocument>,
         private readonly notificationService: HomeService,
+        @Inject(forwardRef(() => ZoomService))
+        private readonly zoomService: ZoomService,
+        @Inject(forwardRef(() => CalendlyService))
+        private readonly calendlyService: CalendlyService,
     ) { }
 
     private readonly userSelect = 'firstName lastName email phoneNumber profilePicture role roleId status';
@@ -31,44 +41,72 @@ export class AppointmentsService {
     async create(dto: CreateAppointmentDto): Promise<AppointmentResponseDto> {
         const mentorId = new Types.ObjectId(dto.mentorId);
 
-        const availability = await this.availabilityModel.findOne({ mentorId }).lean();
-        if (!availability) {
-            throw new BadRequestException("Mentor has no availability set.");
+        // Check if mentor uses Calendly or manual availability
+        const mentor = await this.userModel.findById(mentorId).lean();
+        if (!mentor) {
+            throw new NotFoundException("Mentor not found.");
         }
 
+        const usesCalendly = !!mentor.calendlyConfig?.accessToken;
         const meetingDateUtc = new Date(dto.meetingDate);
-        const meetingInMentorTz = new Date(meetingDateUtc.getTime() + (5.5 * 60 * 60 * 1000));
-
-        const weekday = meetingInMentorTz.getUTCDay();
-        const selectedHour24 = meetingInMentorTz.getUTCHours();
-        const selectedMinute = meetingInMentorTz.getUTCMinutes();
-
-        const selectedPeriod = selectedHour24 >= 12 ? "PM" : "AM";
-        let displayHour = selectedHour24 % 12;
-        if (displayHour === 0) displayHour = 12;
-
-        const selectedSlot = {
-            startTime: displayHour.toString(),
-            startPeriod: selectedPeriod
-        };
-
-        const dayAvailability = availability.weeklySlots.find(d => d.day === weekday);
-
-        if (!dayAvailability || dayAvailability.slots.length === 0) {
-            throw new BadRequestException("Mentor is not available on this day.");
-        }
-
-        const slotExists = dayAvailability.slots.some(s =>
-            s.startTime === selectedSlot.startTime &&
-            s.startPeriod === selectedSlot.startPeriod
-        );
-
-        if (!slotExists) {
-            throw new BadRequestException("This slot is not available.");
-        }
-
         const meetingDate = meetingDateUtc;
         const endTime = new Date(meetingDate.getTime() + 60 * 60 * 1000);
+
+        // ONLY validate manual slots if mentor does NOT use Calendly
+        if (!usesCalendly) {
+            const availability = await this.availabilityModel.findOne({ mentorId }).lean();
+            if (!availability) {
+                throw new BadRequestException("Mentor has no availability configured. Please ask them to set up availability or connect Calendly.");
+            }
+
+            const meetingInMentorTz = new Date(meetingDateUtc.getTime() + (5.5 * 60 * 60 * 1000));
+            const weekday = meetingInMentorTz.getUTCDay();
+            const selectedHour24 = meetingInMentorTz.getUTCHours();
+
+            const selectedPeriod = selectedHour24 >= 12 ? "PM" : "AM";
+            let displayHour = selectedHour24 % 12;
+            if (displayHour === 0) displayHour = 12;
+
+            const selectedSlot = {
+                startTime: displayHour.toString(),
+                startPeriod: selectedPeriod
+            };
+
+            const dayAvailability = availability.weeklySlots.find(d => d.day === weekday);
+
+            if (!dayAvailability || dayAvailability.slots.length === 0) {
+                throw new BadRequestException("Mentor is not available on this day.");
+            }
+
+            const slotExists = dayAvailability.slots.some(s =>
+                s.startTime === selectedSlot.startTime &&
+                s.startPeriod === selectedSlot.startPeriod
+            );
+
+            if (!slotExists) {
+                throw new BadRequestException("This slot is not available.");
+            }
+
+            // Remove slot from availability after validation
+            await this.availabilityModel.updateOne(
+                {
+                    mentorId,
+                    "weeklySlots.day": weekday
+                },
+                {
+                    $pull: {
+                        "weeklySlots.$.slots": {
+                            startTime: selectedSlot.startTime,
+                            startPeriod: selectedSlot.startPeriod
+                        }
+                    }
+                }
+            );
+        } else {
+            // For Calendly-enabled mentors, trust that the student booked through Calendly UI
+            // which already validates availability. Skip manual slot checking.
+            this.logger.log(`Mentor ${mentorId} uses Calendly - skipping manual slot validation`);
+        }
 
         const overlap = await this.appointmentModel.findOne({
             mentorId,
@@ -81,12 +119,63 @@ export class AppointmentsService {
             throw new BadRequestException("This time slot is already booked.");
         }
 
+        // Auto-create Zoom meeting if platform is ZOOM
+        let zoomMetadata: any = null;
+        let meetingLink = dto.meetingLink;
+
+        if (dto.platform === APPOINTMENT_PLATFORMS.ZOOM) {
+            try {
+                const mentor = await this.userModel.findById(mentorId);
+                const student = await this.userModel.findById(dto.userId);
+
+                if (mentor?.zoomConfig?.accessToken && mentor?.zoomConfig?.settings?.autoCreateMeetings) {
+                    this.logger.log(`Auto-creating Zoom meeting for appointment with mentor ${mentorId}`);
+
+                    const meetingTopic = `Mentoring Session: ${student?.firstName || 'Student'} with ${mentor.firstName || 'Mentor'}`;
+                    const durationMinutes = Math.round((endTime.getTime() - meetingDate.getTime()) / 60000);
+
+                    const zoomMeeting = await this.zoomService.createMeeting(mentor, {
+                        topic: meetingTopic,
+                        type: 2, // Scheduled meeting
+                        start_time: meetingDate.toISOString(),
+                        duration: durationMinutes,
+                        timezone: 'Asia/Kolkata',
+                        agenda: dto.notes || 'Mentoring session',
+                    });
+
+                    zoomMetadata = {
+                        meetingId: zoomMeeting.id.toString(),
+                        meetingPassword: zoomMeeting.password,
+                        joinUrl: zoomMeeting.join_url,
+                        startUrl: zoomMeeting.start_url,
+                        hostEmail: mentor.email,
+                        hostId: zoomMeeting.host_id,
+                        createdAt: new Date(),
+                        createdBy: 'custom_api',
+                    };
+
+                    meetingLink = zoomMeeting.join_url;
+
+                    this.logger.log(`Zoom meeting created successfully: ${zoomMeeting.id}`);
+                } else {
+                    this.logger.warn(`Mentor ${mentorId} has not connected Zoom or auto-create is disabled`);
+                }
+            } catch (error) {
+                this.logger.error(`Failed to create Zoom meeting: ${error.message}`);
+                // Don't fail the appointment creation, just log the error
+            }
+        }
+
         const appointment = new this.appointmentModel({
             ...dto,
             meetingDate,
             endTime,
             userId: new Types.ObjectId(dto.userId),
-            mentorId
+            mentorId,
+            meetingLink,
+            zoomMeetingId: zoomMetadata?.meetingId,
+            zoomMetadata,
+            source: dto.platform === APPOINTMENT_PLATFORMS.ZOOM && zoomMetadata ? 'zoom' : 'manual',
         });
 
         const saved = await appointment.save();
@@ -95,20 +184,8 @@ export class AppointmentsService {
             this.appointmentModel.findById(saved._id)
         ).lean();
 
-        await this.availabilityModel.updateOne(
-            {
-                mentorId,
-                "weeklySlots.day": weekday
-            },
-            {
-                $pull: {
-                    "weeklySlots.$.slots": {
-                        startTime: selectedSlot.startTime,
-                        startPeriod: selectedSlot.startPeriod
-                    }
-                }
-            }
-        );
+        // Note: Slot removal already done above for manual availability mentors
+        // No need to remove slots again here
 
         const result = toAppointmentResponseDto(populated as AppointmentDocument);
 
@@ -566,6 +643,20 @@ export class AppointmentsService {
             { $push: { "weeklySlots.$.slots": oldSlot } }
         );
 
+        // Delete Zoom meeting if it was created
+        if (appointment.zoomMeetingId && appointment.source === 'zoom') {
+            try {
+                const mentor = await this.userModel.findById(mentorId);
+                if (mentor?.zoomConfig?.accessToken) {
+                    await this.zoomService.deleteMeeting(mentor, appointment.zoomMeetingId);
+                    this.logger.log(`Deleted Zoom meeting ${appointment.zoomMeetingId} for canceled appointment`);
+                }
+            } catch (error) {
+                this.logger.error(`Failed to delete Zoom meeting: ${error.message}`);
+                // Don't fail the cancellation, just log the error
+            }
+        }
+
         // update appointment to cancelled
         const cancelledStatus = (APPOINTMENT_STATUSES && (APPOINTMENT_STATUSES.CANCELED ?? APPOINTMENT_STATUSES.CANCELED)) || 'canceled';
 
@@ -631,5 +722,145 @@ export class AppointmentsService {
 
 
         return toAppointmentResponseDto(updated as AppointmentDocument);
+    }
+
+    /**
+     * UNIFIED AVAILABILITY: Get combined availability from Calendly (real-time) and manual DB
+     * This is the PRIMARY method students should use to find available mentors/directors
+     *
+     * For mentors with Calendly: Returns live Calendly availability
+     * For mentors without Calendly: Returns manual DB availability
+     *
+     * @param targetRole - Role filter (pastor, seminarian, lay leader, etc.) - maps to Calendly event types
+     * @param mentorRoles - Mentor types to include (mentor, field_mentor, director)
+     * @param startDate - Start date for availability window
+     * @param endDate - End date for availability window
+     */
+    async getUnifiedAvailability(
+        targetRole?: string,
+        mentorRoles?: string[],
+        startDate?: Date,
+        endDate?: Date
+    ): Promise<any[]> {
+        const roles = mentorRoles || [ROLES.MENTOR, ROLES.FIELD_MENTOR, ROLES.DIRECTOR];
+
+        // Get all mentors/directors/field mentors
+        const allMentors = await this.userModel.find({
+            role: { $in: roles },
+            status: 'active',
+        }).lean();
+
+        const availabilityResults = await Promise.all(
+            allMentors.map(async (mentor) => {
+                try {
+                    // Check if mentor has Calendly configured
+                    if (mentor.calendlyConfig?.accessToken) {
+                        this.logger.log(`Fetching Calendly availability for ${mentor.firstName} ${mentor.lastName}`);
+
+                        // Find matching event type for target role
+                        let eventTypeUuid: string | undefined;
+                        if (targetRole && mentor.calendlyConfig.eventTypes) {
+                            const matchingEvent = mentor.calendlyConfig.eventTypes.find(
+                                (et: any) => et.targetRole === targetRole && et.active
+                            );
+                            eventTypeUuid = matchingEvent?.uuid;
+                        } else if (mentor.calendlyConfig.eventTypes) {
+                            const firstActive = mentor.calendlyConfig.eventTypes.find((et: any) => et.active);
+                            eventTypeUuid = firstActive?.uuid;
+                        }
+
+                        if (!eventTypeUuid) {
+                            this.logger.warn(`No matching event type for ${mentor.firstName} with targetRole: ${targetRole}`);
+                            return {
+                                mentorId: mentor._id,
+                                mentorName: `${mentor.firstName} ${mentor.lastName}`,
+                                email: mentor.email,
+                                role: mentor.role,
+                                source: 'calendly',
+                                bookingMethod: 'calendly_link',
+                                calendlyBookingLink: null,
+                                availability: [],
+                                error: 'No matching event type for target role',
+                            };
+                        }
+
+                        // Fetch real-time Calendly availability
+                        const calendlyAvailability = await this.calendlyService.getUserAvailability(
+                            mentor._id.toString(),
+                            eventTypeUuid,
+                            startDate,
+                            endDate
+                        );
+
+                        // Get Calendly booking link
+                        const bookingLink = await this.calendlyService.getMentorBookingLink(
+                            mentor._id.toString(),
+                            targetRole
+                        );
+
+                        return {
+                            mentorId: mentor._id,
+                            mentorName: `${mentor.firstName} ${mentor.lastName}`,
+                            email: mentor.email,
+                            role: mentor.role,
+                            source: 'calendly',
+                            bookingMethod: 'calendly_link',
+                            calendlyBookingLink: bookingLink,
+                            availability: calendlyAvailability,
+                            eventTypes: mentor.calendlyConfig.eventTypes,
+                        };
+                    } else {
+                        // Fallback to manual DB availability
+                        this.logger.log(`Fetching manual availability for ${mentor.firstName} ${mentor.lastName}`);
+
+                        const manualAvailability = await this.availabilityModel
+                            .findOne({ mentorId: mentor._id })
+                            .lean();
+
+                        if (!manualAvailability) {
+                            return {
+                                mentorId: mentor._id,
+                                mentorName: `${mentor.firstName} ${mentor.lastName}`,
+                                email: mentor.email,
+                                role: mentor.role,
+                                source: 'manual',
+                                bookingMethod: 'direct_appointment',
+                                availability: [],
+                                error: 'No availability configured',
+                            };
+                        }
+
+                        return {
+                            mentorId: mentor._id,
+                            mentorName: `${mentor.firstName} ${mentor.lastName}`,
+                            email: mentor.email,
+                            role: mentor.role,
+                            source: 'manual',
+                            bookingMethod: 'direct_appointment',
+                            availability: manualAvailability.weeklySlots,
+                            meetingDuration: manualAvailability.meetingDuration,
+                        };
+                    }
+                } catch (error) {
+                    this.logger.error(`Failed to fetch availability for mentor ${mentor._id}:`, error);
+                    return {
+                        mentorId: mentor._id,
+                        mentorName: `${mentor.firstName} ${mentor.lastName}`,
+                        email: mentor.email,
+                        role: mentor.role,
+                        source: 'error',
+                        availability: [],
+                        error: error.message,
+                    };
+                }
+            })
+        );
+
+        // Sort: Calendly-enabled mentors first, then by name
+        return availabilityResults.sort((a, b) => {
+            if (a.source === 'calendly' && b.source !== 'calendly') return -1;
+            if (a.source !== 'calendly' && b.source === 'calendly') return 1;
+            return a.mentorName.localeCompare(b.mentorName);
+        });
     }
 }
