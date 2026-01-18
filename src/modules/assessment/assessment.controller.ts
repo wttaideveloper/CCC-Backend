@@ -222,4 +222,18 @@ export class AssessmentController {
   ): Promise<Assessment> {
     return this.assessmentService.updatePreSurvey(id, dto);
   }
+
+  @Get(':id/recommendations')
+  async getRecommendations(
+    @Param('id', ParseMongoIdPipe) id: string,
+  ) {
+    const data = await this.assessmentService.getAssessmentRecommendations(id);
+
+    return {
+      success: true,
+      message: 'Assessment recommendations fetched successfully',
+      data,
+    };
+  }
+
 }

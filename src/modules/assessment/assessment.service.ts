@@ -6,7 +6,7 @@ import {
 import { InjectModel } from '@nestjs/mongoose';
 import { Model, Types } from 'mongoose';
 import { Assessment, AssessmentDocument } from './schemas/assessment.schema';
-import { CreateAssessmentDto, SectionDto, UpdateAssessmentDto } from './dto/assessment.dto';
+import { CreateAssessmentDto, LayerRecommendationDto, SectionDto, SectionRecommendationDto, UpdateAssessmentDto } from './dto/assessment.dto';
 import { User, UserDocument } from '../users/schemas/user.schema';
 import { ASSESSMENT_ASSIGNMENT_STATUSES } from '../../common/constants/status.constants';
 import { UserAnswer } from './schemas/answer.schema';
@@ -545,6 +545,48 @@ export class AssessmentService {
 
     return assessment;
   }
+
+  async getAssessmentRecommendations(
+  assessmentId: string,
+): Promise<SectionRecommendationDto[]> {
+  if (!Types.ObjectId.isValid(assessmentId)) {
+    throw new BadRequestException('Invalid assessment ID format');
+  }
+
+  const assessment = await this.assessmentModel
+    .findById(assessmentId)
+    .select('sections')
+    .lean()
+    .exec();
+
+  if (!assessment) {
+    throw new NotFoundException('Assessment not found');
+  }
+
+  const result: SectionRecommendationDto[] = [];
+
+  for (const section of assessment.sections ?? []) {
+    const layers: LayerRecommendationDto[] = [];
+
+    for (const layer of section.layers ?? []) {
+      if (layer.recommendations?.length) {
+        layers.push({
+          layerTitle: layer.title,
+          recommendations: layer.recommendations,
+        });
+      }
+    }
+
+    if (layers.length) {
+      result.push({
+        sectionTitle: section.title,
+        layers,
+      });
+    }
+  }
+
+  return result;
+}
 
 
 }

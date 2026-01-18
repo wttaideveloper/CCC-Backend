@@ -109,3 +109,22 @@ export class UpdateAssessmentDto {
   @IsArray()
   instructions?: string[];
 }
+
+export class LayerRecommendationDto {
+  @IsString()
+  layerTitle: string;
+
+  @IsArray()
+  @IsString({ each: true })
+  recommendations: string[];
+}
+
+export class SectionRecommendationDto {
+  @IsString()
+  sectionTitle: string;
+
+  @IsArray()
+  @ValidateNested({ each: true })
+  @Type(() => LayerRecommendationDto)
+  layers: LayerRecommendationDto[];
+}
