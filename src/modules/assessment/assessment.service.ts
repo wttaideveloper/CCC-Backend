@@ -58,11 +58,16 @@ export class AssessmentService {
     return assessment;
   }
 
-  async deleteAssessment(id: string): Promise<AssessmentDocument | null> {
-    if (!Types.ObjectId.isValid(id)) {
-      throw new BadRequestException('Invalid assessment ID format');
+  async deleteMany(ids: string[]) {
+    const invalidIds = ids.filter(id => !Types.ObjectId.isValid(id));
+
+    if (invalidIds.length) {
+      throw new BadRequestException('Invalid assessment ID(s)');
     }
-    return this.assessmentModel.findByIdAndDelete(id).exec();
+
+    return this.assessmentModel.deleteMany({
+      _id: { $in: ids },
+    });
   }
 
   async updateAssessment(
@@ -547,46 +552,46 @@ export class AssessmentService {
   }
 
   async getAssessmentRecommendations(
-  assessmentId: string,
-): Promise<SectionRecommendationDto[]> {
-  if (!Types.ObjectId.isValid(assessmentId)) {
-    throw new BadRequestException('Invalid assessment ID format');
-  }
+    assessmentId: string,
+  ): Promise<SectionRecommendationDto[]> {
+    if (!Types.ObjectId.isValid(assessmentId)) {
+      throw new BadRequestException('Invalid assessment ID format');
+    }
 
-  const assessment = await this.assessmentModel
-    .findById(assessmentId)
-    .select('sections')
-    .lean()
-    .exec();
+    const assessment = await this.assessmentModel
+      .findById(assessmentId)
+      .select('sections')
+      .lean()
+      .exec();
 
-  if (!assessment) {
-    throw new NotFoundException('Assessment not found');
-  }
+    if (!assessment) {
+      throw new NotFoundException('Assessment not found');
+    }
 
-  const result: SectionRecommendationDto[] = [];
+    const result: SectionRecommendationDto[] = [];
 
-  for (const section of assessment.sections ?? []) {
-    const layers: LayerRecommendationDto[] = [];
+    for (const section of assessment.sections ?? []) {
+      const layers: LayerRecommendationDto[] = [];
 
-    for (const layer of section.layers ?? []) {
-      if (layer.recommendations?.length) {
-        layers.push({
-          layerTitle: layer.title,
-          recommendations: layer.recommendations,
+      for (const layer of section.layers ?? []) {
+        if (layer.recommendations?.length) {
+          layers.push({
+            layerTitle: layer.title,
+            recommendations: layer.recommendations,
+          });
+        }
+      }
+
+      if (layers.length) {
+        result.push({
+          sectionTitle: section.title,
+          layers,
         });
       }
     }
 
-    if (layers.length) {
-      result.push({
-        sectionTitle: section.title,
-        layers,
-      });
-    }
+    return result;
   }
-
-  return result;
-}
 
 
 }

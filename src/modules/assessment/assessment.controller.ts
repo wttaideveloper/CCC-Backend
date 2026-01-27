@@ -11,6 +11,7 @@ import {
   HttpStatus,
   UseInterceptors,
   UploadedFile,
+  BadRequestException,
   // UseGuards,
 } from '@nestjs/common';
 import { CreateAssessmentDto, SectionDto, UpdateAssessmentDto } from './dto/assessment.dto';
@@ -48,12 +49,22 @@ export class AssessmentController {
     return this.assessmentService.getById(id);
   }
 
-  @Delete(':id')
+  @Delete()
   // @Roles(ROLES.DIRECTOR, ROLES.MENTOR)
-  async deleteAssessment(@Param('id', ParseMongoIdPipe) id: string) {
-    const deleted = await this.assessmentService.deleteAssessment(id);
-    if (!deleted) throw new NotFoundException('Assessment not found');
-    return { success: true, message: 'Assessment deleted successfully' };
+  async deleteMultipleAssessments(
+    @Body('ids') ids: string[]
+  ) {
+    if (!Array.isArray(ids) || ids.length === 0) {
+      throw new BadRequestException('Assessment IDs are required');
+    }
+
+    const result = await this.assessmentService.deleteMany(ids);
+
+    return {
+      success: true,
+      deletedCount: result.deletedCount,
+      message: 'Assessments deleted successfully',
+    };
   }
 
   @Patch(':id/instructions')
