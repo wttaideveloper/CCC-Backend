@@ -68,6 +68,7 @@ export class HomeController {
     @Query('state') state?: string,
     @Query('conference') conference?: string,
     @Query('role') role?: string,
+    @Query('search') search?: string,
   ): Promise<BaseResponse<{ mentors: MentorResponseDto[]; total: number }>> {
     const result = await this.homeService.getAllMentors({
       page: Number(page) || 1,
@@ -76,6 +77,7 @@ export class HomeController {
       state,
       conference,
       role,
+      search,
     });
 
     return {
@@ -92,12 +94,14 @@ export class HomeController {
     @Query('limit') limit?: number,
     @Query('phase') phase?: string,
     @Query('country') country?: string,
+    @Query('search') search?: string,
   ): Promise<BaseResponse<{ mentees: MentorResponseDto[]; total: number }>> {
     const result = await this.homeService.getAllMentees({
       page: Number(page) || 1,
       limit: Number(limit) || 10,
       phase,
       country,
+      search
     });
 
     return {

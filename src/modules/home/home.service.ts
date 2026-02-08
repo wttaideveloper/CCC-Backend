@@ -32,6 +32,7 @@ interface MentorFilterOptions {
   state?: string;
   conference?: string;
   role?: string;
+  search?: string;
 }
 
 @Injectable()
@@ -82,40 +83,57 @@ export class HomeService {
   async getAllMentors(
     options: MentorFilterOptions = {},
   ): Promise<{ mentors: MentorResponseDto[]; total: number }> {
-    const { page = 1, limit = 10, country, state, conference, role } = options;
+
+    const { page = 1, limit = 10, country, state, conference, role, search } = options;
     const skip = (page - 1) * limit;
 
     const roleFilter = role
       ? Array.isArray(role)
         ? { $in: role }
         : role
-      : { $in: [USER_ROLES.MENTOR, 'field mentor'] };
+      : { $in: [USER_ROLES.MENTOR, "field mentor"] };
 
-    const pipeline: any[] = [
-      { $match: { role: roleFilter } },
+    const pipeline: any[] = [];
 
-      {
-        $lookup: {
-          from: "interests",
-          let: { userId: { $toString: "$_id" } },
-          pipeline: [
-            {
-              $match: {
-                $expr: { $eq: ["$userId", "$$userId"] }
-              }
-            }
+    pipeline.push({
+      $match: { role: roleFilter },
+    });
+
+    pipeline.push({
+      $lookup: {
+        from: "interests",
+        let: { userId: { $toString: "$_id" } },
+        pipeline: [
+          {
+            $match: {
+              $expr: { $eq: ["$userId", "$$userId"] },
+            },
+          },
+        ],
+        as: "interestData",
+      },
+    });
+
+    pipeline.push({
+      $addFields: {
+        phoneNumber: { $arrayElemAt: ["$interestData.phoneNumber", 0] },
+        profileInfo: { $arrayElemAt: ["$interestData.profileInfo", 0] },
+      },
+    });
+
+    if (search) {
+      pipeline.push({
+        $match: {
+          $or: [
+            { firstName: { $regex: search, $options: "i" } },
+            { lastName: { $regex: search, $options: "i" } },
+            { email: { $regex: search, $options: "i" } },
+            { username: { $regex: search, $options: "i" } },
+            { phoneNumber: { $regex: search, $options: "i" } },
           ],
-          as: "interestData"
-        }
-      },
-
-      {
-        $addFields: {
-          phoneNumber: { $arrayElemAt: ["$interestData.phoneNumber", 0] },
-          profileInfo: { $arrayElemAt: ["$interestData.profileInfo", 0] },
-        }
-      },
-    ];
+        },
+      });
+    }
 
     if (country || state || conference) {
       const matchConditions: any = {};
@@ -150,6 +168,7 @@ export class HomeService {
     });
 
     const result = await this.userModel.aggregate(pipeline).exec();
+
     const total = result[0]?.metadata[0]?.total || 0;
     const mentorsData = result[0]?.data || [];
 
@@ -159,7 +178,7 @@ export class HomeService {
       dto.firstName = mentor.firstName;
       dto.lastName = mentor.lastName;
       dto.email = mentor.email;
-      dto.username = mentor.username || '';
+      dto.username = mentor.username || "";
       dto.role = mentor.role;
       dto.roleId = mentor.roleId;
       dto.profileInfo = mentor.profileInfo || "";
@@ -176,50 +195,60 @@ export class HomeService {
       limit?: number;
       phase?: string;
       country?: string;
+      search?: string;
     } = {},
   ): Promise<{ mentees: MentorResponseDto[]; total: number }> {
-    const { page = 1, limit = 10, phase, country } = options;
+
+    const { page = 1, limit = 10, phase, country, search } = options;
     const skip = (page - 1) * limit;
 
-    const pipeline: any[] = [
-      {
+    const pipeline: any[] = [];
+
+    pipeline.push({
+      $match: { role: USER_ROLES.PASTOR },
+    });
+
+    pipeline.push({
+      $lookup: {
+        from: "interests",
+        let: { userId: { $toString: "$_id" } },
+        pipeline: [
+          {
+            $match: {
+              $expr: { $eq: ["$userId", "$$userId"] },
+            },
+          },
+        ],
+        as: "interestData",
+      },
+    });
+
+    pipeline.push({
+      $addFields: {
+        phoneNumber: { $arrayElemAt: ["$interestData.phoneNumber", 0] },
+        profileInfo: { $arrayElemAt: ["$interestData.profileInfo", 0] },
+      },
+    });
+
+    if (search) {
+      pipeline.push({
         $match: {
-          role: USER_ROLES.PASTOR,
-        },
-      },
-
-      {
-        $lookup: {
-          from: "interests",
-          let: { userId: { $toString: "$_id" } },
-          pipeline: [
-            {
-              $match: {
-                $expr: { $eq: ["$userId", "$$userId"] }
-              }
-            }
+          $or: [
+            { firstName: { $regex: search, $options: "i" } },
+            { lastName: { $regex: search, $options: "i" } },
+            { email: { $regex: search, $options: "i" } },
+            { username: { $regex: search, $options: "i" } },
+            { phoneNumber: { $regex: search, $options: "i" } },
           ],
-          as: "interestData"
-        }
-      },
-
-      {
-        $addFields: {
-          phoneNumber: { $arrayElemAt: ["$interestData.phoneNumber", 0] },
-          profileInfo: { $arrayElemAt: ["$interestData.profileInfo", 0] },
-        }
-      },
-    ];
+        },
+      });
+    }
 
     if (country || phase) {
       const matchConditions: any = {};
 
-      if (country) {
-        matchConditions['interestData.churchDetails.country'] = country;
-      }
-      if (phase) {
-        matchConditions['interestData.churchDetails.state'] = phase;
-      }
+      if (country) matchConditions["interestData.churchDetails.country"] = country;
+      if (phase) matchConditions["interestData.churchDetails.state"] = phase;
 
       pipeline.push({ $match: matchConditions });
     }
@@ -241,7 +270,7 @@ export class HomeService {
 
     pipeline.push({
       $facet: {
-        metadata: [{ $count: 'total' }],
+        metadata: [{ $count: "total" }],
         data: [{ $skip: skip }, { $limit: limit }],
       },
     });
@@ -257,7 +286,7 @@ export class HomeService {
       dto.firstName = mentee.firstName;
       dto.lastName = mentee.lastName;
       dto.email = mentee.email;
-      dto.username = mentee.username || '';
+      dto.username = mentee.username || "";
       dto.role = mentee.role;
       dto.profileInfo = mentee.profileInfo || "";
       dto.phoneNumber = mentee.phoneNumber || "";
