@@ -108,6 +108,9 @@ export class AssessmentExtraDto {
     @IsNotEmpty()
     name: string;
 
+    @IsMongoId()
+    assessmentId: string;
+
     @IsOptional()
     @IsString()
     buttonName?: string;

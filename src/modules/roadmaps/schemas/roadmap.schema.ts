@@ -91,6 +91,9 @@ export class AssessmentExtra {
     @Prop({ required: true })
     name: string;
 
+    @Prop({ type: Types.ObjectId, ref: 'Assessment', required: true })
+    assessmentId: Types.ObjectId;
+
     @Prop()
     buttonName?: string;
 
