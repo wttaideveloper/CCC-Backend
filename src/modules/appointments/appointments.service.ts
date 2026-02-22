@@ -7,7 +7,7 @@ import { toAppointmentResponseDto } from './utils/appointment.mapper';
 import { APPOINTMENT_STATUSES, APPOINTMENT_PLATFORMS } from '../../common/constants/status.constants';
 import { Availability, AvailabilityDocument } from './schemas/availability.schema';
 import { AvailabilityDto } from './dto/availability.dto';
-import { generateMonthlyAvailability, splitIntoDurationSlots } from './utils/availability.utils';
+import { buildSlotDate, generateMonthlyAvailability, splitIntoDurationSlots } from './utils/availability.utils';
 import { HomeService } from '../home/home.service';
 import { ROLES } from 'src/common/constants/roles.constants';
 import { ZoomService } from '../zoom/zoom.service';
@@ -85,6 +85,35 @@ export class AppointmentsService {
             throw new BadRequestException("This time slot is already booked.");
         }
 
+        // 🚨 enforce min notice
+        const noticeMs = (availability.minSchedulingNoticeHours ?? 2) * 60 * 60 * 1000;
+        const now = new Date();
+
+        if (meetingDate.getTime() < now.getTime() + noticeMs) {
+            throw new BadRequestException(
+                `Appointments must be booked at least ${availability.minSchedulingNoticeHours} hours in advance.`
+            );
+        }
+
+        // 🚨 enforce max bookings per day
+        const startOfDay = new Date(meetingDate);
+        startOfDay.setHours(0, 0, 0, 0);
+
+        const endOfDay = new Date(meetingDate);
+        endOfDay.setHours(23, 59, 59, 999);
+
+        const dailyCount = await this.appointmentModel.countDocuments({
+            mentorId,
+            meetingDate: { $gte: startOfDay, $lte: endOfDay },
+            status: APPOINTMENT_STATUSES.SCHEDULED,
+        });
+
+        if (dailyCount >= (availability.maxBookingsPerDay ?? 5)) {
+            throw new BadRequestException(
+                "Mentor has reached maximum bookings for this day."
+            );
+        }
+
         // Get user and mentor details for Zoom meeting topic
         const userDoc = await this.appointmentModel.db.model('User').findById(dto.userId).lean() as any;
         const mentorDoc = await this.appointmentModel.db.model('User').findById(dto.mentorId).lean() as any;
@@ -120,7 +149,8 @@ export class AppointmentsService {
                     timezone: zoomResponse.timezone,
                     createdAt: zoomResponse.createdAt,
                 };
-
+                console.log("hiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiii", zoomResponse)
+                console.log("nnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnn", zoomResponse.joinUrl)
                 meetingLink = zoomResponse.joinUrl;
 
                 this.logger.log(`Zoom meeting created successfully: ${zoomResponse.meetingId}`);
@@ -409,7 +439,43 @@ export class AppointmentsService {
             return [];
         }
 
-        return generateMonthlyAvailability(data.weeklySlots, year, month);
+        // return generateMonthlyAvailability(data.weeklySlots, year, month);
+        const monthly = generateMonthlyAvailability(data.weeklySlots, year, month);
+
+        const now = new Date();
+        const noticeMs = (data.minSchedulingNoticeHours ?? 2) * 60 * 60 * 1000;
+
+        return Promise.all(
+            monthly.map(async (day) => {
+                const dayDate = new Date(day.date);
+
+                // ✅ count mentor bookings that day
+                const startOfDay = new Date(dayDate);
+                startOfDay.setHours(0, 0, 0, 0);
+
+                const endOfDay = new Date(dayDate);
+                endOfDay.setHours(23, 59, 59, 999);
+
+                const bookingCount = await this.appointmentModel.countDocuments({
+                    mentorId: objectId,
+                    meetingDate: { $gte: startOfDay, $lte: endOfDay },
+                    status: APPOINTMENT_STATUSES.SCHEDULED,
+                });
+
+                // 🔴 if mentor full → hide slots
+                if (bookingCount >= (data.maxBookingsPerDay ?? 5)) {
+                    return { ...day, slots: [] };
+                }
+
+                // ✅ apply notice filter
+                const filteredSlots = day.slots.filter(slot => {
+                    const slotDate = buildSlotDate(day.date, slot);
+                    return slotDate.getTime() >= now.getTime() + noticeMs;
+                });
+
+                return { ...day, slots: filteredSlots };
+            })
+        );
     }
 
     async reschedule(appointmentId: string, dto: { newDate: string }) {
@@ -486,6 +552,26 @@ export class AppointmentsService {
 
         if (overlap)
             throw new BadRequestException("This slot is already booked by another appointment.");
+
+        // 🚨 enforce max bookings per day for new date
+        const startOfDay = new Date(meetingDateUtc);
+        startOfDay.setHours(0, 0, 0, 0);
+
+        const endOfDay = new Date(meetingDateUtc);
+        endOfDay.setHours(23, 59, 59, 999);
+
+        const dailyCount = await this.appointmentModel.countDocuments({
+            mentorId,
+            meetingDate: { $gte: startOfDay, $lte: endOfDay },
+            status: APPOINTMENT_STATUSES.SCHEDULED,
+            _id: { $ne: appointmentId }
+        });
+
+        if (dailyCount >= (availability.maxBookingsPerDay ?? 5)) {
+            throw new BadRequestException(
+                "Mentor has reached maximum bookings for this day."
+            );
+        }
 
         // Restore old slot 
         const oldMeetingUtc = new Date(appointment.meetingDate);

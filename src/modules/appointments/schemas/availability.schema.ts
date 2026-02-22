@@ -73,7 +73,7 @@ export class Availability {
     @Prop({
         type: String,
         enum: VALID_APPOINTMENT_PLATFORMS,
-        default: APPOINTMENT_PLATFORMS.TEAMS,
+        default: APPOINTMENT_PLATFORMS.ZOOM,
     })
     preferredPlatform: string;
 }
