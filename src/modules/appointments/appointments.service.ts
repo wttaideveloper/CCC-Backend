@@ -11,6 +11,7 @@ import { generateMonthlyAvailability, splitIntoDurationSlots } from './utils/ava
 import { HomeService } from '../home/home.service';
 import { ROLES } from 'src/common/constants/roles.constants';
 import { ZoomService } from '../zoom/zoom.service';
+import { MailerService } from '../../common/utils/mail.util';
 
 @Injectable()
 export class AppointmentsService {
@@ -21,6 +22,7 @@ export class AppointmentsService {
         @InjectModel(Availability.name) private availabilityModel: Model<AvailabilityDocument>,
         private readonly notificationService: HomeService,
         private readonly zoomService: ZoomService,
+        private readonly mailerService: MailerService,
     ) { }
 
     private readonly userSelect = 'firstName lastName email phoneNumber profilePicture role roleId status';
@@ -193,6 +195,37 @@ export class AppointmentsService {
                 module: 'APPOINTMENT'
             });
 
+            // Send email notifications to pastor (user) and mentor if Zoom link exists
+            if (meetingLink && zoomMeeting) {
+                const emailOpts = {
+                    joinUrl: meetingLink,
+                    password: zoomMeeting.password,
+                    meetingId: zoomMeeting.meetingId,
+                    durationMinutes,
+                    meetingDate: result.meetingDate,
+                };
+
+                if (userDoc?.email) {
+                    await this.mailerService.sendAppointmentConfirmation({
+                        to: userDoc.email,
+                        recipientName: userName,
+                        otherPartyName: mentorName,
+                        role: 'pastor',
+                        ...emailOpts,
+                    });
+                }
+
+                if (mentorDoc?.email) {
+                    await this.mailerService.sendAppointmentConfirmation({
+                        to: mentorDoc.email,
+                        recipientName: mentorName,
+                        otherPartyName: userName,
+                        role: 'mentor',
+                        ...emailOpts,
+                    });
+                }
+            }
+
         } catch (err) {
             console.warn('Failed to send appointment notifications:', err?.message ?? err);
         }
@@ -326,6 +359,35 @@ export class AppointmentsService {
                 details: `${userName} rescheduled an appointment with ${mentorName} to ${newIso}.`,
                 module: 'APPOINTMENT',
             });
+
+            // Send rescheduled emails to pastor and mentor if Zoom link present
+            const joinUrl = (populated as any).meetingLink;
+            const zoom = (populated as any).zoomMeeting;
+            if (joinUrl) {
+                const emailOpts = {
+                    joinUrl,
+                    password: zoom?.password,
+                    meetingId: zoom?.meetingId,
+                    durationMinutes: 60,
+                    newMeetingDate: populated.meetingDate,
+                };
+                if (userDoc?.email) {
+                    await this.mailerService.sendAppointmentRescheduled({
+                        to: userDoc.email,
+                        recipientName: userName,
+                        otherPartyName: mentorName,
+                        ...emailOpts,
+                    });
+                }
+                if (mentorDoc?.email) {
+                    await this.mailerService.sendAppointmentRescheduled({
+                        to: mentorDoc.email,
+                        recipientName: mentorName,
+                        otherPartyName: userName,
+                        ...emailOpts,
+                    });
+                }
+            }
 
         } catch (err) {
             console.warn('Failed to send reschedule notifications:', err?.message ?? err);
@@ -678,6 +740,28 @@ export class AppointmentsService {
                 details: `${userName}'s appointment with ${mentorName} on ${dateIso} was canceled. ${reasonText}`,
                 module: 'APPOINTMENT',
             });
+
+            // Send cancellation emails to pastor and mentor
+            const cancelEmailOpts = {
+                meetingDate: populated.meetingDate,
+                reason: dto.reason,
+            };
+            if (userDoc?.email) {
+                await this.mailerService.sendAppointmentCancellation({
+                    to: userDoc.email,
+                    recipientName: userName,
+                    otherPartyName: mentorName,
+                    ...cancelEmailOpts,
+                });
+            }
+            if (mentorDoc?.email) {
+                await this.mailerService.sendAppointmentCancellation({
+                    to: mentorDoc.email,
+                    recipientName: mentorName,
+                    otherPartyName: userName,
+                    ...cancelEmailOpts,
+                });
+            }
 
         } catch (err) {
             console.warn('Failed to send cancellation notifications:', err?.message ?? err);

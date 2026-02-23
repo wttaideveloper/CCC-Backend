@@ -15,6 +15,7 @@ import { toUserResponseDto } from './utils/user.mapper';
 import { AssignMentorMenteeDto, RemoveMentorMenteeDto, UserResponseDto } from './dto/user-response.dto';
 import { S3Service } from '../s3/s3.service';
 import { UserDocumentResponseDto } from './dto/upload-document.dto';
+import { CreateNoteDto, NoteResponseDto, UpdateNoteDto } from './dto/notes.dto';
 import {
     InviteFieldMentorDto,
     AcceptInvitationDto,
@@ -100,7 +101,7 @@ export class UsersService {
         const [usersRaw, total] = await Promise.all([
             this.userModel
                 .find(query)
-                .select('-password -refreshToken -uploadedDocuments')
+                .select('-password -refreshToken -uploadedDocuments -notes')
                 .populate({
                     path: 'interestId',
                     select: 'profileInfo phoneNumber',
@@ -156,7 +157,7 @@ export class UsersService {
     }
 
     async findByRole(role: string): Promise<UserResponseDto[]> {
-        const users = await this.userModel.find({ role }).select('-password -refreshToken -uploadedDocuments').lean().exec();
+        const users = await this.userModel.find({ role }).select('-password -refreshToken -uploadedDocuments -notes').lean().exec();
         if (!users || users.length === 0)
             throw new NotFoundException('User not found');
         return users.map((user) => toUserResponseDto(user));
@@ -377,7 +378,7 @@ export class UsersService {
                 { profilePicture: fileUrl },
                 { new: true, runValidators: true }
             )
-            .select('-password -refreshToken -uploadedDocuments')
+            .select('-password -refreshToken -uploadedDocuments -notes')
             .exec();
 
         if (!updated) {
@@ -588,5 +589,96 @@ export class UsersService {
         }
 
         return toUserResponseDto(updatedUser);
+    }
+
+    async getNotes(userId: string): Promise<NoteResponseDto[]> {
+        const user = await this.userModel
+            .findById(userId)
+            .select('notes')
+            .lean()
+            .exec();
+
+        if (!user) {
+            throw new NotFoundException('User not found');
+        }
+
+        const notes = (user.notes || []).map((note: any) => ({
+            _id: note._id.toString(),
+            content: note.content,
+            createdAt: note.createdAt,
+            updatedAt: note.updatedAt,
+        }));
+
+        notes.sort((a: NoteResponseDto, b: NoteResponseDto) =>
+            new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+        );
+
+        return notes;
+    }
+
+    async addNote(userId: string, dto: CreateNoteDto): Promise<NoteResponseDto> {
+        const updatedUser = await this.userModel.findByIdAndUpdate(
+            userId,
+            { $push: { notes: { content: dto.content } } },
+            {
+                new: true,
+                projection: { notes: { $slice: -1 } }
+            }
+        ).lean().exec();
+
+        if (!updatedUser || !updatedUser.notes || updatedUser.notes.length === 0) {
+            throw new NotFoundException('User not found or failed to add note');
+        }
+
+        const newNote = updatedUser.notes[0] as any;
+
+        return {
+            _id: newNote._id.toString(),
+            content: newNote.content,
+            createdAt: newNote.createdAt,
+            updatedAt: newNote.updatedAt,
+        };
+    }
+
+    async updateNote(userId: string, noteId: string, dto: UpdateNoteDto): Promise<NoteResponseDto> {
+        const noteObjectId = new Types.ObjectId(noteId);
+
+        const result = await this.userModel.findOneAndUpdate(
+            { _id: new Types.ObjectId(userId), 'notes._id': noteObjectId },
+            {
+                $set: {
+                    'notes.$.content': dto.content,
+                    'notes.$.updatedAt': new Date(),
+                },
+            },
+            { new: true }
+        ).select('notes').lean().exec();
+
+        if (!result) {
+            throw new NotFoundException('User or note not found');
+        }
+
+        const updatedNote = (result.notes as any[]).find(
+            (n: any) => n._id.toString() === noteId
+        );
+
+        return {
+            _id: updatedNote._id.toString(),
+            content: updatedNote.content,
+            createdAt: updatedNote.createdAt,
+            updatedAt: updatedNote.updatedAt,
+        };
+    }
+
+    async deleteNote(userId: string, noteId: string): Promise<void> {
+        const result = await this.userModel.findOneAndUpdate(
+            { _id: new Types.ObjectId(userId) },
+            { $pull: { notes: { _id: new Types.ObjectId(noteId) } } },
+            { new: true }
+        ).exec();
+
+        if (!result) {
+            throw new NotFoundException('User not found');
+        }
     }
 }

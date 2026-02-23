@@ -27,6 +27,7 @@ import {
 import { FileInterceptor } from '@nestjs/platform-express';
 import { UploadedFile, UseInterceptors } from '@nestjs/common';
 import { UserDocumentResponseDto } from './dto/upload-document.dto';
+import { CreateNoteDto, NoteResponseDto, UpdateNoteDto } from './dto/notes.dto';
 
 @Controller('users')
 // @UseGuards(JwtAuthGuard, RolesGuard)
@@ -217,6 +218,58 @@ export class UsersController {
     return {
       success: true,
       message: 'Document deleted successfully',
+      data: null,
+    };
+  }
+
+  @Get(':id/notes')
+  async getNotes(
+    @Param('id', ParseMongoIdPipe) id: string,
+  ): Promise<BaseResponse<NoteResponseDto[]>> {
+    const notes = await this.usersService.getNotes(id);
+    return {
+      success: true,
+      message: 'Notes fetched successfully',
+      data: notes,
+    };
+  }
+
+  @Post(':id/notes')
+  async addNote(
+    @Param('id', ParseMongoIdPipe) id: string,
+    @Body() dto: CreateNoteDto,
+  ): Promise<BaseResponse<NoteResponseDto>> {
+    const note = await this.usersService.addNote(id, dto);
+    return {
+      success: true,
+      message: 'Note added successfully',
+      data: note,
+    };
+  }
+
+  @Patch(':id/notes/:noteId')
+  async updateNote(
+    @Param('id', ParseMongoIdPipe) id: string,
+    @Param('noteId', ParseMongoIdPipe) noteId: string,
+    @Body() dto: UpdateNoteDto,
+  ): Promise<BaseResponse<NoteResponseDto>> {
+    const note = await this.usersService.updateNote(id, noteId, dto);
+    return {
+      success: true,
+      message: 'Note updated successfully',
+      data: note,
+    };
+  }
+
+  @Delete(':id/notes/:noteId')
+  async deleteNote(
+    @Param('id', ParseMongoIdPipe) id: string,
+    @Param('noteId', ParseMongoIdPipe) noteId: string,
+  ): Promise<BaseResponse<null>> {
+    await this.usersService.deleteNote(id, noteId);
+    return {
+      success: true,
+      message: 'Note deleted successfully',
       data: null,
     };
   }

@@ -15,6 +15,16 @@ export type UserDocument = Document<unknown, {}, User> &
 const VALID_ROLES = Object.values(ROLES);
 
 @Schema({ timestamps: true })
+export class Note {
+  readonly _id?: Types.ObjectId;
+
+  @Prop({ required: true })
+  content: string;
+}
+
+export const NoteSchema = SchemaFactory.createForClass(Note);
+
+@Schema({ timestamps: true })
 export class User {
   readonly _id?: Types.ObjectId;
 
@@ -103,6 +113,9 @@ export class User {
     token: string;
     expiresAt: Date;
   };
+
+  @Prop({ type: [NoteSchema], default: [] })
+  notes: Types.Array<Note>;
 }
 
 export const UserSchema = SchemaFactory.createForClass(User);
