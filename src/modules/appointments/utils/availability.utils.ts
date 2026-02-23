@@ -110,3 +110,15 @@ export interface WeeklySlot {
     day: number;
     slots: HourSlot[];
 }
+
+export function buildSlotDate(dateStr: string, slot: HourSlot): Date {
+    const base = new Date(dateStr);
+
+    let hour = parseInt(slot.startTime, 10);
+
+    if (slot.startPeriod === 'PM' && hour !== 12) hour += 12;
+    if (slot.startPeriod === 'AM' && hour === 12) hour = 0;
+
+    base.setHours(hour, 0, 0, 0);
+    return base;
+}
