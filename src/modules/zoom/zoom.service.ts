@@ -11,12 +11,8 @@ export class ZoomService {
     private accessToken: string | null = null;
     private tokenExpiresAt: Date | null = null;
 
-    constructor(private readonly configService: ConfigService) {}
+    constructor(private readonly configService: ConfigService) { }
 
-    /**
-     * Get valid access token using Server-to-Server OAuth (recommended for backend)
-     * Uses Account Credentials grant type
-     */
     private async getAccessToken(): Promise<string> {
         // Check if we have a valid cached token (with 5 min buffer)
         if (this.accessToken && this.tokenExpiresAt) {
@@ -69,9 +65,6 @@ export class ZoomService {
         }
     }
 
-    /**
-     * Create a Zoom meeting
-     */
     async createMeeting(dto: CreateZoomMeetingDto): Promise<ZoomMeetingResponseDto> {
         const accessToken = await this.getAccessToken();
 
@@ -89,7 +82,7 @@ export class ZoomService {
                 mute_upon_entry: false,
                 waiting_room: false,
                 audio: 'both',
-                auto_recording: 'none',
+                auto_recording: 'cloud',
                 approval_type: 2, // No registration required
                 registration_type: 1,
                 enforce_login: false,
@@ -139,9 +132,6 @@ export class ZoomService {
         }
     }
 
-    /**
-     * Update an existing Zoom meeting
-     */
     async updateMeeting(meetingId: string, dto: UpdateZoomMeetingDto): Promise<void> {
         const accessToken = await this.getAccessToken();
 
@@ -178,9 +168,6 @@ export class ZoomService {
         }
     }
 
-    /**
-     * Delete a Zoom meeting
-     */
     async deleteMeeting(meetingId: string): Promise<void> {
         const accessToken = await this.getAccessToken();
 
@@ -209,9 +196,6 @@ export class ZoomService {
         }
     }
 
-    /**
-     * Get meeting details
-     */
     async getMeeting(meetingId: string): Promise<any> {
         const accessToken = await this.getAccessToken();
 
@@ -240,9 +224,46 @@ export class ZoomService {
         }
     }
 
-    /**
-     * Check if Zoom is configured
-     */
+    async downloadTranscript(downloadUrl: string): Promise<string> {
+        const accessToken = await this.getAccessToken();
+
+        try {
+            const url = downloadUrl.includes('?')
+                ? `${downloadUrl}&access_token=${accessToken}`
+                : `${downloadUrl}?access_token=${accessToken}`;
+
+            const response = await fetch(url, { method: 'GET' });
+
+            if (!response.ok) {
+                throw new Error(`Failed to download transcript: ${response.status}`);
+            }
+
+            const vttText = await response.text();
+
+            // Strip VTT headers and timestamps — return plain text lines only
+            const lines = vttText.split('\n');
+            const textLines: string[] = [];
+            for (const line of lines) {
+                const trimmed = line.trim();
+                if (
+                    !trimmed ||
+                    trimmed === 'WEBVTT' ||
+                    /^\d+$/.test(trimmed) ||
+                    /^\d{2}:\d{2}:\d{2}\.\d{3}\s+-->\s+/.test(trimmed)
+                ) {
+                    continue;
+                }
+                textLines.push(trimmed);
+            }
+
+            return textLines.join('\n');
+
+        } catch (error) {
+            this.logger.error(`Error downloading transcript: ${error.message}`);
+            throw error;
+        }
+    }
+
     isConfigured(): boolean {
         const accountId = this.configService.get<string>('ZOOM_ACCOUNT_ID');
         const clientId = this.configService.get<string>('ZOOM_CLIENT_ID');

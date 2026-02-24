@@ -74,9 +74,11 @@ export class AppointmentResponseDto {
     notes?: string;
     status: string;
 
-    // Zoom meeting details
     zoomMeetingId?: string;
     zoomMeeting?: ZoomMeetingDto;
+
+    transcript?: string;
+    transcriptSavedAt?: Date;
 
     createdAt?: Date;
     updatedAt?: Date;

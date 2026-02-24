@@ -1,6 +1,5 @@
 import { AppointmentDocument } from '../schemas/appointment.schema';
 import { AppointmentResponseDto } from '../dto/appointment.dto';
-import { Types } from 'mongoose';
 
 // Accept ANY shape coming from Mongoose — populated OR not, with timestamps OR not
 type LooseAppointment = AppointmentDocument & {
@@ -10,6 +9,8 @@ type LooseAppointment = AppointmentDocument & {
     updatedAt?: Date;
     zoomMeetingId?: string;
     zoomMeeting?: any;
+    transcript?: string;
+    transcriptSavedAt?: Date;
 };
 
 export const toAppointmentResponseDto = (
@@ -77,6 +78,9 @@ export const toAppointmentResponseDto = (
 
         createdAt: appointment.createdAt ?? undefined,
         updatedAt: appointment.updatedAt ?? undefined,
+
+        transcript: appointment.transcript ?? undefined,
+        transcriptSavedAt: appointment.transcriptSavedAt ?? undefined,
 
         user: userPopulated,
         mentor: mentorPopulated

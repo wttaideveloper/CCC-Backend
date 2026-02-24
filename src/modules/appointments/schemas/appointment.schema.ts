@@ -104,6 +104,12 @@ export class Appointment {
         timezone?: string;
         createdAt?: Date;
     };
+
+    @Prop({ type: String, default: null })
+    transcript?: string;
+
+    @Prop({ type: Date, default: null })
+    transcriptSavedAt?: Date;
 }
 
 export const AppointmentSchema = SchemaFactory.createForClass(Appointment);

@@ -12,6 +12,7 @@ async function bootstrap() {
   const app = await NestFactory.create(AppModule, {
     logger: ['error', 'warn', 'log', 'debug', 'verbose'],
     cors: false,
+    rawBody: true, // for zoom webhook
   });
 
   const configService = app.get(ConfigService);
@@ -51,7 +52,7 @@ async function bootstrap() {
     },
     credentials: true,
     methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
-    allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With'],
+    allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With', 'x-zm-signature', 'x-zm-request-timestamp'],
     exposedHeaders: ['X-Total-Count', 'X-Page-Count'],
     maxAge: 3600, // Cache preflight requests for 1 hour
   });

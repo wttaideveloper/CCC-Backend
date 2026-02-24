@@ -692,6 +692,64 @@ export class AppointmentsService {
         return toAppointmentResponseDto(updated as AppointmentDocument);
     }
 
+    async handleZoomWebhook(payload: any): Promise<void> {
+        const event = payload?.event;
+        this.logger.log(`Zoom webhook received: ${event}`);
+
+        if (event === 'recording.completed') {
+            const meetingId = payload?.payload?.object?.id?.toString();
+            const recordingFiles: any[] = payload?.payload?.object?.recording_files ?? [];
+
+            if (!meetingId) {
+                this.logger.warn('Zoom webhook: missing meetingId');
+                return;
+            }
+
+            // Find the VTT transcript file
+            const transcriptFile = recordingFiles.find(
+                (f) => f.file_type === 'TRANSCRIPT' && f.status === 'completed'
+            );
+
+            if (!transcriptFile?.download_url) {
+                this.logger.log(`Zoom webhook: no transcript file for meeting ${meetingId}`);
+                return;
+            }
+
+            const appointment = await this.appointmentModel
+                .findOne({ zoomMeetingId: meetingId })
+                .lean();
+
+            if (!appointment) {
+                this.logger.warn(`Zoom webhook: no appointment found for meetingId ${meetingId}`);
+                return;
+            }
+
+            try {
+                const transcriptText = await this.zoomService.downloadTranscript(
+                    transcriptFile.download_url
+                );
+
+                await this.appointmentModel.updateOne(
+                    { _id: appointment._id },
+                    {
+                        $set: {
+                            transcript: transcriptText,
+                            transcriptSavedAt: new Date(),
+                        },
+                    }
+                );
+
+                this.logger.log(
+                    `Transcript saved for appointment ${appointment._id} (meetingId: ${meetingId})`
+                );
+            } catch (err) {
+                this.logger.error(
+                    `Failed to save transcript for meetingId ${meetingId}: ${err.message}`
+                );
+            }
+        }
+    }
+
     async cancel(appointmentId: string, dto: { reason?: string }) {
         const IST_OFFSET = 5.5 * 3600 * 1000;
 

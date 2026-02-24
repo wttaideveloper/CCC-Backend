@@ -1,12 +1,19 @@
-import { Controller, Post, Body, Get, Param, Patch, Query } from '@nestjs/common';
+import { Controller, Post, Body, Get, Param, Patch, Query, HttpCode, Headers, Logger, Req } from '@nestjs/common';
 import { AppointmentsService } from './appointments.service';
 import { CreateAppointmentDto, AppointmentResponseDto, UpdateAppointmentDto, CancelAppointmentDto } from './dto/appointment.dto';
 import { BaseResponse } from 'src/shared/interfaces/base-response.interface';
+import { createHmac } from 'crypto';
+import { ConfigService } from '@nestjs/config';
 import { AvailabilityDto } from './dto/availability.dto';
 
 @Controller('appointments')
 export class AppointmentsController {
-    constructor(private readonly appointmentsService: AppointmentsService) { }
+    private readonly logger = new Logger(AppointmentsController.name);
+
+    constructor(
+        private readonly appointmentsService: AppointmentsService,
+        private readonly configService: ConfigService,
+    ) { }
 
     @Post()
     async create(@Body() dto: CreateAppointmentDto): Promise<BaseResponse<AppointmentResponseDto>> {
@@ -141,5 +148,37 @@ export class AppointmentsController {
     ) {
         const result = await this.appointmentsService.cancel(id, { reason: body.reason });
         return { success: true, data: result };
+    }
+
+    @Post('zoom-webhook')
+    @HttpCode(200)
+    async zoomWebhook(
+        @Req() req: any,
+        @Body() body: any,
+        @Headers('x-zm-request-timestamp') timestamp: string,
+        @Headers('x-zm-signature') signature: string,
+    ) {
+        if (body?.event === 'endpoint.url_validation') {
+            const plainToken = body?.payload?.plainToken;
+            const secret = this.configService.get<string>('ZOOM_WEBHOOK_SECRET_TOKEN') ?? '';
+            const encryptedToken = createHmac('sha256', secret)
+                .update(plainToken)
+                .digest('hex');
+            return { plainToken, encryptedToken };
+        }
+
+        const secret = this.configService.get<string>('ZOOM_WEBHOOK_SECRET_TOKEN');
+        if (secret) {
+            const rawBody = req.rawBody?.toString('utf8') ?? JSON.stringify(body);
+            const message = `v0:${timestamp}:${rawBody}`;
+            const expected = 'v0=' + createHmac('sha256', secret).update(message).digest('hex');
+            if (signature !== expected) {
+                this.logger.warn('Zoom webhook: invalid signature — request ignored');
+                return { success: false, message: 'Invalid signature' };
+            }
+        }
+
+        await this.appointmentsService.handleZoomWebhook(body);
+        return { success: true };
     }
 }
