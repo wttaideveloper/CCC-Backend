@@ -56,11 +56,11 @@ export function splitIntoDurationSlots(
 
     const result: HourSlot[] = [];
 
-    const startHour = convertTo24(startTime, startPeriod);
-    const endHour = convertTo24(endTime, endPeriod);
+    const startMinutes = convertSlotToMinutes(startTime, startPeriod);
+    const endMinutes = convertSlotToMinutes(endTime, endPeriod);
 
-    let cursor = startHour * 60;
-    const limit = endHour * 60;
+    let cursor = startMinutes;
+    const limit = endMinutes;
 
     while (cursor + durationMinutes <= limit) {
         const slotEnd = cursor + durationMinutes;
@@ -89,12 +89,16 @@ function convertTo24(time: string, period: 'AM' | 'PM') {
 }
 
 function minutesTo12h(totalMinutes: number) {
-    const hour = Math.floor(totalMinutes / 60);
-    const period: 'AM' | 'PM' = hour >= 12 ? 'PM' : 'AM';
-    const h = hour % 12 === 0 ? 12 : hour % 12;
+    const hour24 = Math.floor(totalMinutes / 60);
+    const minutes = totalMinutes % 60;
+
+    const period: 'AM' | 'PM' = hour24 >= 12 ? 'PM' : 'AM';
+
+    let hour12 = hour24 % 12;
+    if (hour12 === 0) hour12 = 12;
 
     return {
-        time: h.toString(),
+        time: `${hour12}:${minutes.toString().padStart(2, '0')}`,
         period
     };
 }
