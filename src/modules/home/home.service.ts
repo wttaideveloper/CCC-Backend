@@ -24,6 +24,7 @@ import { Media, MediaDocument } from './schemas/media.schema';
 import { S3Service } from '../s3/s3.service';
 import { CreateMediaDto, UpdateMediaDto } from './dto/media.dto';
 import { mapToResponse } from './utils/notification.mapper';
+import { FirebaseService } from '../firebase/firebase.service';
 
 interface MentorFilterOptions {
   page?: number;
@@ -47,6 +48,7 @@ export class HomeService {
     @InjectModel(Media.name)
     private readonly mediaModel: Model<MediaDocument>,
     private readonly s3Service: S3Service,
+    private readonly firebaseService: FirebaseService,
   ) { }
 
   async getByEmail(email: string): Promise<HomeResponseDto> {
@@ -332,6 +334,53 @@ export class HomeService {
       { new: true, upsert: true }
     );
 
+    // ================= PUSH NOTIFICATION =================
+    try {
+      let tokens: string[] = [];
+
+      //  User specific
+      if (userId) {
+        const user = await this.userModel
+          .findById(userId)
+          .select('fcmTokens')
+          .lean();
+
+        tokens = user?.fcmTokens ?? [];
+      }
+
+      // Role broadcast
+      else if (role) {
+        const users = await this.userModel
+          .find({ role })
+          .select('fcmTokens')
+          .lean();
+
+        tokens = users.flatMap(u => u.fcmTokens || []);
+      }
+
+      if (tokens.length) {
+        const result =
+          await this.firebaseService.sendPushNotification(
+            tokens,
+            name,
+            details,
+            { module: module ?? '' },
+          );
+
+        const invalidTokens = result?.invalidTokens ?? [];
+
+        //  remove dead tokens
+        if (invalidTokens.length) {
+          await this.userModel.updateMany(
+            { fcmTokens: { $in: invalidTokens } },
+            { $pull: { fcmTokens: { $in: invalidTokens } } },
+          );
+        }
+      }
+    } catch (err) {
+      console.error('Push notification failed:', err);
+    }
+
     return mapToResponse(notificationDoc);
   }
 
@@ -506,5 +555,12 @@ export class HomeService {
     const deleted = await this.mediaModel.findByIdAndDelete(id).lean();
     if (!deleted) throw new NotFoundException('Media not found');
     return deleted;
+  }
+
+  async saveFcmToken(userId: string, token: string) {
+    await this.userModel.updateOne(
+      { _id: userId },
+      { $addToSet: { fcmTokens: token } },
+    );
   }
 }

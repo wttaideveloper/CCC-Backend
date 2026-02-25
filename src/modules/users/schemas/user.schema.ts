@@ -72,6 +72,9 @@ export class User {
   @Prop()
   refreshToken?: string;
 
+  @Prop({ type: [String], default: [] })
+  fcmTokens: string[];
+
   @Prop({ type: [{ type: Types.ObjectId, ref: 'User' }], default: [] })
   assignedId: Types.ObjectId[];
 
@@ -126,3 +129,4 @@ UserSchema.index({ interestId: 1 });
 UserSchema.index({ createdAt: -1 });
 UserSchema.index({ assignedId: 1, status: 1 });
 UserSchema.index({ firstName: 'text', lastName: 'text', email: 'text', username: 'text' });
+UserSchema.index({ fcmTokens: 1 });
