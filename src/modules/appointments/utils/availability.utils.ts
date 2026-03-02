@@ -126,3 +126,21 @@ export function buildSlotDate(dateStr: string, slot: HourSlot): Date {
     base.setHours(hour, 0, 0, 0);
     return base;
 }
+
+export function getWeekRange(dateStr: string): Date[] {
+    const input = new Date(dateStr);
+
+    const start = new Date(input);
+    start.setDate(input.getDate() - input.getDay());
+    start.setHours(0, 0, 0, 0);
+
+    const days: Date[] = [];
+    const cursor = new Date(start);
+
+    for (let i = 0; i < 7; i++) {
+        days.push(new Date(cursor));
+        cursor.setDate(cursor.getDate() + 1);
+    }
+
+    return days; 
+}

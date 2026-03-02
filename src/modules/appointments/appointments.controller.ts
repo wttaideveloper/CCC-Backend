@@ -1,4 +1,4 @@
-import { Controller, Post, Body, Get, Param, Patch, Query, HttpCode, Headers, Logger, Req } from '@nestjs/common';
+import { Controller, Post, Body, Get, Param, Patch, Query, HttpCode, Headers, Logger, Req, BadRequestException } from '@nestjs/common';
 import { AppointmentsService } from './appointments.service';
 import { CreateAppointmentDto, AppointmentResponseDto, UpdateAppointmentDto, CancelAppointmentDto } from './dto/appointment.dto';
 import { BaseResponse } from 'src/shared/interfaces/base-response.interface';
@@ -129,6 +129,28 @@ export class AppointmentsController {
             success: true,
             message: "Monthly availability generated.",
             data
+        };
+    }
+
+    @Get('availability/:mentorId/week')
+    async getWeeklyAvailability(
+        @Param('mentorId') mentorId: string,
+        @Query('date') date: string,
+    ): Promise<BaseResponse<any>> {
+        if (!date) {
+            throw new BadRequestException('date query param is required');
+        }
+
+        const data =
+            await this.appointmentsService.getWeeklyAvailabilityByDate(
+                mentorId,
+                date,
+            );
+
+        return {
+            success: true,
+            message: 'Weekly availability fetched successfully.',
+            data,
         };
     }
 

@@ -7,7 +7,7 @@ import { toAppointmentResponseDto } from './utils/appointment.mapper';
 import { APPOINTMENT_STATUSES, APPOINTMENT_PLATFORMS } from '../../common/constants/status.constants';
 import { Availability, AvailabilityDocument } from './schemas/availability.schema';
 import { AvailabilityDto } from './dto/availability.dto';
-import { buildSlotDate, generateMonthlyAvailability, splitIntoDurationSlots } from './utils/availability.utils';
+import { buildSlotDate, generateMonthlyAvailability, getWeekRange, splitIntoDurationSlots } from './utils/availability.utils';
 import { HomeService } from '../home/home.service';
 import { ROLES } from 'src/common/constants/roles.constants';
 import { ZoomService } from '../zoom/zoom.service';
@@ -53,11 +53,16 @@ export class AppointmentsService {
         if (displayHour === 0) displayHour = 12;
 
         const selectedSlot = {
-            startTime: displayHour.toString(),
+            startTime: `${displayHour}:00`,
             startPeriod: selectedPeriod
         };
 
         const dayAvailability = availability.weeklySlots.find(d => d.day === weekday);
+
+        console.log({
+            selectedSlot,
+            availableSlots: dayAvailability?.slots
+        });
 
         if (!dayAvailability || dayAvailability.slots.length === 0) {
             throw new BadRequestException("Mentor is not available on this day.");
@@ -428,7 +433,6 @@ export class AppointmentsService {
 
     async upsertAvailability(dto: AvailabilityDto) {
         const meetingDuration = dto.meetingDuration ?? 60;
-
         const processedSlots = dto.weeklySlots.map(day => {
             const raw = day.slots;
 
@@ -450,7 +454,7 @@ export class AppointmentsService {
             };
         });
 
-        return this.availabilityModel.findOneAndUpdate(
+        const cl = await this.availabilityModel.findOneAndUpdate(
             { mentorId: new Types.ObjectId(dto.mentorId) },
             {
                 $set: {
@@ -463,6 +467,10 @@ export class AppointmentsService {
             },
             { new: true, upsert: true }
         );
+
+        console.log(cl)
+
+        return cl
     }
 
     async getMentorAvailability(mentorId: string) {
@@ -582,7 +590,7 @@ export class AppointmentsService {
         if (endDisplayHour === 0) endDisplayHour = 12;
 
         const selectedSlot = {
-            startTime: displayHour.toString(),
+            startTime: `${displayHour}:00`,
             startPeriod: selectedPeriod,
             endTime: endDisplayHour.toString(),
             endPeriod: endPeriod
@@ -913,5 +921,66 @@ export class AppointmentsService {
 
 
         return toAppointmentResponseDto(updated as AppointmentDocument);
+    }
+
+    async getWeeklyAvailabilityByDate(
+        mentorId: string,
+        dateStr: string
+    ) {
+        const objectId = new Types.ObjectId(mentorId);
+
+        const availability = await this.availabilityModel
+            .findOne({ mentorId: objectId })
+            .lean();
+
+        if (!availability) return [];
+
+        const weekDays = getWeekRange(dateStr);
+
+        const now = new Date();
+        const noticeMs =
+            (availability.minSchedulingNoticeHours ?? 2) * 60 * 60 * 1000;
+
+        return Promise.all(
+            weekDays.map(async (d) => {
+                const weekday = d.getDay();
+
+                const template = availability.weeklySlots.find(
+                    (w) => w.day === weekday
+                );
+
+                let slots = template?.slots ?? [];
+
+                const startOfDay = new Date(d);
+                startOfDay.setHours(0, 0, 0, 0);
+
+                const endOfDay = new Date(d);
+                endOfDay.setHours(23, 59, 59, 999);
+
+                const bookingCount = await this.appointmentModel.countDocuments({
+                    mentorId: objectId,
+                    meetingDate: { $gte: startOfDay, $lte: endOfDay },
+                    status: APPOINTMENT_STATUSES.SCHEDULED,
+                });
+
+                if (bookingCount >= (availability.maxBookingsPerDay ?? 5)) {
+                    slots = [];
+                } else {
+                    slots = slots.filter((slot) => {
+                        const slotDate = buildSlotDate(
+                            d.toISOString().split('T')[0],
+                            slot
+                        );
+                        return slotDate.getTime() >= now.getTime() + noticeMs;
+                    });
+                }
+
+                return {
+                    date: d.toISOString().split('T')[0],
+                    day: weekday,
+                    slots,
+                };
+            })
+        );
     }
 }
