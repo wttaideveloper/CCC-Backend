@@ -1,4 +1,4 @@
-import { IsString, IsNumber, IsOptional, IsDateString, IsEnum } from 'class-validator';
+import { IsString, IsNumber, IsOptional, IsDateString } from 'class-validator';
 
 export class CreateZoomMeetingDto {
     @IsString()
@@ -9,15 +9,19 @@ export class CreateZoomMeetingDto {
 
     @IsNumber()
     @IsOptional()
-    duration?: number; // in minutes, default 60
+    duration?: number;
 
     @IsString()
     @IsOptional()
-    timezone?: string; // default 'Asia/Kolkata'
+    timezone?: string;
 
     @IsString()
     @IsOptional()
     agenda?: string;
+
+    @IsString()
+    @IsOptional()
+    hostUserId?: string;
 }
 
 export class ZoomMeetingResponseDto {

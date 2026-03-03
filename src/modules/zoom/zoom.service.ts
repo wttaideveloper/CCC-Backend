@@ -89,8 +89,10 @@ export class ZoomService {
             },
         };
 
+        const zoomUser = dto.hostUserId ?? 'me';
+
         try {
-            const response = await fetch(`${this.zoomApiBaseUrl}/users/me/meetings`, {
+            const response = await fetch(`${this.zoomApiBaseUrl}/users/${zoomUser}/meetings`, {
                 method: 'POST',
                 headers: {
                     'Authorization': `Bearer ${accessToken}`,
@@ -261,6 +263,36 @@ export class ZoomService {
         } catch (error) {
             this.logger.error(`Error downloading transcript: ${error.message}`);
             throw error;
+        }
+    }
+
+    async getUserIdByEmail(email: string): Promise<string | null> {
+        try {
+            const accessToken = await this.getAccessToken();
+
+            const response = await fetch(`${this.zoomApiBaseUrl}/users/${encodeURIComponent(email)}`, {
+                method: 'GET',
+                headers: {
+                    'Authorization': `Bearer ${accessToken}`,
+                },
+            });
+
+            if (response.status === 404) {
+                this.logger.warn(`Zoom user not found for email: ${email}`);
+                return null;
+            }
+
+            if (!response.ok) {
+                this.logger.warn(`Zoom user lookup failed for ${email}: ${response.status}`);
+                return null;
+            }
+
+            const data = await response.json();
+            return data?.id ?? null;
+
+        } catch (error) {
+            this.logger.warn(`Error looking up Zoom user by email ${email}: ${error.message}`);
+            return null;
         }
     }
 

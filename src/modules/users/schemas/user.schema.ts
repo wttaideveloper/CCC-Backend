@@ -114,6 +114,9 @@ export class User {
     expiresAt: Date;
   };
 
+  @Prop({ type: String, default: null })
+  zoomUserId?: string;
+
   @Prop({ type: [NoteSchema], default: [] })
   notes: Types.Array<Note>;
 }

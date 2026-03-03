@@ -25,6 +25,10 @@ export class CreateAppointmentDto {
     @IsOptional()
     @IsString()
     notes?: string;
+
+    @IsOptional()
+    @IsString()
+    initiatorRole?: string;
 }
 
 export class UpdateAppointmentDto extends PartialType(

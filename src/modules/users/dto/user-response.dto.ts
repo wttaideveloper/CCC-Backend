@@ -43,6 +43,10 @@ export class UserResponseDto {
     @IsBoolean()
     hasIssuedCertificate: boolean;
 
+    @IsString()
+    @IsOptional()
+    zoomUserId?: string;
+
     @IsDate()
     createdAt: Date;
 

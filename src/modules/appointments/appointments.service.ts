@@ -9,7 +9,7 @@ import { Availability, AvailabilityDocument } from './schemas/availability.schem
 import { AvailabilityDto } from './dto/availability.dto';
 import { buildSlotDate, generateMonthlyAvailability, getWeekRange, splitIntoDurationSlots } from './utils/availability.utils';
 import { HomeService } from '../home/home.service';
-import { ROLES } from 'src/common/constants/roles.constants';
+import { ROLES, isHostRole } from 'src/common/constants/roles.constants';
 import { ZoomService } from '../zoom/zoom.service';
 import { MailerService } from '../../common/utils/mail.util';
 
@@ -37,8 +37,10 @@ export class AppointmentsService {
     async create(dto: CreateAppointmentDto): Promise<AppointmentResponseDto> {
         const mentorId = new Types.ObjectId(dto.mentorId);
 
+        const isHostInitiated = dto.initiatorRole ? isHostRole(dto.initiatorRole) : false;
+
         const availability = await this.availabilityModel.findOne({ mentorId }).lean();
-        if (!availability) {
+        if (!availability && !isHostInitiated) {
             throw new BadRequestException("Mentor has no availability set.");
         }
 
@@ -57,28 +59,25 @@ export class AppointmentsService {
             startPeriod: selectedPeriod
         };
 
-        const dayAvailability = availability.weeklySlots.find(d => d.day === weekday);
+        if (!isHostInitiated) {
+            const dayAvailability = availability!.weeklySlots.find(d => d.day === weekday);
 
-        console.log({
-            selectedSlot,
-            availableSlots: dayAvailability?.slots
-        });
+            if (!dayAvailability || dayAvailability.slots.length === 0) {
+                throw new BadRequestException("Mentor is not available on this day.");
+            }
 
-        if (!dayAvailability || dayAvailability.slots.length === 0) {
-            throw new BadRequestException("Mentor is not available on this day.");
-        }
+            const slotExists = dayAvailability.slots.some(s =>
+                s.startTime === selectedSlot.startTime &&
+                s.startPeriod === selectedSlot.startPeriod
+            );
 
-        const slotExists = dayAvailability.slots.some(s =>
-            s.startTime === selectedSlot.startTime &&
-            s.startPeriod === selectedSlot.startPeriod
-        );
-
-        if (!slotExists) {
-            throw new BadRequestException("This slot is not available.");
+            if (!slotExists) {
+                throw new BadRequestException("This slot is not available.");
+            }
         }
 
         const meetingDate = meetingDateUtc;
-        const durationMinutes = availability.meetingDuration || 60;
+        const durationMinutes = availability?.meetingDuration || 60;
         const endTime = new Date(meetingDate.getTime() + durationMinutes * 60 * 1000);
 
         const overlap = await this.appointmentModel.findOne({
@@ -92,17 +91,17 @@ export class AppointmentsService {
             throw new BadRequestException("This time slot is already booked.");
         }
 
-        // 🚨 enforce min notice
-        const noticeMs = (availability.minSchedulingNoticeHours ?? 2) * 60 * 60 * 1000;
-        const now = new Date();
+        if (!isHostInitiated) {
+            const noticeMs = (availability!.minSchedulingNoticeHours ?? 2) * 60 * 60 * 1000;
+            const now = new Date();
 
-        if (meetingDate.getTime() < now.getTime() + noticeMs) {
-            throw new BadRequestException(
-                `Appointments must be booked at least ${availability.minSchedulingNoticeHours} hours in advance.`
-            );
+            if (meetingDate.getTime() < now.getTime() + noticeMs) {
+                throw new BadRequestException(
+                    `Appointments must be booked at least ${availability!.minSchedulingNoticeHours} hours in advance.`
+                );
+            }
         }
 
-        // 🚨 enforce max bookings per day
         const startOfDay = new Date(meetingDate);
         startOfDay.setHours(0, 0, 0, 0);
 
@@ -115,7 +114,7 @@ export class AppointmentsService {
             status: APPOINTMENT_STATUSES.SCHEDULED,
         });
 
-        if (dailyCount >= (availability.maxBookingsPerDay ?? 5)) {
+        if (dailyCount >= (availability?.maxBookingsPerDay ?? 5)) {
             throw new BadRequestException(
                 "Mentor has reached maximum bookings for this day."
             );
@@ -128,7 +127,6 @@ export class AppointmentsService {
         const userName = userDoc ? `${userDoc.firstName || ''} ${userDoc.lastName || ''}`.trim() : 'Student';
         const mentorName = mentorDoc ? `${mentorDoc.firstName || ''} ${mentorDoc.lastName || ''}`.trim() : 'Mentor';
 
-        // Create Zoom meeting automatically
         let zoomMeeting: any = null;
         let meetingLink = dto.meetingLink || null;
 
@@ -136,12 +134,26 @@ export class AppointmentsService {
             try {
                 this.logger.log(`Creating Zoom meeting for appointment: ${userName} with ${mentorName}`);
 
+                let mentorZoomUserId: string | undefined = mentorDoc?.zoomUserId || undefined;
+
+                if (!mentorZoomUserId && mentorDoc?.email) {
+                    const fetchedId = await this.zoomService.getUserIdByEmail(mentorDoc.email);
+                    if (fetchedId) {
+                        mentorZoomUserId = fetchedId;
+                        this.appointmentModel.db.model('User')
+                            .updateOne({ _id: mentorDoc._id }, { $set: { zoomUserId: fetchedId } })
+                            .exec()
+                            .catch((err: any) => this.logger.warn(`Failed to cache zoomUserId for mentor ${mentorDoc._id}: ${err?.message}`));
+                    }
+                }
+
                 const zoomResponse = await this.zoomService.createMeeting({
                     topic: `Mentoring Session: ${userName} with ${mentorName}`,
                     startTime: meetingDate.toISOString(),
                     duration: durationMinutes,
                     timezone: 'Asia/Kolkata',
                     agenda: dto.notes || `Scheduled mentoring session between ${userName} and ${mentorName}`,
+                    hostUserId: mentorZoomUserId,
                 });
 
                 zoomMeeting = {
@@ -156,8 +168,6 @@ export class AppointmentsService {
                     timezone: zoomResponse.timezone,
                     createdAt: zoomResponse.createdAt,
                 };
-                console.log("hiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiii", zoomResponse)
-                console.log("nnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnn", zoomResponse.joinUrl)
                 meetingLink = zoomResponse.joinUrl;
 
                 this.logger.log(`Zoom meeting created successfully: ${zoomResponse.meetingId}`);
@@ -170,8 +180,10 @@ export class AppointmentsService {
             this.logger.warn('Zoom is not configured. Creating appointment without Zoom meeting.');
         }
 
+        const { initiatorRole: _initiatorRole, ...appointmentFields } = dto;
+
         const appointment = new this.appointmentModel({
-            ...dto,
+            ...appointmentFields,
             meetingDate,
             endTime,
             userId: new Types.ObjectId(dto.userId),
@@ -262,7 +274,7 @@ export class AppointmentsService {
             }
 
         } catch (err) {
-            console.warn('Failed to send appointment notifications:', err?.message ?? err);
+            this.logger.warn(`Failed to send appointment notifications: ${err?.message ?? err}`);
         }
 
         return result;
@@ -425,7 +437,7 @@ export class AppointmentsService {
             }
 
         } catch (err) {
-            console.warn('Failed to send reschedule notifications:', err?.message ?? err);
+            this.logger.warn(`Failed to send reschedule notifications: ${err?.message ?? err}`);
         }
 
         return toAppointmentResponseDto(populated as AppointmentDocument);
@@ -467,8 +479,6 @@ export class AppointmentsService {
             },
             { new: true, upsert: true }
         );
-
-        console.log(cl)
 
         return cl
     }
@@ -916,7 +926,7 @@ export class AppointmentsService {
             }
 
         } catch (err) {
-            console.warn('Failed to send cancellation notifications:', err?.message ?? err);
+            this.logger.warn(`Failed to send cancellation notifications: ${err?.message ?? err}`);
         }
 
 
