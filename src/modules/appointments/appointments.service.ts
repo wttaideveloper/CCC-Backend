@@ -592,7 +592,7 @@ export class AppointmentsService {
         const selectedSlot = {
             startTime: `${displayHour}:00`,
             startPeriod: selectedPeriod,
-            endTime: endDisplayHour.toString(),
+            endTime: `${endDisplayHour}:00`,
             endPeriod: endPeriod
         };
 
@@ -665,21 +665,21 @@ export class AppointmentsService {
         if (oldEndDisplay === 0) oldEndDisplay = 12;
 
         const oldSlot = {
-            startTime: oldDisplay.toString(),
+            startTime: `${oldDisplay}:00`,
             startPeriod: oldPeriod,
-            endTime: oldEndDisplay.toString(),
+            endTime: `${oldEndDisplay}:00`,
             endPeriod: oldEndPeriod
         };
-
-        // Update availability: push old, pull new
-        await this.availabilityModel.updateOne(
-            { mentorId, "weeklySlots.day": oldWeekday },
-            { $push: { "weeklySlots.$.slots": oldSlot } }
-        );
 
         await this.availabilityModel.updateOne(
             { mentorId, "weeklySlots.day": weekday },
             { $pull: { "weeklySlots.$.slots": selectedSlot } }
+        );
+
+        // Update availability: push old, pull new
+        await this.availabilityModel.updateOne(
+            { mentorId, "weeklySlots.day": oldWeekday },
+            { $addToSet: { "weeklySlots.$.slots": oldSlot } }
         );
 
         // Update appointment
@@ -822,16 +822,16 @@ export class AppointmentsService {
         if (oldEndDisplay === 0) oldEndDisplay = 12;
 
         const oldSlot = {
-            startTime: oldDisplay.toString(),
+            startTime: `${oldDisplay}:00`,
             startPeriod: oldPeriod,
-            endTime: oldEndDisplay.toString(),
+            endTime: `${oldEndDisplay}:00`,
             endPeriod: oldEndPeriod
         };
 
         // push slot back into availability
         await this.availabilityModel.updateOne(
             { mentorId, "weeklySlots.day": oldWeekday },
-            { $push: { "weeklySlots.$.slots": oldSlot } }
+            { $addToSet: { "weeklySlots.$.slots": oldSlot } }
         );
 
         // update appointment to cancelled

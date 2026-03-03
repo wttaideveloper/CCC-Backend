@@ -14,6 +14,7 @@ import { SubmitSectionAnswersDto } from './dto/submit-section-answers.dto';
 import { SubmitPreSurveyDto } from './dto/submit-pre-survey.dto';
 import { Progress, ProgressDocument } from '../progress/schemas/progress.schema';
 import { S3Service } from '../s3/s3.service';
+import { calculateSectionScore } from './utils/assessment.utils';
 
 @Injectable()
 export class AssessmentService {
@@ -231,6 +232,8 @@ export class AssessmentService {
       answeredAt: new Date(),
     }));
 
+    const sectionScore = calculateSectionScore(layerAnswers);
+
     const updated = await this.userAnswerModel.findOneAndUpdate(
       {
         assessmentId: new Types.ObjectId(assessmentId),
@@ -240,6 +243,7 @@ export class AssessmentService {
       {
         $set: {
           'sections.$.layers': layerAnswers,
+          'sections.$.sectionScore': sectionScore,
         },
       },
       { new: true },
@@ -265,6 +269,7 @@ export class AssessmentService {
             sections: {
               sectionId: new Types.ObjectId(sectionId),
               layers: layerAnswers,
+              sectionScore,
             },
           },
         },
@@ -418,7 +423,10 @@ export class AssessmentService {
 
 
   // Submit Section Answers
-  async submitSectionAnswers(assessmentId: string, dto: SubmitSectionAnswersDto) {
+  async submitSectionAnswers(
+    assessmentId: string,
+    dto: SubmitSectionAnswersDto,
+  ) {
     const { userId, answers } = dto;
 
     if (!Types.ObjectId.isValid(assessmentId)) {
@@ -431,49 +439,88 @@ export class AssessmentService {
     const assessment = await this.assessmentModel.findById(assessmentId).lean();
     if (!assessment) throw new NotFoundException('Assessment not found');
 
-    const sectionEntries = answers.map((section) => ({
-      sectionId: new Types.ObjectId(section.sectionId),
-      layers: section.layers.map((layer) => ({
+    const assessmentObjId = new Types.ObjectId(assessmentId);
+    const userObjId = new Types.ObjectId(userId);
+
+    // 🔥 ensure base doc exists
+    await this.userAnswerModel.updateOne(
+      { assessmentId: assessmentObjId, userId: userObjId },
+      {
+        $setOnInsert: {
+          assessmentId: assessmentObjId,
+          userId: userObjId,
+        },
+      },
+      { upsert: true },
+    );
+
+    // ✅ process each section safely
+    for (const section of answers) {
+      const layersMapped = section.layers.map((layer) => ({
         layerId: new Types.ObjectId(layer.layerId),
         selectedChoice: layer.selectedChoice,
         answeredAt: new Date(),
-      })),
-    }));
+      }));
 
-    const updated = await this.userAnswerModel.findOneAndUpdate(
-      {
-        assessmentId: new Types.ObjectId(assessmentId),
-        userId: new Types.ObjectId(userId),
-      },
-      {
-        $set: {
-          sections: sectionEntries,
-          submittedAt: new Date(),
+      const sectionScore = calculateSectionScore(layersMapped);
+      const sectionObjId = new Types.ObjectId(section.sectionId);
+
+      // 🔥 try update existing section
+      const updateResult = await this.userAnswerModel.updateOne(
+        {
+          assessmentId: assessmentObjId,
+          userId: userObjId,
+          'sections.sectionId': sectionObjId,
         },
-      },
-      { new: true, upsert: true },
-    );
+        {
+          $set: {
+            'sections.$.layers': layersMapped,
+            'sections.$.sectionScore': sectionScore,
+          },
+        },
+      );
 
-    const completedSectionsCount = answers.length;
-    const assessmentIdObj = new Types.ObjectId(assessmentId);
-    const userIdObj = new Types.ObjectId(userId);
-    const userIdString = userIdObj.toString();
+      // 🔥 if section not present → push new
+      if (updateResult.matchedCount === 0) {
+        await this.userAnswerModel.updateOne(
+          { assessmentId: assessmentObjId, userId: userObjId },
+          {
+            $push: {
+              sections: {
+                sectionId: sectionObjId,
+                layers: layersMapped,
+                sectionScore,
+              },
+            },
+          },
+        );
+      }
+    }
+
+    // ✅ fetch final doc
+    const updated = await this.userAnswerModel
+      .findOne({
+        assessmentId: assessmentObjId,
+        userId: userObjId,
+      })
+      .lean();
+
+    // ✅ progress update (your existing logic is fine)
+    const completedSectionsCount = updated?.sections?.length || 0;
+    const userIdString = userObjId.toString();
 
     await this.progressModel.findOneAndUpdate(
       {
-        $or: [
-          { userId: userIdObj },
-          { userId: userIdString }
-        ],
-        'assessments.assessmentId': assessmentIdObj,
+        $or: [{ userId: userObjId }, { userId: userIdString }],
+        'assessments.assessmentId': assessmentObjId,
       },
       {
         $set: {
           'assessments.$.completedSections': completedSectionsCount,
         },
       },
-      { new: true }
-    ).exec();
+      { new: true },
+    );
 
     return updated;
   }
