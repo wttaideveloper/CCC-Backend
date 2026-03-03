@@ -353,7 +353,7 @@ export class AppointmentsService {
     }
 
     async update(id: string, dto: UpdateAppointmentDto): Promise<AppointmentResponseDto> {
-        const updatePayload: any = { ...dto };
+        const { initiatorRole: _ir, ...updatePayload }: any = dto;
 
         if (dto.meetingDate) {
             const newMeetingDate = new Date(dto.meetingDate);
@@ -681,18 +681,17 @@ export class AppointmentsService {
             endPeriod: oldEndPeriod
         };
 
-        await this.availabilityModel.updateOne(
-            { mentorId, "weeklySlots.day": weekday },
-            { $pull: { "weeklySlots.$.slots": selectedSlot } }
-        );
-
-        // Update availability: push old, pull new
+        // Restore old slot back into availability
         await this.availabilityModel.updateOne(
             { mentorId, "weeklySlots.day": oldWeekday },
             { $addToSet: { "weeklySlots.$.slots": oldSlot } }
         );
 
-        // Update appointment
+        await this.availabilityModel.updateOne(
+            { mentorId, "weeklySlots.day": weekday },
+            { $pull: { "weeklySlots.$.slots": selectedSlot } }
+        );
+
         const updated = await this.populateBase(
             this.appointmentModel.findByIdAndUpdate(
                 appointmentId,
@@ -700,7 +699,7 @@ export class AppointmentsService {
                     $set: {
                         meetingDate: meetingDateUtc,
                         endTime: newEndUtc,
-                        status: "rescheduled"
+                        status: APPOINTMENT_STATUSES.SCHEDULED
                     }
                 },
                 { new: true }
@@ -845,7 +844,7 @@ export class AppointmentsService {
         );
 
         // update appointment to cancelled
-        const cancelledStatus = (APPOINTMENT_STATUSES && (APPOINTMENT_STATUSES.CANCELED ?? APPOINTMENT_STATUSES.CANCELED)) || 'canceled';
+        const cancelledStatus = APPOINTMENT_STATUSES.CANCELED;
 
         const updated = await this.populateBase(
             this.appointmentModel.findByIdAndUpdate(
