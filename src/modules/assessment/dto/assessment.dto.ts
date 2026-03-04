@@ -16,6 +16,17 @@ export class ChoiceDto {
   text: string;
 }
 
+export class RecommendationLevelDto {
+
+  @IsNotEmpty()
+  level: number;
+
+  @IsArray()
+  @IsString({ each: true })
+  items: string[];
+
+}
+
 export class LayerDto {
   @IsString()
   @IsNotEmpty()
@@ -24,11 +35,6 @@ export class LayerDto {
   @IsArray()
   @IsOptional()
   choices?: ChoiceDto[];
-
-  @IsArray()
-  @IsString({ each: true })
-  @IsOptional()
-  recommendations?: string[];
 }
 
 export class PreSurveyQuestionDto {
@@ -58,7 +64,14 @@ export class SectionDto {
   description: string;
 
   @IsArray()
+  @ValidateNested({ each: true })
+  @Type(() => LayerDto)
   layers: LayerDto[];
+
+  @IsArray()
+  @ValidateNested({ each: true })
+  @Type(() => RecommendationLevelDto)
+  recommendations: RecommendationLevelDto[];
 }
 
 export class CreateAssessmentDto {
@@ -110,21 +123,14 @@ export class UpdateAssessmentDto {
   instructions?: string[];
 }
 
-export class LayerRecommendationDto {
-  @IsString()
-  layerTitle: string;
-
-  @IsArray()
-  @IsString({ each: true })
-  recommendations: string[];
-}
-
 export class SectionRecommendationDto {
+
   @IsString()
   sectionTitle: string;
 
   @IsArray()
   @ValidateNested({ each: true })
-  @Type(() => LayerRecommendationDto)
-  layers: LayerRecommendationDto[];
+  @Type(() => RecommendationLevelDto)
+  recommendations: RecommendationLevelDto[];
+
 }

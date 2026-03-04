@@ -16,6 +16,21 @@ export class Choice {
 export const ChoiceSchema = SchemaFactory.createForClass(Choice);
 
 @Schema()
+export class RecommendationLevel {
+
+  @Prop({ required: true })
+  level: number;
+
+  @Prop({ type: [String], default: [] })
+  items: string[];
+
+}
+
+export const RecommendationLevelSchema =
+  SchemaFactory.createForClass(RecommendationLevel);
+
+
+@Schema()
 export class PreSurveyQuestion {
   @Prop({ required: true })
   text: string;
@@ -44,12 +59,6 @@ export class Layer {
 
   @Prop({ type: [ChoiceSchema], default: [] })
   choices: Choice[];
-
-  @Prop({
-    type: [String],
-    default: [],
-  })
-  recommendations: string[];
 }
 export const LayerSchema = SchemaFactory.createForClass(Layer);
 
@@ -83,6 +92,9 @@ export class Section {
 
   @Prop({ type: [LayerSchema], default: [] })
   layers: Layer[];
+
+  @Prop({ type: [RecommendationLevelSchema], default: [] })
+  recommendations: RecommendationLevel[];
 }
 export const SectionSchema = SchemaFactory.createForClass(Section);
 
