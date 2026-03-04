@@ -11,6 +11,7 @@ export enum ExtraType {
   DATE_PICKER = 'DATE_PICKER',
   SECTION = 'SECTION',
   ASSESSMENT = 'ASSESSMENT',
+  SIGNATURE = 'SIGNATURE',
 }
 
 export class TextFieldExtraDto {
@@ -149,14 +150,36 @@ export class SectionExtraDto {
                 { value: UploadExtraDto, name: 'UPLOAD' },
                 { value: DatePickerExtraDto, name: 'DATE_PICKER' },
                 { value: AssessmentExtraDto, name: 'ASSESSMENT' },
+                { value: SignatureExtraDto, name: 'SIGNATURE' },
             ],
         },
         keepDiscriminatorProperty: true,
     })
-    sections?: (TextFieldExtraDto | TextAreaExtraDto | UploadExtraDto | DatePickerExtraDto | AssessmentExtraDto)[];
+    sections?: (TextFieldExtraDto | TextAreaExtraDto | UploadExtraDto | DatePickerExtraDto | AssessmentExtraDto | SignatureExtraDto)[];
 }
 
-export type ExtraItemDto = TextFieldExtraDto | TextAreaExtraDto | TestDisplayExtraDto | CheckboxExtraDto | UploadExtraDto | DatePickerExtraDto | SectionExtraDto | AssessmentExtraDto;
+export class SignatureExtraDto {
+    @IsEnum(ExtraType)
+    type: ExtraType.SIGNATURE;
+
+    @IsString()
+    @IsNotEmpty()
+    name: string;
+
+    @IsOptional()
+    @IsString()
+    buttonName?: string;
+
+    @IsOptional()
+    @IsString()
+    signatureData?: string;
+
+    @IsOptional()
+    @IsString()
+    signedAt?: string;
+}
+
+export type ExtraItemDto = TextFieldExtraDto | TextAreaExtraDto | TestDisplayExtraDto | CheckboxExtraDto | UploadExtraDto | DatePickerExtraDto | SectionExtraDto | AssessmentExtraDto | SignatureExtraDto;
 
 export class NestedRoadMapItemDto {
 
@@ -226,6 +249,7 @@ export class NestedRoadMapItemDto {
                 { value: DatePickerExtraDto, name: 'DATE_PICKER' },
                 { value: SectionExtraDto, name: 'SECTION' },
                 { value: AssessmentExtraDto, name: 'ASSESSMENT' },
+                { value: SignatureExtraDto, name: 'SIGNATURE' },
             ],
         },
         keepDiscriminatorProperty: true,
@@ -291,6 +315,7 @@ export class CreateRoadMapDto {
                 { value: DatePickerExtraDto, name: 'DATE_PICKER' },
                 { value: SectionExtraDto, name: 'SECTION' },
                 { value: AssessmentExtraDto, name: 'ASSESSMENT' },
+                { value: SignatureExtraDto, name: 'SIGNATURE' },
             ],
         },
         keepDiscriminatorProperty: true,
@@ -388,6 +413,7 @@ export class UpdateNestedRoadMapItemDto {
                 { value: DatePickerExtraDto, name: 'DATE_PICKER' },
                 { value: SectionExtraDto, name: 'SECTION' },
                 { value: AssessmentExtraDto, name: 'ASSESSMENT' },
+                { value: SignatureExtraDto, name: 'SIGNATURE' },
             ],
         },
         keepDiscriminatorProperty: true,

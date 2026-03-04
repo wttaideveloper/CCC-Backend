@@ -502,7 +502,12 @@ export class RoadMapsService {
             throw new BadRequestException('Extras already exist for this roadmap. Use PATCH to add more extras.');
         }
 
-        const newExtras = dto.extras || [];
+        const now = new Date();
+        const newExtras = (dto.extras || []).map(extra =>
+            extra.type === 'SIGNATURE' && extra.signatureData && !extra.signedAt
+                ? { ...extra, signedAt: now }
+                : extra
+        );
         let savedExtras: any;
         try {
             savedExtras = await this.extrasModel.create({
@@ -585,11 +590,17 @@ export class RoadMapsService {
             ];
         }
 
-        const newItemsCount = dto.extras?.length || 0;
+        const now = new Date();
+        const incomingExtras = (dto.extras || []).map(extra =>
+            extra.type === 'SIGNATURE' && extra.signatureData && !extra.signedAt
+                ? { ...extra, signedAt: now }
+                : extra
+        );
+        const newItemsCount = incomingExtras.length;
 
         const updatedExtras = await this.extrasModel.findOneAndUpdate(
             query,
-            { $push: { extras: { $each: dto.extras || [] } } },
+            { $push: { extras: { $each: incomingExtras } } },
             { new: true, runValidators: true }
         ).lean().exec();
 

@@ -116,6 +116,26 @@ export class SectionExtra {
     sections?: any[];
 }
 
+@Schema({ _id: false })
+export class SignatureExtra {
+    @Prop({ required: true, enum: ['SIGNATURE'] })
+    type: string;
+
+    @Prop({ required: true })
+    name: string;
+
+    @Prop()
+    buttonName?: string;
+
+    @Prop()
+    signatureData?: string;
+
+    @Prop({ type: Date })
+    signedAt?: Date;
+}
+
+export const SignatureExtraSchema = SchemaFactory.createForClass(SignatureExtra);
+
 export const TextFieldExtraSchema = SchemaFactory.createForClass(TextFieldExtra);
 export const TextAreaExtraSchema = SchemaFactory.createForClass(TextAreaExtra);
 export const TextDisplayExtraSchema = SchemaFactory.createForClass(TextDisplayExtra);
