@@ -123,6 +123,27 @@ export class AssessmentExtraDto {
     checkboxes?: CheckboxExtraDto[];
 }
 
+export class SignatureExtraDto {
+    @IsEnum(ExtraType)
+    type: ExtraType.SIGNATURE;
+
+    @IsString()
+    @IsNotEmpty()
+    name: string;
+
+    @IsOptional()
+    @IsString()
+    buttonName?: string;
+
+    @IsOptional()
+    @IsString()
+    signatureData?: string;
+
+    @IsOptional()
+    @IsString()
+    signedAt?: string;
+}
+
 export class SectionExtraDto {
     @IsEnum(ExtraType)
     type: ExtraType.SECTION;
@@ -158,26 +179,6 @@ export class SectionExtraDto {
     sections?: (TextFieldExtraDto | TextAreaExtraDto | UploadExtraDto | DatePickerExtraDto | AssessmentExtraDto | SignatureExtraDto)[];
 }
 
-export class SignatureExtraDto {
-    @IsEnum(ExtraType)
-    type: ExtraType.SIGNATURE;
-
-    @IsString()
-    @IsNotEmpty()
-    name: string;
-
-    @IsOptional()
-    @IsString()
-    buttonName?: string;
-
-    @IsOptional()
-    @IsString()
-    signatureData?: string;
-
-    @IsOptional()
-    @IsString()
-    signedAt?: string;
-}
 
 export type ExtraItemDto = TextFieldExtraDto | TextAreaExtraDto | TestDisplayExtraDto | CheckboxExtraDto | UploadExtraDto | DatePickerExtraDto | SectionExtraDto | AssessmentExtraDto | SignatureExtraDto;
 
