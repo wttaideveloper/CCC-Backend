@@ -169,6 +169,14 @@ export class HomeController {
     };
   }
 
+  @Post('fcm-token')
+  async saveFcmToken(
+    @Body() body: { userId: string; token: string },
+  ) {
+    await this.homeService.saveFcmToken(body.userId, body.token);
+    return { success: true };
+  }
+
   @Post("media")
   @UseInterceptors(FilesInterceptor('files', 10)) // multiple upload
   async create(

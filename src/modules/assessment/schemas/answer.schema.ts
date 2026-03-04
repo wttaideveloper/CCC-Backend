@@ -27,6 +27,9 @@ export class SectionAnswer {
 
   @Prop({ type: Number })
   sectionScore?: number;
+
+  @Prop({ type: [String], default: [] })
+  recommendations?: string[];
 }
 
 export const SectionAnswerSchema = SchemaFactory.createForClass(SectionAnswer);

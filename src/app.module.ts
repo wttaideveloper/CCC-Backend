@@ -20,6 +20,7 @@ import { HealthModule } from './health/health.module';
 import { S3Module } from './modules/s3/s3.module';
 import { SearchModule } from './modules/search/search.module';
 import { ZoomModule } from './modules/zoom/zoom.module';
+import { FirebaseModule } from './modules/firebase/firebase.module';
 
 @Module({
   imports: [
@@ -64,6 +65,7 @@ import { ZoomModule } from './modules/zoom/zoom.module';
     ProgressModule,
     ProductsServicesModule,
     SearchModule,
+    FirebaseModule,
   ],
 
   controllers: [],

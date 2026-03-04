@@ -6,7 +6,7 @@ import {
 import { InjectModel } from '@nestjs/mongoose';
 import { Model, Types } from 'mongoose';
 import { Assessment, AssessmentDocument } from './schemas/assessment.schema';
-import { CreateAssessmentDto, LayerRecommendationDto, SectionDto, SectionRecommendationDto, UpdateAssessmentDto } from './dto/assessment.dto';
+import { CreateAssessmentDto, SectionDto, SectionRecommendationDto, UpdateAssessmentDto } from './dto/assessment.dto';
 import { User, UserDocument } from '../users/schemas/user.schema';
 import { ASSESSMENT_ASSIGNMENT_STATUSES } from '../../common/constants/status.constants';
 import { UserAnswer } from './schemas/answer.schema';
@@ -442,7 +442,7 @@ export class AssessmentService {
     const assessmentObjId = new Types.ObjectId(assessmentId);
     const userObjId = new Types.ObjectId(userId);
 
-    // 🔥 ensure base doc exists
+    // ensure base doc exists
     await this.userAnswerModel.updateOne(
       { assessmentId: assessmentObjId, userId: userObjId },
       {
@@ -454,7 +454,7 @@ export class AssessmentService {
       { upsert: true },
     );
 
-    // ✅ process each section safely
+    // process each section safely
     for (const section of answers) {
       const layersMapped = section.layers.map((layer) => ({
         layerId: new Types.ObjectId(layer.layerId),
@@ -463,9 +463,27 @@ export class AssessmentService {
       }));
 
       const sectionScore = calculateSectionScore(layersMapped);
+
+      const sectionData = assessment.sections.find(
+        (s: any) => s._id.toString() === section.sectionId,
+      );
+
+      let recommendations: string[] = [];
+
+      if (sectionData?.recommendations?.length) {
+
+        const levelRec = sectionData.recommendations.find(
+          (r: any) => r.level === sectionScore,
+        );
+
+        if (levelRec) {
+          recommendations = levelRec.items;
+        }
+
+      }
       const sectionObjId = new Types.ObjectId(section.sectionId);
 
-      // 🔥 try update existing section
+      // try update existing section
       const updateResult = await this.userAnswerModel.updateOne(
         {
           assessmentId: assessmentObjId,
@@ -476,11 +494,12 @@ export class AssessmentService {
           $set: {
             'sections.$.layers': layersMapped,
             'sections.$.sectionScore': sectionScore,
+            'sections.$.recommendations': recommendations,
           },
         },
       );
 
-      // 🔥 if section not present → push new
+      // if section not present → push new
       if (updateResult.matchedCount === 0) {
         await this.userAnswerModel.updateOne(
           { assessmentId: assessmentObjId, userId: userObjId },
@@ -490,6 +509,7 @@ export class AssessmentService {
                 sectionId: sectionObjId,
                 layers: layersMapped,
                 sectionScore,
+                recommendations,
               },
             },
           },
@@ -497,7 +517,7 @@ export class AssessmentService {
       }
     }
 
-    // ✅ fetch final doc
+    // fetch final doc
     const updated = await this.userAnswerModel
       .findOne({
         assessmentId: assessmentObjId,
@@ -505,7 +525,7 @@ export class AssessmentService {
       })
       .lean();
 
-    // ✅ progress update (your existing logic is fine)
+    // progress update (your existing logic is fine)
     const completedSectionsCount = updated?.sections?.length || 0;
     const userIdString = userObjId.toString();
 
@@ -601,6 +621,7 @@ export class AssessmentService {
   async getAssessmentRecommendations(
     assessmentId: string,
   ): Promise<SectionRecommendationDto[]> {
+
     if (!Types.ObjectId.isValid(assessmentId)) {
       throw new BadRequestException('Invalid assessment ID format');
     }
@@ -618,23 +639,16 @@ export class AssessmentService {
     const result: SectionRecommendationDto[] = [];
 
     for (const section of assessment.sections ?? []) {
-      const layers: LayerRecommendationDto[] = [];
 
-      for (const layer of section.layers ?? []) {
-        if (layer.recommendations?.length) {
-          layers.push({
-            layerTitle: layer.title,
-            recommendations: layer.recommendations,
-          });
-        }
-      }
+      if (section.recommendations?.length) {
 
-      if (layers.length) {
         result.push({
           sectionTitle: section.title,
-          layers,
+          recommendations: section.recommendations,
         });
+
       }
+
     }
 
     return result;
