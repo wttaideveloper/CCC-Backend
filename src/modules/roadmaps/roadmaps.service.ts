@@ -55,8 +55,22 @@ export class RoadMapsService {
             imageUrl = await this.s3Service.uploadFile(key, image.buffer, image.mimetype);
         }
 
+        const roadmapsWithSteps = (dto.roadmaps || []).map(nested => ({
+            ...nested,
+            totalSteps: nested.totalSteps ?? (nested.extras?.length ?? 0),
+        }));
+
+        const nestedTotalSteps = roadmapsWithSteps.reduce(
+            (sum, nested) => sum + nested.totalSteps,
+            0
+        );
+        const mainExtrasSteps = dto.extras?.length ?? 0;
+        const computedTotalSteps = dto.totalSteps ?? (mainExtrasSteps + nestedTotalSteps);
+
         const roadMap = await this.roadMapModel.create({
             ...dto,
+            roadmaps: roadmapsWithSteps,
+            totalSteps: computedTotalSteps,
             ...(imageUrl && { imageUrl }),
         });
         return toRoadMapResponseDto(roadMap);
@@ -367,7 +381,7 @@ export class RoadMapsService {
 
     async addNestedRoadMap(roadMapId: string, dto: NestedRoadMapItemDto, image?: Express.Multer.File): Promise<RoadMapResponseDto> {
         const roadMapObjectId = new Types.ObjectId(roadMapId);
-        const nestedRoadmapTotalSteps = dto.totalSteps || 0;
+        const nestedRoadmapTotalSteps = dto.totalSteps ?? (dto.extras?.length ?? 0);
 
         let imageUrl: string | undefined;
 
@@ -465,34 +479,47 @@ export class RoadMapsService {
         const roadMapObjectId = toObjectId(roadMapId);
         const userObjectId = toObjectId(dto.userId);
         const userIdString = userObjectId?.toString();
-
         const nestedRoadMapItemObjectId = toObjectId(dto.nestedRoadMapItemId);
 
         if (!roadMapObjectId || !userObjectId) {
             throw new BadRequestException('Invalid RoadMap ID or User ID provided.');
         }
 
-        const updatedExtras = await this.extrasModel.findOneAndUpdate(
-            {
+        // Build a consistent query that handles the null/missing nestedRoadMapItemId correctly
+        const existsQuery: any = { roadMapId: roadMapObjectId, userId: userObjectId };
+        if (nestedRoadMapItemObjectId) {
+            existsQuery.nestedRoadMapItemId = nestedRoadMapItemObjectId;
+        } else {
+            existsQuery.$or = [
+                { nestedRoadMapItemId: null },
+                { nestedRoadMapItemId: { $exists: false } }
+            ];
+        }
+
+        // Guard: this is a first-time POST — reject if extras already exist
+        const existing = await this.extrasModel.findOne(existsQuery).select('_id').lean().exec();
+        if (existing) {
+            throw new BadRequestException('Extras already exist for this roadmap. Use PATCH to add more extras.');
+        }
+
+        const newExtras = dto.extras || [];
+        let savedExtras: any;
+        try {
+            savedExtras = await this.extrasModel.create({
                 roadMapId: roadMapObjectId,
                 userId: userObjectId,
-                nestedRoadMapItemId: nestedRoadMapItemObjectId
-            },
-            {
-                $set: { extras: dto.extras || [] },
-                $setOnInsert: {
-                    roadMapId: roadMapObjectId,
-                    userId: userObjectId,
-                    nestedRoadMapItemId: nestedRoadMapItemObjectId
-                }
-            },
-            { new: true, upsert: true, runValidators: true }
-        )
-            .lean()
-            .exec();
+                nestedRoadMapItemId: nestedRoadMapItemObjectId ?? null,
+                extras: newExtras,
+            });
+        } catch (err) {
+            if (err?.code === 11000) {
+                throw new BadRequestException('Extras already exist for this roadmap. Use PATCH to add more extras.');
+            }
+            throw err;
+        }
 
-        // Update progress: increment completedSteps by the number of extras
-        if (dto.extras && dto.extras.length > 0) {
+        // Update progress by exact count of extras being saved
+        if (newExtras.length > 0) {
             const userIdFlexibleQuery = {
                 $or: [
                     { userId: userObjectId },
@@ -501,7 +528,6 @@ export class RoadMapsService {
             };
 
             if (nestedRoadMapItemObjectId) {
-                // Update nested roadmap progress AND main roadmap progress
                 await this.progressModel.findOneAndUpdate(
                     {
                         ...userIdFlexibleQuery,
@@ -510,8 +536,8 @@ export class RoadMapsService {
                     },
                     {
                         $inc: {
-                            'roadmaps.$[roadmap].nestedRoadmaps.$[nested].completedSteps': dto.extras.length,
-                            'roadmaps.$[roadmap].completedSteps': dto.extras.length
+                            'roadmaps.$[roadmap].nestedRoadmaps.$[nested].completedSteps': newExtras.length,
+                            'roadmaps.$[roadmap].completedSteps': newExtras.length
                         },
                     },
                     {
@@ -523,39 +549,33 @@ export class RoadMapsService {
                     }
                 ).exec();
             } else {
-                // Update main roadmap progress only
                 await this.progressModel.findOneAndUpdate(
                     {
                         ...userIdFlexibleQuery,
                         'roadmaps.roadMapId': roadMapObjectId
                     },
                     {
-                        $inc: { 'roadmaps.$.completedSteps': dto.extras.length },
+                        $inc: { 'roadmaps.$.completedSteps': newExtras.length },
                     },
                     { new: true }
                 ).exec();
             }
         }
 
-        return toExtrasResponseDto(updatedExtras as any);
+        return toExtrasResponseDto(savedExtras as any);
     }
 
     async updateExtras(roadMapId: string, userId: string, dto: UpdateExtrasDto, nestedRoadMapItemId?: string): Promise<ExtrasResponseDto> {
         const roadMapObjectId = toObjectId(roadMapId);
         const userObjectId = toObjectId(userId);
         const userIdString = userObjectId?.toString();
-
         const nestedRoadMapItemObjectId = toObjectId(nestedRoadMapItemId);
 
         if (!roadMapObjectId || !userObjectId) {
             throw new BadRequestException('Invalid RoadMap ID or User ID provided.');
         }
 
-        const query: any = {
-            roadMapId: roadMapObjectId,
-            userId: userObjectId,
-        };
-
+        const query: any = { roadMapId: roadMapObjectId, userId: userObjectId };
         if (nestedRoadMapItemObjectId) {
             query.nestedRoadMapItemId = nestedRoadMapItemObjectId;
         } else {
@@ -565,26 +585,18 @@ export class RoadMapsService {
             ];
         }
 
-        const existingExtras = await this.extrasModel.findOne(query).lean().exec();
-        if (!existingExtras) {
-            throw new NotFoundException(`Extras not found for user ${userId} and roadmap ${roadMapId}`);
-        }
-
         const newItemsCount = dto.extras?.length || 0;
 
         const updatedExtras = await this.extrasModel.findOneAndUpdate(
             query,
             { $push: { extras: { $each: dto.extras || [] } } },
             { new: true, runValidators: true }
-        )
-            .lean()
-            .exec();
+        ).lean().exec();
 
         if (!updatedExtras) {
             throw new NotFoundException(`Extras not found for user ${userId} and roadmap ${roadMapId}`);
         }
 
-        // Update progress: increment completedSteps by the number of new items added
         if (newItemsCount > 0) {
             const userIdFlexibleQuery = {
                 $or: [
@@ -594,7 +606,6 @@ export class RoadMapsService {
             };
 
             if (nestedRoadMapItemObjectId) {
-                // Update nested roadmap progress AND main roadmap progress
                 await this.progressModel.findOneAndUpdate(
                     {
                         ...userIdFlexibleQuery,

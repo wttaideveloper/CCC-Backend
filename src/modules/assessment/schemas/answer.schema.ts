@@ -24,6 +24,9 @@ export class SectionAnswer {
 
   @Prop({ type: [LayerAnswerSchema], default: [] })
   layers: LayerAnswer[];
+
+  @Prop({ type: Number })
+  sectionScore?: number;
 }
 
 export const SectionAnswerSchema = SchemaFactory.createForClass(SectionAnswer);
@@ -52,6 +55,9 @@ export class UserAnswer {
 
   @Prop()
   preSurveySubmittedAt?: Date;
+
+  @Prop({ type: Number })
+  overallScore?: number;
 }
 
 export const UserAnswerSchema = SchemaFactory.createForClass(UserAnswer);

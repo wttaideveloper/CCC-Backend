@@ -17,6 +17,7 @@ export function toUserResponseDto(user: UserDocument | any): UserResponseDto {
         isEmailVerified: user.isEmailVerified,
         hasCompleted: user.hasCompleted || false,
         hasIssuedCertificate: user.hasIssuedCertificate || false,
+        zoomUserId: user.zoomUserId || undefined,
         createdAt: user.createdAt,
         updatedAt: user.updatedAt,
         assignedId: user.assignedId,

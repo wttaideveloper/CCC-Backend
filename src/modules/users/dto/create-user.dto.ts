@@ -1,4 +1,4 @@
-import { IsEmail, IsNotEmpty, MinLength, IsOptional, IsEnum, IsMongoId, IsBoolean } from 'class-validator';
+import { IsEmail, IsNotEmpty, MinLength, IsOptional, IsEnum, IsMongoId, IsBoolean, IsString } from 'class-validator';
 import { Types } from 'mongoose';
 import { ROLES } from '../../../common/constants/roles.constants';
 import { USER_STATUSES } from '../../../common/constants/status.constants';
@@ -41,4 +41,8 @@ export class CreateUserDto {
     @IsOptional()
     @IsBoolean()
     isEmailVerified?: boolean;
+
+    @IsOptional()
+    @IsString()
+    zoomUserId?: string;
 }
