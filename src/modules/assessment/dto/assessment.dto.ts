@@ -2,6 +2,7 @@ import {
   IsArray,
   IsBoolean,
   IsIn,
+  IsMongoId,
   IsNotEmpty,
   IsOptional,
   IsString,
@@ -9,6 +10,7 @@ import {
 } from 'class-validator';
 import { VALID_ASSESSMENT_TYPES } from '../../../common/constants/status.constants';
 import { Type } from 'class-transformer';
+import { Types } from 'mongoose';
 
 export class ChoiceDto {
   @IsString()
@@ -132,5 +134,27 @@ export class SectionRecommendationDto {
   @ValidateNested({ each: true })
   @Type(() => RecommendationLevelDto)
   recommendations: RecommendationLevelDto[];
+
+}
+
+export class AssignAssessmentDto {
+
+  assessmentId: Types.ObjectId;
+  userIds: Types.ObjectId[];
+  assignedBy: Types.ObjectId;
+  dueDate?: Date;
+
+}
+
+export class SendSectionRecommendationsDto {
+
+  @IsMongoId()
+  userId: string;
+
+  @IsArray()
+  sections: {
+    sectionId: string;
+    recommendations: string[];
+  }[];
 
 }

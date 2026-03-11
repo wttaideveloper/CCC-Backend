@@ -8,6 +8,8 @@ import { UserAnswer, UserAnswerSchema } from './schemas/answer.schema';
 import { Progress, ProgressSchema } from '../progress/schemas/progress.schema';
 import { S3Module } from '../s3/s3.module';
 import { MulterModule } from '@nestjs/platform-express';
+import { AssessmentAssigned, AssessmentAssignedSchema } from './schemas/assessment_assigned';
+import { HomeModule } from '../home/home.module';
 
 @Module({
   imports: [
@@ -16,7 +18,9 @@ import { MulterModule } from '@nestjs/platform-express';
       { name: User.name, schema: UserSchema },
       { name: UserAnswer.name, schema: UserAnswerSchema },
       { name: Progress.name, schema: ProgressSchema },
+      { name: AssessmentAssigned.name, schema: AssessmentAssignedSchema },
     ]),
+    HomeModule,
     S3Module,
     MulterModule.register({
       storage: require('multer').memoryStorage(),

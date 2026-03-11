@@ -15,7 +15,8 @@ import {
     UpdateFinalCommentDto,
     DeleteFinalCommentDto,
 } from './dto/progress.dto';
-import { PROGRESS_STATUSES } from '../../common/constants/status.constants';
+import { ASSESSMENT_ASSIGNMENT_STATUSES, PROGRESS_STATUSES } from '../../common/constants/status.constants';
+import { AssessmentAssigned, AssessmentAssignedDocument } from '../assessment/schemas/assessment_assigned';
 
 @Injectable()
 export class ProgressService {
@@ -24,6 +25,7 @@ export class ProgressService {
         @InjectModel(RoadMap.name) private roadMapModel: Model<RoadMapDocument>,
         @InjectModel(Assessment.name) private assessmentModel: Model<AssessmentDocument>,
         @InjectModel(User.name) private userModel: Model<UserDocument>,
+        @InjectModel(AssessmentAssigned.name) private assessmentAssignedModel: Model<AssessmentAssignedDocument>,
     ) { }
 
     async findByUserId(userId: Types.ObjectId): Promise<ProgressResponseDto | null> {
@@ -228,6 +230,34 @@ export class ProgressService {
                         upsert: true,
                     }
                 ).exec();
+                // Create assignment records for tracking due date and meeting later
+                const assignmentDocs = newAssessmentIds.map(assessmentId => ({
+                    assessmentId: new Types.ObjectId(assessmentId),
+                    userId: new Types.ObjectId(userId),
+                    assignedAt: new Date(),
+                    dueDate: dto.dueDate ? new Date(dto.dueDate) : undefined,
+                    status: ASSESSMENT_ASSIGNMENT_STATUSES.ASSIGNED
+                }));
+                
+                const res = await this.assessmentAssignedModel.insertMany(assignmentDocs);
+
+                for (const assessmentId of newAssessmentIds) {
+                    await this.assessmentModel.updateOne(
+                        {
+                            _id: assessmentId,
+                            'assignments.userId': { $ne: userId }
+                        },
+                        {
+                            $push: {
+                                assignments: {
+                                    userId: userId,
+                                    assignedAt: new Date(),
+                                    status: ASSESSMENT_ASSIGNMENT_STATUSES.ASSIGNED
+                                }
+                            }
+                        }
+                    );
+                }
 
                 results.push(toProgressResponseDto(updatedProgress));
             } catch (error) {

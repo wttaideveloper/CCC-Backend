@@ -11,20 +11,24 @@ export function getDatesInMonth(year: number, month: number): Date[] {
 }
 
 export function generateMonthlyAvailability(
-    weeklySlots: { day: number; slots: HourSlot[] }[],
+    weeklySlots: { date: Date; slots: HourSlot[] }[],
     year: number,
     month: number
 ) {
     const allDates = getDatesInMonth(year, month);
 
-    return allDates.map((d: Date) => {
-        const weekday = d.getDay();
-        const daySlots = weeklySlots.find(w => w.day === weekday);
+    return allDates.map((d) => {
+
+        const dateStr = d.toISOString().split("T")[0];
+
+        const found = weeklySlots.find(
+            w => w.date.toISOString().split("T")[0] === dateStr
+        );
 
         return {
-            date: d.toISOString().split('T')[0],
-            day: weekday,
-            slots: daySlots ? daySlots.slots : []
+            date: dateStr,
+            day: d.getDay(),
+            slots: found ? found.slots : []
         };
     });
 }
@@ -128,19 +132,22 @@ export function buildSlotDate(dateStr: string, slot: HourSlot): Date {
 }
 
 export function getWeekRange(dateStr: string): Date[] {
-    const input = new Date(dateStr);
+
+    const input = new Date(dateStr + "T00:00:00Z");
 
     const start = new Date(input);
-    start.setDate(input.getDate() - input.getDay());
-    start.setHours(0, 0, 0, 0);
+    const weekday = start.getUTCDay();
+
+    start.setUTCDate(start.getUTCDate() - weekday);
+    start.setUTCHours(0, 0, 0, 0);
 
     const days: Date[] = [];
-    const cursor = new Date(start);
 
     for (let i = 0; i < 7; i++) {
-        days.push(new Date(cursor));
-        cursor.setDate(cursor.getDate() + 1);
+        const d = new Date(start);
+        d.setUTCDate(start.getUTCDate() + i);
+        days.push(d);
     }
 
-    return days; 
+    return days;
 }

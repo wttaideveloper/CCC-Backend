@@ -16,8 +16,8 @@ export class TimeSlotDto {
 }
 
 export class DayAvailabilityDto {
-    @IsNumber()
-    day: number;
+    // @IsNumber()
+    // day: number;
 
     @IsString()
     date: string;

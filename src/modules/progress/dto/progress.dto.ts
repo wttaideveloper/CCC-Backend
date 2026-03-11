@@ -1,4 +1,4 @@
-import { IsMongoId, IsNumber, IsNotEmpty, Min, IsArray, ArrayMinSize, IsString, MaxLength } from 'class-validator';
+import { IsMongoId, IsNumber, IsNotEmpty, Min, IsArray, ArrayMinSize, IsString, MaxLength, IsOptional, IsDateString } from 'class-validator';
 import { PartialType, OmitType } from '@nestjs/mapped-types';
 import { Types } from 'mongoose';
 
@@ -15,6 +15,7 @@ export class AssignRoadmapDto {
 }
 
 export class AssignAssessmentDto {
+
     @IsArray()
     @ArrayMinSize(1)
     @IsMongoId({ each: true })
@@ -24,6 +25,11 @@ export class AssignAssessmentDto {
     @ArrayMinSize(1)
     @IsMongoId({ each: true })
     assessmentIds: Types.ObjectId[];
+
+    @IsOptional()
+    @IsDateString()
+    dueDate?: string;
+
 }
 
 export class UpdateRoadmapProgressDto {

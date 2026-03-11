@@ -27,8 +27,8 @@ export const SlotSchema = SchemaFactory.createForClass(Slot);
 @Schema()
 export class DayAvailability {
 
-    @Prop({ type: Number, required: true })
-    day: number;
+    // @Prop({ type: Number, required: true })
+    // day: number;
 
     @Prop({ type: Date, required: true })
     date: Date;

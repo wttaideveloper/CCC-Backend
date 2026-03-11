@@ -247,4 +247,50 @@ export class AssessmentController {
     };
   }
 
+  @Post(':assessmentId/send-recommendation')
+  async sendRecommendation(
+    @Param('assessmentId', ParseMongoIdPipe) assessmentId: string,
+    @Body() dto: {
+      userId: string;
+      sectionId: string;
+      recommendations: string[];
+    },
+  ) {
+    const result = await this.assessmentService.sendSectionRecommendation(
+      assessmentId,
+      dto.userId,
+      dto.sectionId,
+      dto.recommendations,
+    );
+
+    return {
+      success: true,
+      message: 'Recommendation sent successfully',
+      data: result,
+    };
+  }
+
+  @Patch(':assessmentId/edit-recommendation')
+  async editRecommendation(
+    @Param('assessmentId', ParseMongoIdPipe) assessmentId: string,
+    @Body()
+    body: {
+      userId: string;
+      sectionId: string;
+      recommendations: string[];
+    },
+  ) {
+    const result = await this.assessmentService.editSectionRecommendation(
+      assessmentId,
+      body.userId,
+      body.sectionId,
+      body.recommendations,
+    );
+
+    return {
+      success: true,
+      message: 'Recommendation updated successfully',
+      data: result,
+    };
+  }
 }
