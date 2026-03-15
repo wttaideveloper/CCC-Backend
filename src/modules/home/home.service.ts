@@ -25,6 +25,7 @@ import { S3Service } from '../s3/s3.service';
 import { CreateMediaDto, UpdateMediaDto } from './dto/media.dto';
 import { mapToResponse } from './utils/notification.mapper';
 import { FirebaseService } from '../firebase/firebase.service';
+import { ExpoNotificationService } from '../firebase/expo.service';
 
 interface MentorFilterOptions {
   page?: number;
@@ -49,6 +50,7 @@ export class HomeService {
     private readonly mediaModel: Model<MediaDocument>,
     private readonly s3Service: S3Service,
     private readonly firebaseService: FirebaseService,
+    private readonly expoService: ExpoNotificationService,
   ) { }
 
   async getByEmail(email: string): Promise<HomeResponseDto> {
@@ -336,44 +338,63 @@ export class HomeService {
 
     // ================= PUSH NOTIFICATION =================
     try {
-      let tokens: string[] = [];
+      let fcmTokens: string[] = [];
+      let expoTokens: string[] = [];
 
-      //  User specific
       if (userId) {
         const user = await this.userModel
           .findById(userId)
-          .select('fcmTokens')
+          .select('fcmTokens expoTokens')
           .lean();
 
-        tokens = user?.fcmTokens ?? [];
+        fcmTokens = user?.fcmTokens ?? [];
+        expoTokens = user?.expoTokens ?? [];
       }
 
-      // Role broadcast
       else if (role) {
         const users = await this.userModel
           .find({ role })
-          .select('fcmTokens')
+          .select('fcmTokens expoTokens')
           .lean();
 
-        tokens = users.flatMap(u => u.fcmTokens || []);
+        fcmTokens = users.flatMap(u => u.fcmTokens || []);
+        expoTokens = users.flatMap(u => u.expoTokens || []);
       }
 
-      if (tokens.length) {
-        const result =
-          await this.firebaseService.sendPushNotification(
-            tokens,
-            name,
-            details,
-            { module: module ?? '' },
-          );
+      // FCM
+      if (fcmTokens.length) {
+        const result = await this.firebaseService.sendPushNotification(
+          fcmTokens,
+          name,
+          details,
+          { module: module ?? '' },
+        );
 
         const invalidTokens = result?.invalidTokens ?? [];
 
-        //  remove dead tokens
         if (invalidTokens.length) {
           await this.userModel.updateMany(
             { fcmTokens: { $in: invalidTokens } },
             { $pull: { fcmTokens: { $in: invalidTokens } } },
+          );
+        }
+      }
+
+      // Expo
+      if (expoTokens.length) {
+        const result = await this.expoService.sendPushNotification(
+          expoTokens,
+          name,
+          details,
+          { module: module ?? '' },
+        );
+
+        const invalidTokens = result?.invalidTokens ?? [];
+
+        if (invalidTokens.length) {
+          await this.userModel.updateMany(
+            { expoTokens: { $in: invalidTokens } },
+            { $pull: { expoTokens: { $in: invalidTokens } } },
           );
         }
       }
@@ -557,10 +578,19 @@ export class HomeService {
     return deleted;
   }
 
-  async saveFcmToken(userId: string, token: string) {
-    await this.userModel.updateOne(
-      { _id: userId },
-      { $addToSet: { fcmTokens: token } },
-    );
+  async saveDeviceToken(userId: string, token: string) {
+    const isExpo = token.startsWith('ExponentPushToken');
+
+    if (isExpo) {
+      await this.userModel.updateOne(
+        { _id: userId },
+        { $addToSet: { expoTokens: token } },
+      );
+    } else {
+      await this.userModel.updateOne(
+        { _id: userId },
+        { $addToSet: { fcmTokens: token } },
+      );
+    }
   }
 }

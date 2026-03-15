@@ -169,11 +169,11 @@ export class HomeController {
     };
   }
 
-  @Post('fcm-token')
-  async saveFcmToken(
+  @Post('device-token')
+  async saveDeviceToken(
     @Body() body: { userId: string; token: string },
   ) {
-    await this.homeService.saveFcmToken(body.userId, body.token);
+    await this.homeService.saveDeviceToken(body.userId, body.token);
     return { success: true };
   }
 

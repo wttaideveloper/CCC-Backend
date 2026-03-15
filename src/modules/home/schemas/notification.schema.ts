@@ -14,6 +14,9 @@ export class NotificationItem {
 
   @Prop({ default: false })
   read: boolean;
+
+  @Prop({ default: Date.now })
+  createdAt?: Date;
 }
 export const NotificationItemSchema =
   SchemaFactory.createForClass(NotificationItem);
@@ -29,7 +32,7 @@ export type NotificationDocument = Document<unknown, {}, Notification> &
 export class Notification {
   readonly _id?: Types.ObjectId;
 
-  @Prop({ type: Types.ObjectId, ref: 'User', required: false })
+  @Prop({ type: Types.ObjectId, ref: 'User' })
   userId?: string;
 
   @Prop({ required: false })

@@ -75,6 +75,9 @@ export class User {
   @Prop({ type: [String], default: [] })
   fcmTokens: string[];
 
+  @Prop({ type: [String], default: [] })
+  expoTokens: string[];
+
   @Prop({ type: [{ type: Types.ObjectId, ref: 'User' }], default: [] })
   assignedId: Types.ObjectId[];
 
