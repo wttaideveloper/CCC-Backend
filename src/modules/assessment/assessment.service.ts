@@ -6,7 +6,7 @@ import {
 import { InjectModel } from '@nestjs/mongoose';
 import { Model, Types } from 'mongoose';
 import { Assessment, AssessmentDocument } from './schemas/assessment.schema';
-import { CreateAssessmentDto, SectionDto, SectionRecommendationDto, UpdateAssessmentDto } from './dto/assessment.dto';
+import { CreateAssessmentDto, SectionDto, SectionRecommendationDto, SectionRecommendationPreviewDto, SectionRecommendationRuleDto, UpdateAssessmentDto } from './dto/assessment.dto';
 import { User, UserDocument } from '../users/schemas/user.schema';
 import { ASSESSMENT_ASSIGNMENT_STATUSES } from '../../common/constants/status.constants';
 import { UserAnswer } from './schemas/answer.schema';
@@ -479,23 +479,6 @@ export class AssessmentService {
 
       const sectionScore = calculateSectionScore(layersMapped);
 
-      const sectionData = assessment.sections.find(
-        (s: any) => s._id.toString() === section.sectionId,
-      );
-
-      let recommendations: string[] = [];
-
-      if (sectionData?.recommendations?.length) {
-
-        const levelRec = sectionData.recommendations.find(
-          (r: any) => r.level === sectionScore,
-        );
-
-        if (levelRec) {
-          recommendations = levelRec.items;
-        }
-
-      }
       const sectionObjId = new Types.ObjectId(section.sectionId);
 
       // try update existing section
@@ -509,7 +492,6 @@ export class AssessmentService {
           $set: {
             'sections.$.layers': layersMapped,
             'sections.$.sectionScore': sectionScore,
-            'sections.$.recommendations': recommendations,
           },
         },
       );
@@ -524,7 +506,6 @@ export class AssessmentService {
                 sectionId: sectionObjId,
                 layers: layersMapped,
                 sectionScore,
-                recommendations,
               },
             },
           },
@@ -635,34 +616,58 @@ export class AssessmentService {
 
   async getAssessmentRecommendations(
     assessmentId: string,
-  ): Promise<SectionRecommendationDto[]> {
+    userId: string,
+  ): Promise<SectionRecommendationPreviewDto[]> {
 
-    if (!Types.ObjectId.isValid(assessmentId)) {
-      throw new BadRequestException('Invalid assessment ID format');
-    }
+    if (!Types.ObjectId.isValid(assessmentId))
+      throw new BadRequestException('Invalid assessment ID');
 
-    const assessment = await this.assessmentModel
-      .findById(assessmentId)
-      .select('sections')
-      .lean()
-      .exec();
+    if (!Types.ObjectId.isValid(userId))
+      throw new BadRequestException('Invalid user ID');
 
-    if (!assessment) {
+    const assessmentObjId = new Types.ObjectId(assessmentId);
+    const userObjId = new Types.ObjectId(userId);
+
+    const [assessment, userAnswers] = await Promise.all([
+      this.assessmentModel
+        .findById(assessmentObjId)
+        .select('sections')
+        .lean(),
+
+      this.userAnswerModel
+        .findOne({
+          assessmentId: assessmentObjId,
+          userId: userObjId,
+        })
+        .lean(),
+    ]);
+
+    if (!assessment)
       throw new NotFoundException('Assessment not found');
-    }
 
-    const result: SectionRecommendationDto[] = [];
+    if (!userAnswers)
+      throw new NotFoundException('User answers not found');
 
-    for (const section of assessment.sections ?? []) {
+    const result: SectionRecommendationPreviewDto[] = [];
 
-      if (section.recommendations?.length) {
+    for (const sectionAnswer of userAnswers.sections ?? []) {
 
-        result.push({
-          sectionTitle: section.title,
-          recommendations: section.recommendations,
-        });
+      const sectionConfig = assessment.sections.find(
+        (s: any) => s._id.toString() === sectionAnswer.sectionId.toString()
+      );
 
-      }
+      if (!sectionConfig) continue;
+
+      const levelRec = sectionConfig.recommendations?.find(
+        (r: any) => r.level === sectionAnswer.sectionScore
+      );
+
+      result.push({
+        sectionId: sectionAnswer.sectionId.toString(),
+        sectionTitle: sectionConfig.title,
+        score: sectionAnswer.sectionScore ?? 0,
+        recommendations: levelRec?.items || [],
+      });
 
     }
 
@@ -675,20 +680,13 @@ export class AssessmentService {
     sectionId: string,
     recommendations: string[],
   ) {
-    if (!Types.ObjectId.isValid(assessmentId))
-      throw new BadRequestException('Invalid assessment ID');
-
-    if (!Types.ObjectId.isValid(userId))
-      throw new BadRequestException('Invalid user ID');
-
-    if (!Types.ObjectId.isValid(sectionId))
-      throw new BadRequestException('Invalid section ID');
 
     const updated = await this.userAnswerModel.findOneAndUpdate(
       {
         assessmentId: new Types.ObjectId(assessmentId),
         userId: new Types.ObjectId(userId),
         "sections.sectionId": new Types.ObjectId(sectionId),
+        "sections.recommendations": { $size: 0 }
       },
       {
         $set: {
@@ -699,82 +697,38 @@ export class AssessmentService {
     ).lean();
 
     if (!updated) {
-      throw new NotFoundException("Section answer not found");
+      throw new BadRequestException(
+        "Recommendation already sent or section not found"
+      );
     }
 
-    // OPTIONAL: send notification
     await this.notificationService.addNotification({
-      userId: userId,
+      userId,
       name: 'ASSESSMENT_RECOMMENDATION',
       details: `New recommendation has been added to your assessment.`,
       module: 'ASSESSMENT'
     });
 
-
     return updated;
   }
 
-  async updateSectionRecommendation(
-    assessmentId: string,
-    userId: string,
-    sectionId: string,
-    recommendations: string[],
-  ) {
-    const updated = await this.userAnswerModel.findOneAndUpdate(
-      {
-        assessmentId: new Types.ObjectId(assessmentId),
-        userId: new Types.ObjectId(userId),
-        "sections.sectionId": new Types.ObjectId(sectionId),
-      },
-      {
-        $set: {
-          "sections.$.recommendations": recommendations,
-        },
-      },
-      { new: true }
-    ).lean();
 
-    if (!updated) {
-      throw new NotFoundException("Recommendation update failed");
-    }
+  async getAssessmentRecommendationRules(assessmentId: string) {
 
-    return updated;
-  }
-
-  async editSectionRecommendation(
-    assessmentId: string,
-    userId: string,
-    sectionId: string,
-    recommendations: string[],
-  ) {
-    if (!Types.ObjectId.isValid(assessmentId))
+    if (!Types.ObjectId.isValid(assessmentId)) {
       throw new BadRequestException('Invalid assessment ID');
-
-    if (!Types.ObjectId.isValid(userId))
-      throw new BadRequestException('Invalid user ID');
-
-    if (!Types.ObjectId.isValid(sectionId))
-      throw new BadRequestException('Invalid section ID');
-
-    const updated = await this.userAnswerModel.findOneAndUpdate(
-      {
-        assessmentId: new Types.ObjectId(assessmentId),
-        userId: new Types.ObjectId(userId),
-        'sections.sectionId': new Types.ObjectId(sectionId),
-      },
-      {
-        $set: {
-          'sections.$.recommendations': recommendations,
-        },
-      },
-      { new: true },
-    ).lean();
-
-    if (!updated) {
-      throw new NotFoundException('Section recommendation not found');
     }
 
-    return updated;
+    const assessment = await this.assessmentModel
+      .findById(assessmentId)
+      .select('sections')
+      .lean();
+
+    if (!assessment) {
+      throw new NotFoundException('Assessment not found');
+    }
+
+    return assessment.sections;
   }
 
 }

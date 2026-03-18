@@ -158,3 +158,34 @@ export class SendSectionRecommendationsDto {
   }[];
 
 }
+
+export class SectionRecommendationRuleDto {
+
+  @IsMongoId()
+  sectionId: string;
+
+  @IsString()
+  sectionTitle: string;
+
+  @IsArray()
+  @ValidateNested({ each: true })
+  @Type(() => RecommendationLevelDto)
+  recommendations: RecommendationLevelDto[];
+
+}
+
+export class SectionRecommendationPreviewDto {
+
+  @IsMongoId()
+  sectionId: string;
+
+  @IsString()
+  sectionTitle: string;
+
+  score: number;
+
+  @IsArray()
+  @IsString({ each: true })
+  recommendations: string[];
+
+}

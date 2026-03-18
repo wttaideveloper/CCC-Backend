@@ -43,7 +43,14 @@ export class ProductsServicesService {
     }
 
     async findAllScholarships(): Promise<ScholarshipResponseDto[]> {
-        const scholarships = await this.scholarshipModel.find().lean().exec();
+        const scholarships = await this.scholarshipModel
+            .find()
+            .populate({
+                path: 'awardedList.userId',
+                select: '-password',
+            })
+            .lean()
+            .exec();
         return scholarships.map((scholarship) =>
             toScholarshipResponseDto(scholarship),
         );
@@ -54,7 +61,14 @@ export class ProductsServicesService {
             throw new BadRequestException('Invalid scholarship ID format');
         }
 
-        const scholarship = await this.scholarshipModel.findById(id).lean().exec();
+        const scholarship = await this.scholarshipModel
+            .findById(id)
+            .populate({
+                path: 'awardedList.userId',
+                select: '-password',
+            })
+            .lean()
+            .exec();
 
         if (!scholarship) {
             throw new NotFoundException('Scholarship not found');
@@ -222,7 +236,14 @@ export class ProductsServicesService {
     }
 
     async findScholarshipByType(type: string): Promise<ScholarshipResponseDto> {
-        const scholarship = await this.scholarshipModel.findOne({ type }).lean().exec();
+        const scholarship = await this.scholarshipModel
+            .findOne({ type })
+            .populate({
+                path: 'awardedList.userId',
+                select: '-password',
+            })
+            .lean()
+            .exec();
 
         if (!scholarship) {
             throw new NotFoundException('Scholarship not found');
@@ -234,7 +255,14 @@ export class ProductsServicesService {
     async findScholarshipsByStatus(
         status: string,
     ): Promise<ScholarshipResponseDto[]> {
-        const scholarships = await this.scholarshipModel.find({ status }).lean().exec();
+        const scholarships = await this.scholarshipModel
+            .find({ status })
+            .populate({
+                path: 'awardedList.userId',
+                select: '-password',
+            })
+            .lean()
+            .exec();
         return scholarships.map((scholarship) =>
             toScholarshipResponseDto(scholarship as any),
         );

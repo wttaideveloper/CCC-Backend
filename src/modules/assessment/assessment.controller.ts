@@ -234,15 +234,35 @@ export class AssessmentController {
     return this.assessmentService.updatePreSurvey(id, dto);
   }
 
-  @Get(':id/recommendations')
-  async getRecommendations(
-    @Param('id', ParseMongoIdPipe) id: string,
+  @Get(':assessmentId/recommendation-rules')
+  async getRecommendationRules(
+    @Param('assessmentId', ParseMongoIdPipe) assessmentId: string,
   ) {
-    const data = await this.assessmentService.getAssessmentRecommendations(id);
+    const data =
+      await this.assessmentService.getAssessmentRecommendationRules(
+        assessmentId,
+      );
 
     return {
       success: true,
-      message: 'Assessment recommendations fetched successfully',
+      message: 'Assessment recommendation rules fetched successfully',
+      data,
+    };
+  }
+
+  @Get(':assessmentId/recommendations/:userId')
+  async getRecommendations(
+    @Param('assessmentId', ParseMongoIdPipe) assessmentId: string,
+    @Param('userId', ParseMongoIdPipe) userId: string,
+  ) {
+    const data = await this.assessmentService.getAssessmentRecommendations(
+      assessmentId,
+      userId,
+    );
+
+    return {
+      success: true,
+      message: 'Assessment recommendation preview fetched successfully',
       data,
     };
   }
@@ -270,27 +290,27 @@ export class AssessmentController {
     };
   }
 
-  @Patch(':assessmentId/edit-recommendation')
-  async editRecommendation(
-    @Param('assessmentId', ParseMongoIdPipe) assessmentId: string,
-    @Body()
-    body: {
-      userId: string;
-      sectionId: string;
-      recommendations: string[];
-    },
-  ) {
-    const result = await this.assessmentService.editSectionRecommendation(
-      assessmentId,
-      body.userId,
-      body.sectionId,
-      body.recommendations,
-    );
+  // @Patch(':assessmentId/edit-recommendation')
+  // async editRecommendation(
+  //   @Param('assessmentId', ParseMongoIdPipe) assessmentId: string,
+  //   @Body()
+  //   body: {
+  //     userId: string;
+  //     sectionId: string;
+  //     recommendations: string[];
+  //   },
+  // ) {
+  //   const result = await this.assessmentService.editSectionRecommendation(
+  //     assessmentId,
+  //     body.userId,
+  //     body.sectionId,
+  //     body.recommendations,
+  //   );
 
-    return {
-      success: true,
-      message: 'Recommendation updated successfully',
-      data: result,
-    };
-  }
+  //   return {
+  //     success: true,
+  //     message: 'Recommendation updated successfully',
+  //     data: result,
+  //   };
+  // }
 }
