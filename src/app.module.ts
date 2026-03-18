@@ -13,7 +13,6 @@ import { HomeModule } from './modules/home/home.module';
 import { RoadMapsModule } from './modules/roadmaps/roadmaps.module';
 import { AppointmentsModule } from './modules/appointments/appointments.module';
 import { AssessmentModule } from './modules/assessment/assessment.module';
-import { ProgressModule } from './modules/progress/schemas/progress.module';
 import { ProductsServicesModule } from './modules/products_services/products_services.module';
 import { MicroGrantModule } from './modules/micro-grand/micro-grant.module';
 import { HealthModule } from './health/health.module';
@@ -21,6 +20,7 @@ import { S3Module } from './modules/s3/s3.module';
 import { SearchModule } from './modules/search/search.module';
 import { ZoomModule } from './modules/zoom/zoom.module';
 import { FirebaseModule } from './modules/firebase/firebase.module';
+import { ProgressModule } from './modules/progress/progress.module';
 
 @Module({
   imports: [

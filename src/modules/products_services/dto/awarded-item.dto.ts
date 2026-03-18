@@ -12,6 +12,8 @@ export class AwardedUserDto {
   @IsNotEmpty()
   userId: string;
 
+  user?: any;
+
   @IsDateString()
   @IsNotEmpty()
   awardedDate: string;
