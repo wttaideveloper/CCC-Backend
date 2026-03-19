@@ -922,4 +922,31 @@ export class RoadMapsService {
 
         return { message: 'File deleted successfully' };
     }
+
+    async getUserRoadmaps(userId: string) {
+        const progress = await this.progressModel
+            .findOne({ userId })
+            .lean();
+
+        if (!progress) {
+            return [];
+        }
+
+        const roadmapIds = progress.roadmaps.map(r => r.roadMapId);
+
+        const roadmaps = await this.roadMapModel
+            .find({ _id: { $in: roadmapIds } })
+            .lean();
+
+        return roadmaps.map(rm => {
+            const progressData = progress.roadmaps.find(
+                p => p.roadMapId.toString() === rm._id.toString(),
+            );
+
+            return {
+                ...rm,
+                progress: progressData || null,
+            };
+        });
+    }
 }

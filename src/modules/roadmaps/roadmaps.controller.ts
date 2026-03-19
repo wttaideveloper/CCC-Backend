@@ -62,6 +62,11 @@ export class RoadMapsController {
         };
     }
 
+    @Get('user/:userId')
+    async getUserRoadmaps(@Param('userId') userId: string) {
+        return this.roadMapsService.getUserRoadmaps(userId);
+    }
+
     // @Get(':id/details')
     // async getRoadMapDetails(@Param('id') id: string): Promise<BaseResponse<any>> {
 
