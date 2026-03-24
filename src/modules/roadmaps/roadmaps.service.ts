@@ -189,7 +189,7 @@ export class RoadMapsService {
             .exec();
 
         if (!thread) {
-            throw new NotFoundException(`Comment thread for user ${userId} on roadmap ${roadMapId} not found`);
+            return { _id: '', userId, roadMapId, comments: [] };
         }
 
         return toCommentsThreadResponseDto(thread as any);
@@ -921,6 +921,24 @@ export class RoadMapsService {
         }
 
         return { message: 'File deleted successfully' };
+    }
+
+    async findNestedItemById(roadMapId: string, nestedItemId: string): Promise<any> {
+        const roadmap = await this.roadMapModel.findById(roadMapId).lean().exec();
+
+        if (!roadmap) {
+            throw new NotFoundException(`RoadMap with ID "${roadMapId}" not found`);
+        }
+
+        const nestedItem = (roadmap.roadmaps || []).find(
+            (item: any) => item._id?.toString() === nestedItemId
+        );
+
+        if (!nestedItem) {
+            throw new NotFoundException(`Nested roadmap item with ID "${nestedItemId}" not found`);
+        }
+
+        return nestedItem;
     }
 
     async getUserRoadmaps(userId: string) {

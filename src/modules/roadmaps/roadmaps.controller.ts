@@ -78,9 +78,22 @@ export class RoadMapsController {
     //     };
     // }
 
+    @Get(':roadMapId/nested/:nestedItemId')
+    async getNestedRoadMapItem(
+        @Param('roadMapId', ParseMongoIdPipe) roadMapId: string,
+        @Param('nestedItemId', ParseMongoIdPipe) nestedItemId: string,
+    ): Promise<BaseResponse<any>> {
+        const item = await this.roadMapsService.findNestedItemById(roadMapId, nestedItemId);
+        return {
+            success: true,
+            message: 'Nested roadmap item fetched successfully',
+            data: item,
+        };
+    }
+
     @Get(':id')
     async getRoadMapById(
-        @Param('id', ParseMongoIdPipe) id: string, // <-- ADDED PIPE FOR CONSISTENCY
+        @Param('id', ParseMongoIdPipe) id: string,
     ): Promise<BaseResponse<RoadMapResponseDto>> {
         const roadmap = await this.roadMapsService.findById(id);
         return {
