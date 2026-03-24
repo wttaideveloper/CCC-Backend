@@ -9,7 +9,16 @@ export class S3Service {
     private readonly logger = new Logger(S3Service.name);
 
     constructor(private configService: ConfigService) {
-        this.s3Client = new S3Client({});
+        const accessKeyId = this.configService.get<string>('aws.accessKeyId');
+        const secretAccessKey = this.configService.get<string>('aws.secretAccessKey');
+        const region = this.configService.get<string>('aws.region') || 'us-east-1';
+
+        this.s3Client = new S3Client({
+            region,
+            ...(accessKeyId && secretAccessKey && {
+                credentials: { accessKeyId, secretAccessKey },
+            }),
+        });
 
         const bucket = this.configService.get<string>('aws.s3Bucket');
 
