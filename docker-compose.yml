@@ -4,6 +4,9 @@ services:
     build:
       context: ../frontend
       dockerfile: Dockerfile
+      args:
+        NEXT_PUBLIC_API_BASE_URL: ${NEXT_PUBLIC_API_BASE_URL}
+        NEXT_PUBLIC_S3_BUCKET_URL: ${NEXT_PUBLIC_S3_BUCKET_URL}
     container_name: ccc-frontend
     restart: unless-stopped
     environment:
