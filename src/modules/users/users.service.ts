@@ -55,6 +55,7 @@ export class UsersService {
     async findAll(filters?: {
         role?: string;
         status?: string;
+        hasCompleted?: boolean;
         page?: number;
         limit?: number;
         search?: string;
@@ -83,6 +84,10 @@ export class UsersService {
 
         if (filters?.status) {
             query.status = filters.status;
+        }
+
+        if (filters?.hasCompleted !== undefined) {
+            query.hasCompleted = filters.hasCompleted;
         }
 
         if (filters?.search) {

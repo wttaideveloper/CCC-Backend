@@ -52,6 +52,7 @@ export class UsersController {
   async getAllUsers(
     @Query('role') role?: string,
     @Query('status') status?: string,
+    @Query('hasCompleted') hasCompleted?: string,
     @Query('page') page?: string,
     @Query('limit') limit?: string,
     @Query('search') search?: string,
@@ -65,6 +66,7 @@ export class UsersController {
     const filters = {
       role,
       status,
+      hasCompleted: hasCompleted !== undefined ? hasCompleted === 'true' : undefined,
       page: page ? parseInt(page, 10) : undefined,
       limit: limit ? parseInt(limit, 10) : undefined,
       search,

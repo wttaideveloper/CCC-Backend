@@ -392,9 +392,10 @@ export class ProgressService {
         }
 
         const userIds = users.map(u => u._id);
+        const userIdStrings = users.map(u => u._id.toString());
 
         const progressRecords = await this.progressModel.find(
-            { userId: { $in: userIds } },
+            { $or: [{ userId: { $in: userIds } }, { userId: { $in: userIdStrings } }] },
             {
                 userId: 1,
                 totalRoadmaps: 1,
