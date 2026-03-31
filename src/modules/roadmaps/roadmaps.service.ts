@@ -19,7 +19,7 @@ import { toObjectId } from 'src/common/pipes/to-object-id.pipe';
 import { S3Service } from '../s3/s3.service';
 import { User, UserDocument } from '../users/schemas/user.schema';
 import { Availability, AvailabilityDocument } from '../appointments/schemas/availability.schema';
-import { buildMeetingDate } from './utils/helper';
+import { buildMeetingDate, SESSION_FLOW, SESSION_NOTES } from './utils/helper';
 import { AppointmentsService } from '../appointments/appointments.service';
 
 @Injectable()
@@ -580,9 +580,7 @@ export class RoadMapsService {
 
         if (isJumpstartCompleted) {
             await this.getMentorFromPastor(
-                dto.userId,
-                roadMapId.toString(),
-                dto.nestedRoadMapItemId
+                dto.userId
             );
         }
 
@@ -987,20 +985,51 @@ export class RoadMapsService {
         });
     }
 
-    async getMentorFromPastor(
-        userId: string,
-        roadMapId: string,
-        nestedRoadMapItemId?: string
-    ) {
-
-        // Step 1 — pastor + mentor
+    async getMentorFromPastor(userId: string) {
         const pastor = await this.userModel.findById(userId).lean();
         if (!pastor) throw new NotFoundException('Pastor not found');
 
         const mentorId = pastor.assignedId?.[0];
         if (!mentorId) throw new BadRequestException('No mentor assigned');
 
-        // Step 2 — availability
+        const allExtras = await this.extrasModel.find({
+            userId: new Types.ObjectId(userId)
+        });
+
+        const allSessions = allExtras.flatMap(doc =>
+            doc.extras.filter((e: any) => e.type === "APPOINTMENT")
+        );
+
+        const sessionNumber = allSessions.length + 1;
+
+        let cumulative = 0;
+        let targetPhase: string | null = null;
+
+        for (const phase of SESSION_FLOW) {
+            cumulative += phase.totalSessions;
+
+            if (sessionNumber <= cumulative) {
+                targetPhase = phase.phaseName;
+                break;
+            }
+        }
+
+        if (!targetPhase) {
+            throw new BadRequestException("No phase found for session");
+        }
+
+        const roadmap = await this.roadMapModel.findOne({
+            name: targetPhase
+        }).lean();
+
+        if (!roadmap) {
+            throw new NotFoundException("Target roadmap not found");
+        }
+
+        const targetRoadMapId = roadmap._id.toString();
+        const targetNestedId = roadmap.roadmaps?.[0]?._id?.toString();
+
+
         const availability = await this.availabilityModel
             .findOne({ mentorId })
             .lean();
@@ -1009,14 +1038,13 @@ export class RoadMapsService {
             throw new BadRequestException('No availability found');
         }
 
-        // Step 3 — build safe query
         const query: any = {
             userId: new Types.ObjectId(userId),
-            roadMapId: new Types.ObjectId(roadMapId)
+            roadMapId: new Types.ObjectId(targetRoadMapId),
         };
 
-        if (nestedRoadMapItemId) {
-            query.nestedRoadMapItemId = new Types.ObjectId(nestedRoadMapItemId);
+        if (targetNestedId) {
+            query.nestedRoadMapItemId = new Types.ObjectId(targetNestedId);
         } else {
             query.$or = [
                 { nestedRoadMapItemId: null },
@@ -1024,54 +1052,23 @@ export class RoadMapsService {
             ];
         }
 
-        // Step 4 — get/create extras
         let extrasDoc = await this.extrasModel.findOne(query);
 
         if (!extrasDoc) {
             extrasDoc = await this.extrasModel.create({
                 userId: new Types.ObjectId(userId),
-                roadMapId: new Types.ObjectId(roadMapId),
-                nestedRoadMapItemId: nestedRoadMapItemId
-                    ? new Types.ObjectId(nestedRoadMapItemId)
+                roadMapId: new Types.ObjectId(targetRoadMapId),
+                nestedRoadMapItemId: targetNestedId
+                    ? new Types.ObjectId(targetNestedId)
                     : null,
                 extras: []
             });
         }
 
-        // Step 5 — find last session
-        const lastSession = extrasDoc.extras
-            .filter((e: any) => e.type === "APPOINTMENT")
-            .map((e: any) => {
-                if (!e.data) {
-                    e.data = {
-                        originalDate: new Date(),
-                    };
-                }
-                return e;
-            })
-            .sort((a, b) =>
-                new Date(b.data.originalDate).getTime() -
-                new Date(a.data.originalDate).getTime()
-            )[0];
-
-        // Step 6 — calculate target date (5 MIN DEMO LOGIC)
-        let targetDate = new Date();
-
-        if (lastSession) {
-            targetDate = new Date(lastSession.data.originalDate);
-            targetDate.setMinutes(targetDate.getMinutes() + 5);
-        }
-
-        // Step 7 — pick slot AFTER targetDate
         let selectedDay: any = null;
         let selectedSlot: any = null;
 
         for (const day of availability.weeklySlots) {
-
-            const dayDate = new Date(day.date);
-
-            if (dayDate < targetDate) continue;
-
             if (day.slots?.length > 0) {
                 selectedDay = day;
                 selectedSlot = day.slots[0];
@@ -1079,28 +1076,15 @@ export class RoadMapsService {
             }
         }
 
-        // fallback (if nothing found after target)
-        if (!selectedDay) {
-            for (const day of availability.weeklySlots) {
-                if (day.slots?.length > 0) {
-                    selectedDay = day;
-                    selectedSlot = day.slots[0];
-                    break;
-                }
-            }
-        }
-
         if (!selectedDay || !selectedSlot) {
             throw new BadRequestException('No available slot found');
         }
 
-        // Step 8 — build meeting date
         const meetingDate = buildMeetingDate(
             selectedDay.date,
             selectedSlot
         );
 
-        // Step 9 — CREATE APPOINTMENT
         const appointment = await this.appointmentService.create({
             userId: userId.toString(),
             mentorId: mentorId.toString(),
@@ -1110,14 +1094,6 @@ export class RoadMapsService {
             initiatorRole: 'director'
         });
 
-        // Step 10 — next session number
-        const existingSessions = extrasDoc.extras.filter(
-            (e: any) => e.type === 'APPOINTMENT'
-        );
-
-        const sessionNumber = existingSessions.length + 1;
-
-        // Step 11 — disable old redo
         await this.extrasModel.updateOne(
             query,
             {
@@ -1130,7 +1106,6 @@ export class RoadMapsService {
             }
         );
 
-        // Step 12 — push new session (IMPORTANT FIXED LOGIC)
         const extraResult = await this.extrasModel.updateOne(
             query,
             {
@@ -1142,20 +1117,15 @@ export class RoadMapsService {
                             title: `Session ${sessionNumber}`,
                             appointmentId: appointment.id,
 
-                            // CRITICAL: keep original date anchor
-                            originalDate: lastSession
-                                ? lastSession.data.originalDate
-                                : meetingDate,
-
+                            originalDate: meetingDate,
                             scheduledDate: meetingDate,
 
                             isCompleted: false,
                             isConfirmed: false,
                             isRedo: true,
-
                             status: "SCHEDULED",
 
-                            mentorNote: "",
+                            mentorNote: SESSION_NOTES[sessionNumber - 1] || "",
                             pastorNote: ""
                         }
                     }
@@ -1172,7 +1142,6 @@ export class RoadMapsService {
     }
 
     async handleSessionCompletion(appointmentId: string) {
-
         const extrasDoc = await this.extrasModel.findOne({
             $or: [
                 { "extras.data.appointmentId": appointmentId },
@@ -1218,9 +1187,7 @@ export class RoadMapsService {
 
         // CREATE NEXT SESSION
         await this.getMentorFromPastor(
-            extrasDoc.userId.toString(),
-            extrasDoc.roadMapId.toString(),
-            extrasDoc.nestedRoadMapItemId?.toString()
+            extrasDoc.userId.toString()
         );
     }
 
@@ -1308,5 +1275,28 @@ export class RoadMapsService {
             sessionNumber: session.data.sessionNumber,
             appointment
         };
+    }
+
+    async getUserSessions(userId: string) {
+
+        const extras = await this.extrasModel
+            .find({ userId: new Types.ObjectId(userId) })
+            .lean();
+
+        const sessions = extras.flatMap(doc =>
+            doc.extras
+                .filter((e: any) => e.type === "APPOINTMENT")
+                .map((e: any) => ({
+                    sessionNumber: e.data.sessionNumber,
+                    title: e.data.title,
+                    status: e.data.status,
+                    scheduledDate: e.data.scheduledDate,
+                    mentorNote: e.data.mentorNote,
+                    pastorNote: e.data.pastorNote,
+                    appointmentId: e.data.appointmentId
+                }))
+        );
+
+        return sessions.sort((a, b) => a.sessionNumber - b.sessionNumber);
     }
 }

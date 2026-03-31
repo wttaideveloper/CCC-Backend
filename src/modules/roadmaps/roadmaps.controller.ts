@@ -412,4 +412,14 @@ export class RoadMapsController {
             data: result
         };
     }
+
+    @Get('sessions/:userId')
+    getUserSessions(@Param('userId') userId: string) {
+        return this.roadMapsService.getUserSessions(userId);
+    }
+
+    @Post('complete-session')
+    completeSession(@Body() body: { appointmentId: string }) {
+        return this.roadMapsService.handleSessionCompletion(body.appointmentId);
+    }
 }
