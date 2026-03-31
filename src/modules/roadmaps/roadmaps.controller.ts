@@ -399,4 +399,17 @@ export class RoadMapsController {
             data: result,
         };
     }
+
+    @Post('redo-session')
+    async redoSession(@Body() body: { appointmentId: string }) {
+        const result = await this.roadMapsService.redoSession(
+            body.appointmentId
+        );
+
+        return {
+            success: true,
+            message: "Redo successful",
+            data: result
+        };
+    }
 }

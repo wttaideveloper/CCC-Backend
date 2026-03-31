@@ -9,6 +9,9 @@ import { Extras, ExtrasSchema } from './schemas/extras.schema';
 import { Progress, ProgressSchema } from '../progress/schemas/progress.schema';
 import { S3Module } from '../s3/s3.module';
 import { HomeModule } from '../home/home.module';
+import { User, UserSchema } from '../users/schemas/user.schema';
+import { Availability, AvailabilitySchema } from '../appointments/schemas/availability.schema';
+import { AppointmentsModule } from '../appointments/appointments.module';
 
 @Module({
     imports: [
@@ -18,9 +21,12 @@ import { HomeModule } from '../home/home.module';
             { name: Queries.name, schema: QueriesSchema },
             { name: Extras.name, schema: ExtrasSchema },
             { name: Progress.name, schema: ProgressSchema },
+            { name: User.name, schema: UserSchema },
+            { name: Availability.name, schema: AvailabilitySchema }
         ]),
         S3Module,
-        HomeModule
+        HomeModule,
+         AppointmentsModule
     ],
     controllers: [RoadMapsController],
     providers: [RoadMapsService],

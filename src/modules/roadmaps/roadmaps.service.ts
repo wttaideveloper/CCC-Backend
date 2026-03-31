@@ -17,6 +17,10 @@ import { toExtrasResponseDto } from './utils/extras.mapper';
 import { Progress, ProgressDocument } from '../progress/schemas/progress.schema';
 import { toObjectId } from 'src/common/pipes/to-object-id.pipe';
 import { S3Service } from '../s3/s3.service';
+import { User, UserDocument } from '../users/schemas/user.schema';
+import { Availability, AvailabilityDocument } from '../appointments/schemas/availability.schema';
+import { buildMeetingDate } from './utils/helper';
+import { AppointmentsService } from '../appointments/appointments.service';
 
 @Injectable()
 export class RoadMapsService {
@@ -26,7 +30,10 @@ export class RoadMapsService {
         @InjectModel(Queries.name) private queriesModel: Model<QueriesDocument>,
         @InjectModel(Extras.name) private extrasModel: Model<ExtrasDocument>,
         @InjectModel(Progress.name) private progressModel: Model<ProgressDocument>,
+        @InjectModel(User.name) private userModel: Model<UserDocument>,
+        @InjectModel(Availability.name) private availabilityModel: Model<AvailabilityDocument>,
         private readonly s3Service: S3Service,
+        private readonly appointmentService: AppointmentsService
     ) { }
 
     async create(dto: CreateRoadMapDto, image?: Express.Multer.File): Promise<RoadMapResponseDto> {
@@ -567,6 +574,18 @@ export class RoadMapsService {
             }
         }
 
+        const isJumpstartCompleted = dto.extras?.some(
+            (e: any) => e.type === 'JUMPSTART_COMPLETE'
+        );
+
+        if (isJumpstartCompleted) {
+            await this.getMentorFromPastor(
+                dto.userId,
+                roadMapId.toString(),
+                dto.nestedRoadMapItemId
+            );
+        }
+
         return toExtrasResponseDto(savedExtras as any);
     }
 
@@ -966,5 +985,328 @@ export class RoadMapsService {
                 progress: progressData || null,
             };
         });
+    }
+
+    async getMentorFromPastor(
+        userId: string,
+        roadMapId: string,
+        nestedRoadMapItemId?: string
+    ) {
+
+        // Step 1 — pastor + mentor
+        const pastor = await this.userModel.findById(userId).lean();
+        if (!pastor) throw new NotFoundException('Pastor not found');
+
+        const mentorId = pastor.assignedId?.[0];
+        if (!mentorId) throw new BadRequestException('No mentor assigned');
+
+        // Step 2 — availability
+        const availability = await this.availabilityModel
+            .findOne({ mentorId })
+            .lean();
+
+        if (!availability) {
+            throw new BadRequestException('No availability found');
+        }
+
+        // Step 3 — build safe query
+        const query: any = {
+            userId: new Types.ObjectId(userId),
+            roadMapId: new Types.ObjectId(roadMapId)
+        };
+
+        if (nestedRoadMapItemId) {
+            query.nestedRoadMapItemId = new Types.ObjectId(nestedRoadMapItemId);
+        } else {
+            query.$or = [
+                { nestedRoadMapItemId: null },
+                { nestedRoadMapItemId: { $exists: false } }
+            ];
+        }
+
+        // Step 4 — get/create extras
+        let extrasDoc = await this.extrasModel.findOne(query);
+
+        if (!extrasDoc) {
+            extrasDoc = await this.extrasModel.create({
+                userId: new Types.ObjectId(userId),
+                roadMapId: new Types.ObjectId(roadMapId),
+                nestedRoadMapItemId: nestedRoadMapItemId
+                    ? new Types.ObjectId(nestedRoadMapItemId)
+                    : null,
+                extras: []
+            });
+        }
+
+        // Step 5 — find last session
+        const lastSession = extrasDoc.extras
+            .filter((e: any) => e.type === "APPOINTMENT")
+            .map((e: any) => {
+                if (!e.data) {
+                    e.data = {
+                        originalDate: new Date(),
+                    };
+                }
+                return e;
+            })
+            .sort((a, b) =>
+                new Date(b.data.originalDate).getTime() -
+                new Date(a.data.originalDate).getTime()
+            )[0];
+
+        // Step 6 — calculate target date (5 MIN DEMO LOGIC)
+        let targetDate = new Date();
+
+        if (lastSession) {
+            targetDate = new Date(lastSession.data.originalDate);
+            targetDate.setMinutes(targetDate.getMinutes() + 5);
+        }
+
+        // Step 7 — pick slot AFTER targetDate
+        let selectedDay: any = null;
+        let selectedSlot: any = null;
+
+        for (const day of availability.weeklySlots) {
+
+            const dayDate = new Date(day.date);
+
+            if (dayDate < targetDate) continue;
+
+            if (day.slots?.length > 0) {
+                selectedDay = day;
+                selectedSlot = day.slots[0];
+                break;
+            }
+        }
+
+        // fallback (if nothing found after target)
+        if (!selectedDay) {
+            for (const day of availability.weeklySlots) {
+                if (day.slots?.length > 0) {
+                    selectedDay = day;
+                    selectedSlot = day.slots[0];
+                    break;
+                }
+            }
+        }
+
+        if (!selectedDay || !selectedSlot) {
+            throw new BadRequestException('No available slot found');
+        }
+
+        // Step 8 — build meeting date
+        const meetingDate = buildMeetingDate(
+            selectedDay.date,
+            selectedSlot
+        );
+
+        // Step 9 — CREATE APPOINTMENT
+        const appointment = await this.appointmentService.create({
+            userId: userId.toString(),
+            mentorId: mentorId.toString(),
+            meetingDate: meetingDate.toISOString(),
+            platform: 'zoom',
+            notes: "Auto scheduled",
+            initiatorRole: 'director'
+        });
+
+        // Step 10 — next session number
+        const existingSessions = extrasDoc.extras.filter(
+            (e: any) => e.type === 'APPOINTMENT'
+        );
+
+        const sessionNumber = existingSessions.length + 1;
+
+        // Step 11 — disable old redo
+        await this.extrasModel.updateOne(
+            query,
+            {
+                $set: {
+                    "extras.$[elem].data.isRedo": false
+                }
+            },
+            {
+                arrayFilters: [{ "elem.type": "APPOINTMENT" }]
+            }
+        );
+
+        // Step 12 — push new session (IMPORTANT FIXED LOGIC)
+        const extraResult = await this.extrasModel.updateOne(
+            query,
+            {
+                $push: {
+                    extras: {
+                        type: "APPOINTMENT",
+                        data: {
+                            sessionNumber,
+                            title: `Session ${sessionNumber}`,
+                            appointmentId: appointment.id,
+
+                            // CRITICAL: keep original date anchor
+                            originalDate: lastSession
+                                ? lastSession.data.originalDate
+                                : meetingDate,
+
+                            scheduledDate: meetingDate,
+
+                            isCompleted: false,
+                            isConfirmed: false,
+                            isRedo: true,
+
+                            status: "SCHEDULED",
+
+                            mentorNote: "",
+                            pastorNote: ""
+                        }
+                    }
+                }
+            }
+        );
+
+        return {
+            mentorId,
+            meetingDate,
+            appointment,
+            extraResult
+        };
+    }
+
+    async handleSessionCompletion(appointmentId: string) {
+
+        const extrasDoc = await this.extrasModel.findOne({
+            $or: [
+                { "extras.data.appointmentId": appointmentId },
+                { "extras.appointmentId": appointmentId }
+            ]
+        });
+
+        if (!extrasDoc) return;
+
+        const session = extrasDoc.extras.find(
+            (e: any) =>
+                e.data?.appointmentId === appointmentId ||
+                e.appointmentId === appointmentId
+        );
+
+        if (!session.data) {
+            session.data = {
+                sessionNumber: session.sessionNumber,
+                appointmentId: session.appointmentId,
+                isCompleted: session.isCompleted,
+                isRedo: true,
+                status: "SCHEDULED",
+                originalDate: new Date(),
+                scheduledDate: new Date(),
+                mentorNote: "",
+                pastorNote: ""
+            };
+        }
+
+        // mark completed
+        session.data.status = "COMPLETED";
+        session.data.isCompleted = true;
+        session.data.completedAt = new Date();
+
+        // disable redo for ALL old sessions
+        extrasDoc.extras.forEach((e: any) => {
+            if (e.type === "APPOINTMENT") {
+                e.data.isRedo = false;
+            }
+        });
+
+        await extrasDoc.save();
+
+        // CREATE NEXT SESSION
+        await this.getMentorFromPastor(
+            extrasDoc.userId.toString(),
+            extrasDoc.roadMapId.toString(),
+            extrasDoc.nestedRoadMapItemId?.toString()
+        );
+    }
+
+    async redoSession(appointmentId: string) {
+
+        const extrasDoc = await this.extrasModel.findOne({
+            "extras.data.appointmentId": appointmentId
+        });
+
+        if (!extrasDoc) {
+            throw new NotFoundException('Session not found');
+        }
+
+        const session = extrasDoc.extras.find(
+            (e: any) => e.data?.appointmentId === appointmentId
+        );
+
+        if (!session) {
+            throw new NotFoundException('Session not found');
+        }
+
+        if (!session.data.isRedo) {
+            throw new BadRequestException('Redo not allowed');
+        }
+
+        // get mentor
+        const pastor = await this.userModel.findById(extrasDoc.userId).lean();
+        const mentorId = pastor?.assignedId?.[0];
+
+        if (!mentorId) {
+            throw new BadRequestException('No mentor assigned');
+        }
+
+        // get availability
+        const availability = await this.availabilityModel
+            .findOne({ mentorId })
+            .lean();
+
+        if (!availability) {
+            throw new BadRequestException('No availability');
+        }
+
+        // pick slot
+        let selectedDay: any = null;
+        let selectedSlot: any = null;
+
+        for (const day of availability.weeklySlots) {
+            if (day.slots?.length > 0) {
+                selectedDay = day;
+                selectedSlot = day.slots[0];
+                break;
+            }
+        }
+
+        if (!selectedDay || !selectedSlot) {
+            throw new BadRequestException('No slot found');
+        }
+
+        const meetingDate = buildMeetingDate(
+            selectedDay.date,
+            selectedSlot
+        );
+
+        // create new appointment
+        const appointment = await this.appointmentService.create({
+            userId: extrasDoc.userId.toString(),
+            mentorId: mentorId.toString(),
+            meetingDate: meetingDate.toISOString(),
+            platform: 'zoom',
+            notes: "Redo session",
+            initiatorRole: 'director'
+        });
+
+        // update SAME session (not push)
+        session.data.appointmentId = appointment.id;
+        session.data.scheduledDate = meetingDate;
+        session.data.status = "SCHEDULED";
+        session.data.isCompleted = false;
+        session.data.completedAt = null;
+
+        await extrasDoc.save();
+
+        return {
+            message: "Redo successful",
+            sessionNumber: session.data.sessionNumber,
+            appointment
+        };
     }
 }

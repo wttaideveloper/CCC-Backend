@@ -134,6 +134,55 @@ export class SignatureExtra {
     signedAt?: Date;
 }
 
+@Schema({ _id: true, timestamps: true })
+export class RoadmapAppointments {
+
+    @Prop({ required: true })
+    sessionNumber: number;
+
+    @Prop({ required: true })
+    title: string;
+
+    @Prop({ type: Date, required: true })
+    originalDate: Date;
+
+    @Prop({ type: Date })
+    scheduledDate: Date;
+
+    @Prop({ type: Date })
+    completedAt?: Date;
+
+    @Prop({ default: false })
+    isCompleted: boolean;
+
+    @Prop({ default: false })
+    isConfirmed: boolean;
+
+    @Prop({ default: false })
+    isRedo: boolean;
+
+    @Prop({ type: Date })
+    redoScheduledDate?: Date;
+
+    @Prop({ type: Types.ObjectId, ref: 'User' })
+    mentorId?: Types.ObjectId;
+
+    @Prop({ type: Types.ObjectId, ref: 'User' })
+    pastorId?: Types.ObjectId;
+
+    @Prop({
+        enum: ['PENDING', 'SCHEDULED', 'COMPLETED', 'MISSED', 'CANCELLED'],
+        default: 'PENDING'
+    })
+    status: string;
+
+    @Prop({ default: "" })
+    mentorNote: string;
+
+    @Prop({ default: "" })
+    pastorNote: string;
+}
+
 export const SignatureExtraSchema = SchemaFactory.createForClass(SignatureExtra);
 
 export const TextFieldExtraSchema = SchemaFactory.createForClass(TextFieldExtra);
@@ -144,6 +193,7 @@ export const UploadExtraSchema = SchemaFactory.createForClass(UploadExtra);
 export const DatePickerExtraSchema = SchemaFactory.createForClass(DatePickerExtra);
 export const AssessmentExtraSchema = SchemaFactory.createForClass(AssessmentExtra);
 export const SectionExtraSchema = SchemaFactory.createForClass(SectionExtra);
+export const RoadmapAppointmentsSchema = SchemaFactory.createForClass(RoadmapAppointments);
 
 @Schema()
 export class NestedRoadMapItem {
