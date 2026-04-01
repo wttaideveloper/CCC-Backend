@@ -574,16 +574,6 @@ export class RoadMapsService {
             }
         }
 
-        const isJumpstartCompleted = dto.extras?.some(
-            (e: any) => e.type === 'JUMPSTART_COMPLETE'
-        );
-
-        if (isJumpstartCompleted) {
-            await this.getMentorFromPastor(
-                dto.userId
-            );
-        }
-
         return toExtrasResponseDto(savedExtras as any);
     }
 
@@ -666,6 +656,66 @@ export class RoadMapsService {
                     { new: true }
                 ).exec();
             }
+        }
+
+        // ==============================
+        // FETCH UPDATED PROGRESS
+        // ==============================
+
+        const progress = await this.progressModel.findOne({
+            $or: [
+                { userId: userObjectId },
+                { userId: userIdString }
+            ]
+        }).lean();
+
+        const roadmapProgress = progress?.roadmaps?.find(
+            (r: any) =>
+                r.roadMapId?.toString() === roadMapObjectId?.toString()
+        );
+
+        if (!roadmapProgress) {
+            return toExtrasResponseDto(updatedExtras as any);
+        }
+
+        // ==============================
+        // UPDATE STATUS (VERY IMPORTANT)
+        // ==============================
+
+        if (roadmapProgress.completedSteps > 0) {
+            await this.progressModel.updateOne(
+                {
+                    $or: [
+                        { userId: userObjectId },
+                        { userId: userIdString }
+                    ],
+                    'roadmaps.roadMapId': roadMapObjectId
+                },
+                {
+                    $set: {
+                        'roadmaps.$.status': 'completed'
+                    }
+                }
+            );
+        }
+
+        const roadmap = await this.roadMapModel
+            .findById(roadMapObjectId)
+            .lean();
+
+        if (!roadmap) {
+            throw new NotFoundException("Roadmap not found");
+        }
+
+        const isSingleType =
+            roadmap.type?.trim().toLowerCase() === "single";
+
+        const isCompleted =
+            roadmapProgress.status?.toLowerCase() === "completed";
+
+        if (isSingleType && isCompleted) {
+
+            await this.getMentorFromPastor(userId);
         }
 
         return toExtrasResponseDto(updatedExtras as any);
