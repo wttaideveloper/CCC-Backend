@@ -16,11 +16,11 @@ import { CreateExtrasDto, UpdateExtrasDto, ExtrasResponseDto, ExtrasDocumentDto 
 import { toExtrasResponseDto } from './utils/extras.mapper';
 import { Progress, ProgressDocument } from '../progress/schemas/progress.schema';
 import { toObjectId } from 'src/common/pipes/to-object-id.pipe';
-import { S3Service } from '../s3/s3.service';
 import { User, UserDocument } from '../users/schemas/user.schema';
 import { Availability, AvailabilityDocument } from '../appointments/schemas/availability.schema';
 import { buildMeetingDate, SESSION_FLOW, SESSION_NOTES } from './utils/helper';
 import { AppointmentsService } from '../appointments/appointments.service';
+import { S3Service } from '../s3/s3.service';
 
 @Injectable()
 export class RoadMapsService {
@@ -574,6 +574,29 @@ export class RoadMapsService {
             }
         }
 
+        if (!userObjectId) {
+            throw new BadRequestException("User ID is required");
+        }
+
+        const roadmap = await this.roadMapModel
+            .findById(roadMapObjectId)
+            .lean();
+
+        if (!roadmap) {
+            throw new NotFoundException("Roadmap not found");
+        }
+
+        const isSingleType =
+            roadmap.type?.trim().toLowerCase() === "single";
+
+        const alreadyHasSession = await this.extrasModel.findOne({
+            userId: userObjectId,
+            "extras.type": "APPOINTMENT"
+        });
+
+        if (isSingleType && !alreadyHasSession)
+            await this.getMentorFromPastor(userObjectId.toString());
+
         return toExtrasResponseDto(savedExtras as any);
     }
 
@@ -658,10 +681,6 @@ export class RoadMapsService {
             }
         }
 
-        // ==============================
-        // FETCH UPDATED PROGRESS
-        // ==============================
-
         const progress = await this.progressModel.findOne({
             $or: [
                 { userId: userObjectId },
@@ -678,11 +697,7 @@ export class RoadMapsService {
             return toExtrasResponseDto(updatedExtras as any);
         }
 
-        // ==============================
-        // UPDATE STATUS (VERY IMPORTANT)
-        // ==============================
-
-        if (roadmapProgress.completedSteps > 0) {
+        if (roadmapProgress.completedSteps >= roadmapProgress.totalSteps) {
             await this.progressModel.updateOne(
                 {
                     $or: [
@@ -697,25 +712,6 @@ export class RoadMapsService {
                     }
                 }
             );
-        }
-
-        const roadmap = await this.roadMapModel
-            .findById(roadMapObjectId)
-            .lean();
-
-        if (!roadmap) {
-            throw new NotFoundException("Roadmap not found");
-        }
-
-        const isSingleType =
-            roadmap.type?.trim().toLowerCase() === "single";
-
-        const isCompleted =
-            roadmapProgress.status?.toLowerCase() === "completed";
-
-        if (isSingleType && isCompleted) {
-
-            await this.getMentorFromPastor(userId);
         }
 
         return toExtrasResponseDto(updatedExtras as any);
