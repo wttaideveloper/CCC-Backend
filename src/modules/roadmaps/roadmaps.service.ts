@@ -589,13 +589,18 @@ export class RoadMapsService {
         const isSingleType =
             roadmap.type?.trim().toLowerCase() === "single";
 
-        const alreadyHasSession = await this.extrasModel.findOne({
-            userId: userObjectId,
-            "extras.type": "APPOINTMENT"
-        });
+        if (isSingleType) {
 
-        if (isSingleType && !alreadyHasSession)
-            await this.getMentorFromPastor(userObjectId.toString());
+            const existingSession = await this.extrasModel.findOne({
+                userId: userObjectId,
+                "extras.type": "APPOINTMENT",
+                "extras.data.sessionNumber": 1
+            });
+
+            if (!existingSession) {
+                await this.getMentorFromPastor(userObjectId.toString());
+            }
+        }
 
         return toExtrasResponseDto(savedExtras as any);
     }
@@ -1032,12 +1037,14 @@ export class RoadMapsService {
     }
 
     async getMentorFromPastor(userId: string) {
+
         const pastor = await this.userModel.findById(userId).lean();
         if (!pastor) throw new NotFoundException('Pastor not found');
 
         const mentorId = pastor.assignedId?.[0];
         if (!mentorId) throw new BadRequestException('No mentor assigned');
 
+        // GET ALL EXISTING SESSIONS
         const allExtras = await this.extrasModel.find({
             userId: new Types.ObjectId(userId)
         });
@@ -1048,12 +1055,24 @@ export class RoadMapsService {
 
         const sessionNumber = allSessions.length + 1;
 
+        // PREVENT DUPLICATE SESSION CREATION (CRITICAL FIX)
+        const alreadyExists = await this.extrasModel.findOne({
+            userId: new Types.ObjectId(userId),
+            "extras.type": "APPOINTMENT",
+            "extras.data.sessionNumber": sessionNumber
+        });
+
+        if (alreadyExists) {
+            console.log(`⚠️ Session ${sessionNumber} already exists. Skipping.`);
+            return;
+        }
+
+        // FIND PHASE
         let cumulative = 0;
         let targetPhase: string | null = null;
 
         for (const phase of SESSION_FLOW) {
             cumulative += phase.totalSessions;
-
             if (sessionNumber <= cumulative) {
                 targetPhase = phase.phaseName;
                 break;
@@ -1075,7 +1094,7 @@ export class RoadMapsService {
         const targetRoadMapId = roadmap._id.toString();
         const targetNestedId = roadmap.roadmaps?.[0]?._id?.toString();
 
-
+        // AVAILABILITY
         const availability = await this.availabilityModel
             .findOne({ mentorId })
             .lean();
@@ -1084,6 +1103,7 @@ export class RoadMapsService {
             throw new BadRequestException('No availability found');
         }
 
+        // EXTRAS DOC
         const query: any = {
             userId: new Types.ObjectId(userId),
             roadMapId: new Types.ObjectId(targetRoadMapId),
@@ -1111,35 +1131,70 @@ export class RoadMapsService {
             });
         }
 
-        let selectedDay: any = null;
+        let appointment: any = null;
+        let meetingDate: Date | null = null;
         let selectedSlot: any = null;
+        let selectedDay: any = null;
 
         for (const day of availability.weeklySlots) {
-            if (day.slots?.length > 0) {
-                selectedDay = day;
-                selectedSlot = day.slots[0];
-                break;
+            for (const slot of day.slots || []) {
+
+                const tryDate = buildMeetingDate(day.date, slot);
+
+                try {
+                    appointment = await this.appointmentService.create({
+                        userId: userId.toString(),
+                        mentorId: mentorId.toString(),
+                        meetingDate: tryDate.toISOString(),
+                        platform: 'zoom',
+                        notes: "Auto scheduled",
+                        initiatorRole: 'director'
+                    });
+
+                    meetingDate = tryDate;
+                    selectedSlot = slot;
+                    selectedDay = day;
+
+                    break;
+
+                } catch (err: any) {
+
+                    if (err.message?.includes("already booked")) {
+                        continue; // try next slot
+                    }
+
+                    throw err;
+                }
             }
+
+            if (appointment) break;
         }
 
-        if (!selectedDay || !selectedSlot) {
-            throw new BadRequestException('No available slot found');
+        if (!appointment || !meetingDate) {
+            throw new BadRequestException("No free slots available");
         }
 
-        const meetingDate = buildMeetingDate(
-            selectedDay.date,
-            selectedSlot
+        // REMOVE USED SLOT (IMPORTANT FIX)
+        await this.availabilityModel.updateOne(
+            { mentorId },
+            {
+                $pull: {
+                    "weeklySlots.$[day].slots": {
+                        startTime: selectedSlot.startTime,
+                        startPeriod: selectedSlot.startPeriod,
+                        endTime: selectedSlot.endTime,
+                        endPeriod: selectedSlot.endPeriod
+                    }
+                }
+            },
+            {
+                arrayFilters: [
+                    { "day.date": selectedDay.date }
+                ]
+            }
         );
 
-        const appointment = await this.appointmentService.create({
-            userId: userId.toString(),
-            mentorId: mentorId.toString(),
-            meetingDate: meetingDate.toISOString(),
-            platform: 'zoom',
-            notes: "Auto scheduled",
-            initiatorRole: 'director'
-        });
-
+        // DISABLE OLD REDO
         await this.extrasModel.updateOne(
             query,
             {
@@ -1152,30 +1207,34 @@ export class RoadMapsService {
             }
         );
 
+        // CREATE SESSION
+        const newSession = {
+            type: "APPOINTMENT",
+            data: {
+                sessionNumber,
+                title: `Session ${sessionNumber}`,
+                appointmentId: appointment.id,
+
+                originalDate: meetingDate,
+                scheduledDate: meetingDate,
+
+                isCompleted: false,
+                isConfirmed: false,
+                isRedo: true,
+                status: "SCHEDULED",
+
+                mentorNote: SESSION_NOTES[sessionNumber - 1] || "",
+                pastorNote: ""
+            }
+        };
+
         const extraResult = await this.extrasModel.updateOne(
-            query,
             {
-                $push: {
-                    extras: {
-                        type: "APPOINTMENT",
-                        data: {
-                            sessionNumber,
-                            title: `Session ${sessionNumber}`,
-                            appointmentId: appointment.id,
-
-                            originalDate: meetingDate,
-                            scheduledDate: meetingDate,
-
-                            isCompleted: false,
-                            isConfirmed: false,
-                            isRedo: true,
-                            status: "SCHEDULED",
-
-                            mentorNote: SESSION_NOTES[sessionNumber - 1] || "",
-                            pastorNote: ""
-                        }
-                    }
-                }
+                ...query,
+                "extras.data.sessionNumber": { $ne: sessionNumber }
+            },
+            {
+                $push: { extras: newSession }
             }
         );
 
@@ -1279,33 +1338,48 @@ export class RoadMapsService {
         // pick slot
         let selectedDay: any = null;
         let selectedSlot: any = null;
+        let appointment: any = null;
+        let meetingDate: Date | null = null;
 
         for (const day of availability.weeklySlots) {
-            if (day.slots?.length > 0) {
-                selectedDay = day;
-                selectedSlot = day.slots[0];
-                break;
+            for (const slot of day.slots || []) {
+
+                const tryDate = buildMeetingDate(day.date, slot);
+
+                try {
+                    appointment = await this.appointmentService.create({
+                        userId: extrasDoc.userId.toString(),
+                        mentorId: mentorId.toString(),
+                        meetingDate: tryDate.toISOString(),
+                        platform: 'zoom',
+                        notes: "Redo session",
+                        initiatorRole: 'director'
+                    });
+
+                    meetingDate = tryDate;
+                    selectedSlot = slot;
+                    selectedDay = day;
+
+                    break;
+
+                } catch (err: any) {
+                    if (err.message?.includes("already booked")) {
+                        continue;
+                    }
+                    throw err;
+                }
             }
+
+            if (appointment) break;
+        }
+
+        if (!appointment) {
+            throw new BadRequestException("No free slot found");
         }
 
         if (!selectedDay || !selectedSlot) {
             throw new BadRequestException('No slot found');
         }
-
-        const meetingDate = buildMeetingDate(
-            selectedDay.date,
-            selectedSlot
-        );
-
-        // create new appointment
-        const appointment = await this.appointmentService.create({
-            userId: extrasDoc.userId.toString(),
-            mentorId: mentorId.toString(),
-            meetingDate: meetingDate.toISOString(),
-            platform: 'zoom',
-            notes: "Redo session",
-            initiatorRole: 'director'
-        });
 
         // update SAME session (not push)
         session.data.appointmentId = appointment.id;
