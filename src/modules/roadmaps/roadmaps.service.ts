@@ -1276,20 +1276,20 @@ export class RoadMapsService {
             };
         }
 
-        // mark completed
-        session.data.status = "COMPLETED";
-        session.data.isCompleted = true;
-        session.data.completedAt = new Date();
-
-        // disable redo for ALL old sessions
-        extrasDoc.extras.forEach((e: any) => {
-            if (e.type === "APPOINTMENT") {
-                e.data.isRedo = false;
+        await this.extrasModel.updateOne(
+            {
+                _id: extrasDoc._id,
+                "extras.data.appointmentId": appointmentId
+            },
+            {
+                $set: {
+                    "extras.$.data.status": "COMPLETED",
+                    "extras.$.data.isCompleted": true,
+                    "extras.$.data.completedAt": new Date(),
+                    "extras.$.data.isRedo": false
+                }
             }
-        });
-
-        await extrasDoc.save();
-
+        );
         // CREATE NEXT SESSION
         await this.getMentorFromPastor(
             extrasDoc.userId.toString()
@@ -1381,14 +1381,21 @@ export class RoadMapsService {
             throw new BadRequestException('No slot found');
         }
 
-        // update SAME session (not push)
-        session.data.appointmentId = appointment.id;
-        session.data.scheduledDate = meetingDate;
-        session.data.status = "SCHEDULED";
-        session.data.isCompleted = false;
-        session.data.completedAt = null;
-
-        await extrasDoc.save();
+        await this.extrasModel.updateOne(
+            {
+                _id: extrasDoc._id,
+                "extras.data.appointmentId": appointmentId
+            },
+            {
+                $set: {
+                    "extras.$.data.appointmentId": appointment.id,
+                    "extras.$.data.scheduledDate": meetingDate,
+                    "extras.$.data.status": "SCHEDULED",
+                    "extras.$.data.isCompleted": false,
+                    "extras.$.data.completedAt": null
+                }
+            }
+        );
 
         return {
             message: "Redo successful",
