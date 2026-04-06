@@ -230,7 +230,8 @@ export class ZoomService {
         const accessToken = await this.getAccessToken();
 
         try {
-            // Node fetch strips Authorization header on 307 redirects — handle manually
+            // Zoom download_url redirects to a CDN (S3) URL
+            // Step 1: hit Zoom URL with auth to get the redirect location
             const redirectResponse = await fetch(downloadUrl, {
                 method: 'GET',
                 headers: { 'Authorization': `Bearer ${accessToken}` },
@@ -242,10 +243,8 @@ export class ZoomService {
                 finalUrl = redirectResponse.headers.get('location') ?? downloadUrl;
             }
 
-            const response = await fetch(finalUrl, {
-                method: 'GET',
-                headers: { 'Authorization': `Bearer ${accessToken}` },
-            });
+            // Step 2: fetch CDN URL without Authorization (S3 signed URLs reject extra auth headers)
+            const response = await fetch(finalUrl, { method: 'GET' });
 
             if (!response.ok) {
                 throw new Error(`Failed to download transcript: ${response.status}`);
