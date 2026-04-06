@@ -230,11 +230,21 @@ export class ZoomService {
         const accessToken = await this.getAccessToken();
 
         try {
-            const response = await fetch(downloadUrl, {
+            // Node fetch strips Authorization header on 307 redirects — handle manually
+            const redirectResponse = await fetch(downloadUrl, {
                 method: 'GET',
-                headers: {
-                    'Authorization': `Bearer ${accessToken}`,
-                },
+                headers: { 'Authorization': `Bearer ${accessToken}` },
+                redirect: 'manual',
+            });
+
+            let finalUrl = downloadUrl;
+            if ([301, 302, 307, 308].includes(redirectResponse.status)) {
+                finalUrl = redirectResponse.headers.get('location') ?? downloadUrl;
+            }
+
+            const response = await fetch(finalUrl, {
+                method: 'GET',
+                headers: { 'Authorization': `Bearer ${accessToken}` },
             });
 
             if (!response.ok) {
