@@ -230,11 +230,12 @@ export class ZoomService {
         const accessToken = await this.getAccessToken();
 
         try {
-            const url = downloadUrl.includes('?')
-                ? `${downloadUrl}&access_token=${accessToken}`
-                : `${downloadUrl}?access_token=${accessToken}`;
-
-            const response = await fetch(url, { method: 'GET' });
+            const response = await fetch(downloadUrl, {
+                method: 'GET',
+                headers: {
+                    'Authorization': `Bearer ${accessToken}`,
+                },
+            });
 
             if (!response.ok) {
                 throw new Error(`Failed to download transcript: ${response.status}`);
