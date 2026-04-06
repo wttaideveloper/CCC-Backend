@@ -1314,10 +1314,6 @@ export class RoadMapsService {
             throw new NotFoundException('Session not found');
         }
 
-        if (!session.data.isRedo) {
-            throw new BadRequestException('Redo not allowed');
-        }
-
         // get mentor
         const pastor = await this.userModel.findById(extrasDoc.userId).lean();
         const mentorId = pastor?.assignedId?.[0];
