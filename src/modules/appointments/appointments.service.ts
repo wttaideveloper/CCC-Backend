@@ -723,7 +723,7 @@ export class AppointmentsService {
         const event = payload?.event;
         this.logger.log(`Zoom webhook received: ${event}`);
 
-        if (event === 'recording.completed') {
+        if (event === 'recording.completed' || event === 'recording.transcript_completed') {
             const meetingId = payload?.payload?.object?.id?.toString();
             const recordingFiles: any[] = payload?.payload?.object?.recording_files ?? [];
 
