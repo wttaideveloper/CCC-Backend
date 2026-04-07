@@ -362,6 +362,8 @@ export class AppointmentsService {
 
         return {
             appointmentId: appointment._id.toString(),
+            transcript: appointment.transcript ?? undefined,
+            transcriptSavedAt: appointment.transcriptSavedAt ?? undefined,
             summary: appointment.transcriptSummary,
             generatedAt: appointment.transcriptSummarySavedAt,
             model: appointment.transcriptSummaryModel ?? this.transcriptSummaryService.modelName,
@@ -388,6 +390,8 @@ export class AppointmentsService {
         if (!refresh && hasCachedSummary && isCacheFresh) {
             return {
                 appointmentId: appointment._id.toString(),
+                transcript: appointment.transcript ?? undefined,
+                transcriptSavedAt: appointment.transcriptSavedAt ?? undefined,
                 summary: appointment.transcriptSummary,
                 generatedAt: summarySavedAt!,
                 model: appointment.transcriptSummaryModel ?? this.transcriptSummaryService.modelName,
@@ -412,6 +416,8 @@ export class AppointmentsService {
 
         return {
             appointmentId: appointment._id.toString(),
+            transcript,
+            transcriptSavedAt: transcriptSavedAt ?? undefined,
             summary,
             generatedAt,
             model,

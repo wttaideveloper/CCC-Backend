@@ -172,7 +172,7 @@ export class AppointmentsController {
         return { success: true, data: result };
     }
 
-    @Get(':id/transcript-summary')
+    @Get('pastor/:id/transcript-summary')
     async getTranscriptSummary(
         @Param('id') id: string
     ): Promise<BaseResponse<TranscriptSummaryResponseDto>> {
@@ -184,7 +184,7 @@ export class AppointmentsController {
         };
     }
 
-    @Post(':id/transcript-summary')
+    @Post('pastor/:id/transcript-summary')
     async generateTranscriptSummary(
         @Param('id') id: string,
         @Query('refresh') refresh?: string,
