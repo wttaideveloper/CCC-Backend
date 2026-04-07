@@ -101,6 +101,8 @@ export class AppointmentResponseDto {
 
 export class TranscriptSummaryResponseDto {
     appointmentId: string;
+    transcript?: string;
+    transcriptSavedAt?: Date;
     summary: TranscriptSummaryDto;
     generatedAt: Date;
     model: string;
