@@ -8,6 +8,7 @@ import { Availability, AvailabilitySchema } from './schemas/availability.schema'
 import { HomeModule } from '../home/home.module';
 import { ZoomModule } from '../zoom/zoom.module';
 import { MailerService } from '../../common/utils/mail.util';
+import { TranscriptSummaryService } from './transcript-summary.service';
 
 @Module({
     imports: [
@@ -20,7 +21,7 @@ import { MailerService } from '../../common/utils/mail.util';
         ConfigModule,
     ],
     controllers: [AppointmentsController],
-    providers: [AppointmentsService, MailerService],
+    providers: [AppointmentsService, MailerService, TranscriptSummaryService],
     exports: [AppointmentsService],
 })
 export class AppointmentsModule { }

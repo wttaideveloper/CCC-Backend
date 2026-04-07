@@ -61,6 +61,14 @@ export class ZoomMeetingDto {
     duration?: number;
 }
 
+export class TranscriptSummaryDto {
+    sessionOverview: string;
+    keyDiscussionPoints: string[];
+    mentorGuidance: string[];
+    actionItems: string[];
+    followUp: string;
+}
+
 export class AppointmentResponseDto {
     id: string;
 
@@ -83,9 +91,20 @@ export class AppointmentResponseDto {
 
     transcript?: string;
     transcriptSavedAt?: Date;
+    transcriptSummary?: TranscriptSummaryDto;
+    transcriptSummarySavedAt?: Date;
+    transcriptSummaryModel?: string;
 
     createdAt?: Date;
     updatedAt?: Date;
+}
+
+export class TranscriptSummaryResponseDto {
+    appointmentId: string;
+    summary: TranscriptSummaryDto;
+    generatedAt: Date;
+    model: string;
+    cached: boolean;
 }
 
 export class CancelAppointmentDto {

@@ -40,4 +40,14 @@ export default () => ({
         clientEmail: process.env.FIREBASE_CLIENT_EMAIL,
         privateKey: process.env.FIREBASE_PRIVATE_KEY?.replace(/\\n/g, '\n'),
     },
+    transcriptSummary: {
+        provider: process.env.SUMMARY_MODEL_PROVIDER || 'hf',
+        modelId: process.env.SUMMARY_MODEL_ID || 'google/flan-t5-base',
+        modelApiUrl: process.env.SUMMARY_MODEL_API_URL || "http://127.0.0.1:8080/generate",
+        modelTimeoutMs: parseInt(process.env.SUMMARY_MODEL_TIMEOUT_MS ?? '30000', 10),
+        modelRetries: parseInt(process.env.SUMMARY_MODEL_RETRIES ?? '1', 10),
+        maxTranscriptChars: parseInt(process.env.SUMMARY_MAX_TRANSCRIPT_CHARS ?? '32000', 10),
+        chunkChars: parseInt(process.env.SUMMARY_CHUNK_CHARS ?? '6000', 10),
+        maxNewTokens: parseInt(process.env.SUMMARY_MODEL_MAX_NEW_TOKENS ?? '512', 10),
+    },
 });

@@ -110,6 +110,30 @@ export class Appointment {
 
     @Prop({ type: Date, default: null })
     transcriptSavedAt?: Date;
+
+    @Prop({
+        type: {
+            sessionOverview: { type: String, default: null },
+            keyDiscussionPoints: { type: [String], default: [] },
+            mentorGuidance: { type: [String], default: [] },
+            actionItems: { type: [String], default: [] },
+            followUp: { type: String, default: null },
+        },
+        default: null
+    })
+    transcriptSummary?: {
+        sessionOverview: string;
+        keyDiscussionPoints: string[];
+        mentorGuidance: string[];
+        actionItems: string[];
+        followUp: string;
+    };
+
+    @Prop({ type: Date, default: null })
+    transcriptSummarySavedAt?: Date;
+
+    @Prop({ type: String, default: null })
+    transcriptSummaryModel?: string;
 }
 
 export const AppointmentSchema = SchemaFactory.createForClass(Appointment);
