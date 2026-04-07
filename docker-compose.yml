@@ -27,10 +27,10 @@ services:
         max-size: "10m"
         max-file: "3"
 
-  # Transcript summary (FastAPI + FLAN-T5) — see CCC-Ai-Model/transcript_summary_api
+  # Transcript summary (FastAPI + FLAN-T5) — server folder: ../ccc-agent
   transcript-summary:
     build:
-      context: ../CCC-Ai-Model/transcript_summary_api
+      context: ../ccc-agent
       dockerfile: Dockerfile
     container_name: ccc-transcript-summary
     restart: unless-stopped
