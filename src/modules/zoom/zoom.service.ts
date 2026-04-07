@@ -226,25 +226,41 @@ export class ZoomService {
         }
     }
 
-    async downloadTranscript(downloadUrl: string): Promise<string> {
+    async downloadTranscript(meetingId: string): Promise<string> {
         const accessToken = await this.getAccessToken();
 
         try {
-            // Zoom download_url redirects to a CDN (S3) URL
-            // Step 1: hit Zoom URL with auth to get the redirect location
-            const redirectResponse = await fetch(downloadUrl, {
-                method: 'GET',
-                headers: { 'Authorization': `Bearer ${accessToken}` },
-                redirect: 'manual',
-            });
+            // Fetch recording files — include_fields=download_access_token returns a root-level short-lived token
+            const recordingsResponse = await fetch(
+                `${this.zoomApiBaseUrl}/meetings/${meetingId}/recordings?include_fields=download_access_token`,
+                {
+                    method: 'GET',
+                    headers: { 'Authorization': `Bearer ${accessToken}` },
+                }
+            );
 
-            let finalUrl = downloadUrl;
-            if ([301, 302, 307, 308].includes(redirectResponse.status)) {
-                finalUrl = redirectResponse.headers.get('location') ?? downloadUrl;
+            if (!recordingsResponse.ok) {
+                throw new Error(`Failed to get recordings: ${recordingsResponse.status}`);
             }
 
-            // Step 2: fetch CDN URL without Authorization (S3 signed URLs reject extra auth headers)
-            const response = await fetch(finalUrl, { method: 'GET' });
+            const recordingsData = await recordingsResponse.json();
+            const recordingFiles: any[] = recordingsData.recording_files ?? [];
+
+            const transcriptFile = recordingFiles.find(
+                (f: any) => f.file_type === 'TRANSCRIPT' && f.status === 'completed'
+            );
+
+            if (!transcriptFile) {
+                throw new Error('No completed transcript file found for this meeting');
+            }
+
+            // download_access_token is root-level on the recordings response (not per-file)
+            const downloadToken: string = recordingsData.download_access_token ?? accessToken;
+
+            const response = await fetch(transcriptFile.download_url, {
+                method: 'GET',
+                headers: { 'Authorization': `Bearer ${downloadToken}` },
+            });
 
             if (!response.ok) {
                 throw new Error(`Failed to download transcript: ${response.status}`);

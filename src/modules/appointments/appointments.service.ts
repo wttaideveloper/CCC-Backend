@@ -723,22 +723,11 @@ export class AppointmentsService {
         const event = payload?.event;
         this.logger.log(`Zoom webhook received: ${event}`);
 
-        if (event === 'recording.completed' || event === 'recording.transcript_completed') {
+        if (event === 'recording.transcript_completed') {
             const meetingId = payload?.payload?.object?.id?.toString();
-            const recordingFiles: any[] = payload?.payload?.object?.recording_files ?? [];
 
             if (!meetingId) {
                 this.logger.warn('Zoom webhook: missing meetingId');
-                return;
-            }
-
-            // Find the VTT transcript file
-            const transcriptFile = recordingFiles.find(
-                (f) => f.file_type === 'TRANSCRIPT' && f.status === 'completed'
-            );
-
-            if (!transcriptFile?.download_url) {
-                this.logger.log(`Zoom webhook: no transcript file for meeting ${meetingId}`);
                 return;
             }
 
@@ -752,9 +741,7 @@ export class AppointmentsService {
             }
 
             try {
-                const transcriptText = await this.zoomService.downloadTranscript(
-                    transcriptFile.download_url
-                );
+                const transcriptText = await this.zoomService.downloadTranscript(meetingId);
 
                 await this.appointmentModel.updateOne(
                     { _id: appointment._id },
