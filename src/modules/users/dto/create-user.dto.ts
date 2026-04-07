@@ -45,4 +45,15 @@ export class CreateUserDto {
     @IsOptional()
     @IsString()
     zoomUserId?: string;
+
+    @IsOptional()
+    @IsString()
+    googleAccessToken?: string;
+
+    @IsOptional()
+    @IsString()
+    googleRefreshToken?: string;
+
+    @IsOptional()
+    googleTokenExpiry?: number;
 }

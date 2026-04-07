@@ -1,4 +1,4 @@
-import { Body, Controller, Post, UseGuards, Req } from '@nestjs/common';
+import { Body, Controller, Post, UseGuards, Req, Get, Query } from '@nestjs/common';
 import { AuthService } from './auth.service';
 import { LoginDto, LoginResponseDto } from './dto/login.dto';
 import { SendOtpDto, VerifyOtpDto } from './dto/otp.dto';
@@ -111,5 +111,25 @@ export class AuthController {
             message: 'Logged out successfully',
             data: null,
         };
+    }
+
+    @Get('google')
+    getGoogleAuthUrl(@Query('userId') userId: string) {
+        if (!userId) {
+            throw new Error('userId is required');
+        }
+
+        const url = this.authService.getGoogleAuthUrl(userId);
+        console.log(url);
+        return { url };
+    }
+    @Get('google/callback')
+    async googleCallback(
+        @Query('code') code: string,
+        @Query('state') userId: string 
+    ) {
+        await this.authService.handleGoogleCallback(code, userId);
+
+        return { message: 'Google connected successfully' };
     }
 }

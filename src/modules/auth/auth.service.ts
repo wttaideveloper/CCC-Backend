@@ -7,6 +7,7 @@ import * as bcrypt from 'bcrypt';
 import { ConfigService } from '@nestjs/config';
 import { LoginResponseDto } from './dto/login.dto';
 import { toUserResponseDto } from '../users/utils/user.mapper';
+import { GoogleCalendarService } from './google.service';
 
 @Injectable()
 export class AuthService {
@@ -15,6 +16,7 @@ export class AuthService {
         private readonly jwtService: JwtService,
         private readonly otpService: OtpService,
         private readonly configService: ConfigService,
+        private readonly googleService: GoogleCalendarService,
     ) { }
 
     async login(email: string, password: string): Promise<LoginResponseDto> {
@@ -157,5 +159,23 @@ export class AuthService {
     async logout(userId: string): Promise<{ success: boolean }> {
         await this.usersService.clearRefreshToken(userId);
         return { success: true };
+    }
+
+    getGoogleAuthUrl(userId: string) {
+        return this.googleService.getAuthUrl(userId);
+    }
+
+    async handleGoogleCallback(code: string, userId: string) {
+        const tokens = await this.googleService.getTokens(code);
+
+        const existingUser = await this.usersService.findById(userId);
+
+        await this.usersService.update(userId, {
+            googleAccessToken: tokens.access_token ?? undefined,
+            googleRefreshToken: tokens.refresh_token ?? existingUser.googleRefreshToken,
+            googleTokenExpiry: tokens.expiry_date ?? undefined,
+        });
+
+        return true;
     }
 }

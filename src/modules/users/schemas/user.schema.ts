@@ -72,6 +72,15 @@ export class User {
   @Prop()
   refreshToken?: string;
 
+  @Prop()
+  googleAccessToken?: string;
+
+  @Prop()
+  googleRefreshToken?: string;
+
+  @Prop()
+  googleTokenExpiry?: number;
+
   @Prop({ type: [String], default: [] })
   fcmTokens: string[];
 

@@ -10,6 +10,7 @@ import { OtpService } from './otp.service';
 import { JwtStrategy } from './utils/jwt.strategy';
 import { UsersModule } from '../../modules/users/users.module';
 import { MailerService } from '../../common/utils/mail.util';
+import { GoogleCalendarService } from './google.service';
 
 @Module({
     imports: [
@@ -26,7 +27,7 @@ import { MailerService } from '../../common/utils/mail.util';
         MongooseModule.forFeature([{ name: OtpToken.name, schema: OtpTokenSchema }]),
         UsersModule,
     ],
-    providers: [AuthService, OtpService, JwtStrategy, MailerService],
+    providers: [AuthService, OtpService, JwtStrategy, MailerService, GoogleCalendarService],
     controllers: [AuthController],
     exports: [AuthService],
 })
