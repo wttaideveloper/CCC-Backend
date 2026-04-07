@@ -30,7 +30,7 @@ services:
   # Transcript summary (FastAPI + FLAN-T5) — server folder: ../ccc-agent
   transcript-summary:
     build:
-      context: ../ccc-agent
+      context: ../CCC-agent
       dockerfile: Dockerfile
     container_name: ccc-transcript-summary
     restart: unless-stopped
