@@ -18,7 +18,7 @@ import { Progress, ProgressDocument } from '../progress/schemas/progress.schema'
 import { toObjectId } from 'src/common/pipes/to-object-id.pipe';
 import { User, UserDocument } from '../users/schemas/user.schema';
 import { Availability, AvailabilityDocument } from '../appointments/schemas/availability.schema';
-import { buildMeetingDate, SESSION_FLOW, SESSION_NOTES } from './utils/helper';
+import { buildMeetingDate, normalizeRoadmapName, SESSION_FLOW, SESSION_NOTES } from './utils/helper';
 import { AppointmentsService } from '../appointments/appointments.service';
 import { S3Service } from '../s3/s3.service';
 
@@ -1083,11 +1083,23 @@ export class RoadMapsService {
             throw new BadRequestException("No phase found for session");
         }
 
-        const roadmap = await this.roadMapModel.findOne({
-            name: targetPhase
+        const normalizedPhase = normalizeRoadmapName(targetPhase);
+
+        const phaseRoadmaps = await this.roadMapModel.find({
+            type: "phase"
         }).lean();
 
+        const roadmap = phaseRoadmaps.find(rm =>
+            normalizeRoadmapName(rm.name) === normalizedPhase
+        );
+
         if (!roadmap) {
+            console.error("Phase lookup failed", {
+                input: targetPhase,
+                normalized: normalizedPhase,
+                available: phaseRoadmaps.map(r => r.name)
+            });
+
             throw new NotFoundException("Target roadmap not found");
         }
 

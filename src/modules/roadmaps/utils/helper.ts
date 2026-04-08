@@ -45,3 +45,10 @@ export const SESSION_NOTES = [
     "Session 9—Celebrating & Envisioning Growth",
     "Session 10—Expanding Mentoring Networks"
 ];
+
+export function normalizeRoadmapName(name: string): string {
+    return name
+        ?.trim()
+        .toLowerCase()
+        .replace(/\s+/g, ' ');
+}
