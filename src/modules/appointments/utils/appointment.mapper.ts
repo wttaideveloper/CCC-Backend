@@ -11,6 +11,15 @@ type LooseAppointment = AppointmentDocument & {
     zoomMeeting?: any;
     transcript?: string;
     transcriptSavedAt?: Date;
+    transcriptSummary?: {
+        sessionOverview: string;
+        keyDiscussionPoints: string[];
+        mentorGuidance: string[];
+        actionItems: string[];
+        followUp: string;
+    };
+    transcriptSummarySavedAt?: Date;
+    transcriptSummaryModel?: string;
 };
 
 export const toAppointmentResponseDto = (
@@ -81,6 +90,9 @@ export const toAppointmentResponseDto = (
 
         transcript: appointment.transcript ?? undefined,
         transcriptSavedAt: appointment.transcriptSavedAt ?? undefined,
+        transcriptSummary: appointment.transcriptSummary ?? undefined,
+        transcriptSummarySavedAt: appointment.transcriptSummarySavedAt ?? undefined,
+        transcriptSummaryModel: appointment.transcriptSummaryModel ?? undefined,
 
         user: userPopulated,
         mentor: mentorPopulated

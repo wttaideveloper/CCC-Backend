@@ -1,6 +1,6 @@
 import { Controller, Post, Body, Get, Param, Patch, Query, HttpCode, Headers, Logger, Req, BadRequestException } from '@nestjs/common';
 import { AppointmentsService } from './appointments.service';
-import { CreateAppointmentDto, AppointmentResponseDto, UpdateAppointmentDto, CancelAppointmentDto } from './dto/appointment.dto';
+import { CreateAppointmentDto, AppointmentResponseDto, UpdateAppointmentDto, CancelAppointmentDto, TranscriptSummaryResponseDto } from './dto/appointment.dto';
 import { BaseResponse } from 'src/shared/interfaces/base-response.interface';
 import { createHmac } from 'crypto';
 import { ConfigService } from '@nestjs/config';
@@ -170,6 +170,31 @@ export class AppointmentsController {
     ) {
         const result = await this.appointmentsService.cancel(id, { reason: body.reason });
         return { success: true, data: result };
+    }
+
+    @Get('pastor/:id/transcript-summary')
+    async getTranscriptSummary(
+        @Param('id') id: string
+    ): Promise<BaseResponse<TranscriptSummaryResponseDto>> {
+        const data = await this.appointmentsService.getTranscriptSummary(id);
+        return {
+            success: true,
+            message: 'Transcript summary fetched successfully.',
+            data,
+        };
+    }
+
+    @Post('pastor/:id/transcript-summary')
+    async generateTranscriptSummary(
+        @Param('id') id: string,
+        @Query('refresh') refresh?: string,
+    ): Promise<BaseResponse<TranscriptSummaryResponseDto>> {
+        const data = await this.appointmentsService.generateTranscriptSummary(id, refresh === 'true');
+        return {
+            success: true,
+            message: data.cached ? 'Transcript summary fetched from cache.' : 'Transcript summary generated successfully.',
+            data,
+        };
     }
 
     @Post('zoom-webhook')

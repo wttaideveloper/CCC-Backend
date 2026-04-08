@@ -2,7 +2,7 @@ import { Injectable, BadRequestException, NotFoundException, Logger } from '@nes
 import { InjectModel } from '@nestjs/mongoose';
 import { Model, Types } from 'mongoose';
 import { Appointment, AppointmentDocument } from './schemas/appointment.schema';
-import { CreateAppointmentDto, AppointmentResponseDto, UpdateAppointmentDto } from './dto/appointment.dto';
+import { CreateAppointmentDto, AppointmentResponseDto, TranscriptSummaryResponseDto, UpdateAppointmentDto } from './dto/appointment.dto';
 import { toAppointmentResponseDto } from './utils/appointment.mapper';
 import { APPOINTMENT_STATUSES, APPOINTMENT_PLATFORMS } from '../../common/constants/status.constants';
 import { Availability, AvailabilityDocument } from './schemas/availability.schema';
@@ -12,6 +12,7 @@ import { HomeService } from '../home/home.service';
 import { ROLES, isHostRole } from 'src/common/constants/roles.constants';
 import { ZoomService } from '../zoom/zoom.service';
 import { MailerService } from '../../common/utils/mail.util';
+import { TranscriptSummaryService } from './transcript-summary.service';
 
 @Injectable()
 export class AppointmentsService {
@@ -23,6 +24,7 @@ export class AppointmentsService {
         private readonly notificationService: HomeService,
         private readonly zoomService: ZoomService,
         private readonly mailerService: MailerService,
+        private readonly transcriptSummaryService: TranscriptSummaryService,
     ) { }
 
     private readonly userSelect = 'firstName lastName email phoneNumber profilePicture role roleId status';
@@ -346,6 +348,81 @@ export class AppointmentsService {
             futureOnly: true,
             status: APPOINTMENT_STATUSES.SCHEDULED
         });
+    }
+
+    async getTranscriptSummary(appointmentId: string): Promise<TranscriptSummaryResponseDto> {
+        const appointment = await this.appointmentModel.findById(appointmentId).lean() as any;
+        if (!appointment) {
+            throw new NotFoundException(`Appointment with ID "${appointmentId}" not found.`);
+        }
+
+        if (!appointment.transcriptSummary || !appointment.transcriptSummarySavedAt) {
+            throw new NotFoundException('Transcript summary is not generated yet for this appointment.');
+        }
+
+        return {
+            appointmentId: appointment._id.toString(),
+            transcript: appointment.transcript ?? undefined,
+            transcriptSavedAt: appointment.transcriptSavedAt ?? undefined,
+            summary: appointment.transcriptSummary,
+            generatedAt: appointment.transcriptSummarySavedAt,
+            model: appointment.transcriptSummaryModel ?? this.transcriptSummaryService.modelName,
+            cached: true,
+        };
+    }
+
+    async generateTranscriptSummary(appointmentId: string, refresh = false): Promise<TranscriptSummaryResponseDto> {
+        const appointment = await this.appointmentModel.findById(appointmentId).lean() as any;
+        if (!appointment) {
+            throw new NotFoundException(`Appointment with ID "${appointmentId}" not found.`);
+        }
+
+        const transcript = typeof appointment.transcript === 'string' ? appointment.transcript.trim() : '';
+        if (!transcript || transcript.length < 40) {
+            throw new BadRequestException('Transcript is missing or too short to summarize.');
+        }
+
+        const transcriptSavedAt = appointment.transcriptSavedAt ? new Date(appointment.transcriptSavedAt) : null;
+        const summarySavedAt = appointment.transcriptSummarySavedAt ? new Date(appointment.transcriptSummarySavedAt) : null;
+        const hasCachedSummary = !!appointment.transcriptSummary && !!summarySavedAt;
+        const isCacheFresh = hasCachedSummary && !!transcriptSavedAt && summarySavedAt!.getTime() >= transcriptSavedAt.getTime();
+
+        if (!refresh && hasCachedSummary && isCacheFresh) {
+            return {
+                appointmentId: appointment._id.toString(),
+                transcript: appointment.transcript ?? undefined,
+                transcriptSavedAt: appointment.transcriptSavedAt ?? undefined,
+                summary: appointment.transcriptSummary,
+                generatedAt: summarySavedAt!,
+                model: appointment.transcriptSummaryModel ?? this.transcriptSummaryService.modelName,
+                cached: true,
+            };
+        }
+
+        const summary = await this.transcriptSummaryService.summarizeTranscript(transcript);
+        const generatedAt = new Date();
+        const model = this.transcriptSummaryService.modelName;
+
+        await this.appointmentModel.updateOne(
+            { _id: appointment._id },
+            {
+                $set: {
+                    transcriptSummary: summary,
+                    transcriptSummarySavedAt: generatedAt,
+                    transcriptSummaryModel: model,
+                },
+            }
+        );
+
+        return {
+            appointmentId: appointment._id.toString(),
+            transcript,
+            transcriptSavedAt: transcriptSavedAt ?? undefined,
+            summary,
+            generatedAt,
+            model,
+            cached: false,
+        };
     }
 
     async update(id: string, dto: UpdateAppointmentDto): Promise<AppointmentResponseDto> {
@@ -723,22 +800,11 @@ export class AppointmentsService {
         const event = payload?.event;
         this.logger.log(`Zoom webhook received: ${event}`);
 
-        if (event === 'recording.completed') {
+        if (event === 'recording.transcript_completed') {
             const meetingId = payload?.payload?.object?.id?.toString();
-            const recordingFiles: any[] = payload?.payload?.object?.recording_files ?? [];
 
             if (!meetingId) {
                 this.logger.warn('Zoom webhook: missing meetingId');
-                return;
-            }
-
-            // Find the VTT transcript file
-            const transcriptFile = recordingFiles.find(
-                (f) => f.file_type === 'TRANSCRIPT' && f.status === 'completed'
-            );
-
-            if (!transcriptFile?.download_url) {
-                this.logger.log(`Zoom webhook: no transcript file for meeting ${meetingId}`);
                 return;
             }
 
@@ -752,9 +818,7 @@ export class AppointmentsService {
             }
 
             try {
-                const transcriptText = await this.zoomService.downloadTranscript(
-                    transcriptFile.download_url
-                );
+                const transcriptText = await this.zoomService.downloadTranscript(meetingId);
 
                 await this.appointmentModel.updateOne(
                     { _id: appointment._id },
@@ -762,6 +826,9 @@ export class AppointmentsService {
                         $set: {
                             transcript: transcriptText,
                             transcriptSavedAt: new Date(),
+                            transcriptSummary: null,
+                            transcriptSummarySavedAt: null,
+                            transcriptSummaryModel: null,
                         },
                     }
                 );
