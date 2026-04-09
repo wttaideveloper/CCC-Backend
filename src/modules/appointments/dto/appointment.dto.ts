@@ -1,4 +1,4 @@
-import { IsDateString, IsEnum, IsMongoId, IsOptional, IsString, IsNotEmpty } from 'class-validator';
+import { IsDateString, IsEnum, IsMongoId, IsOptional, IsString, IsNotEmpty, IsBoolean } from 'class-validator';
 import { PartialType, OmitType } from '@nestjs/mapped-types';
 import { VALID_APPOINTMENT_PLATFORMS, VALID_APPOINTMENT_STATUSES } from '../../../common/constants/status.constants';
 
@@ -29,6 +29,10 @@ export class CreateAppointmentDto {
     @IsOptional()
     @IsString()
     initiatorRole?: string;
+
+    @IsOptional()
+    @IsBoolean()
+    isSessionBooking?: boolean
 }
 
 export class UpdateAppointmentDto extends PartialType(

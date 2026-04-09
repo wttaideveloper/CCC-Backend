@@ -82,7 +82,9 @@ export class AppointmentsService {
 
         const meetingDate = meetingDateUtc;
         const durationMinutes = availability?.meetingDuration || 60;
-        const endTime = new Date(meetingDate.getTime() + durationMinutes * 60 * 1000);
+        let finalMeetingDate = new Date(meetingDate);
+
+        let endTime = new Date(meetingDate.getTime() + durationMinutes * 60000);
 
         const overlap = await this.appointmentModel.findOne({
             mentorId,
@@ -118,11 +120,68 @@ export class AppointmentsService {
             status: APPOINTMENT_STATUSES.SCHEDULED,
         });
 
+        endTime = new Date(finalMeetingDate.getTime() + durationMinutes * 60000);
+
         if (dailyCount >= (availability?.maxBookingsPerDay ?? 5)) {
-            throw new BadRequestException(
-                "Mentor has reached maximum bookings for this day."
-            );
+
+            if (!dto.isSessionBooking) {
+                throw new BadRequestException(
+                    "Mentor has reached maximum bookings for this day."
+                );
+            }
+
+            const originalHours = finalMeetingDate.getUTCHours();
+            const originalMinutes = finalMeetingDate.getUTCMinutes();
+
+            let bookingDate = new Date(finalMeetingDate);
+
+            while (true) {
+                bookingDate.setUTCDate(bookingDate.getUTCDate() + 1);
+
+                const startOfDay = new Date(bookingDate);
+                startOfDay.setUTCHours(0, 0, 0, 0);
+
+                const endOfDay = new Date(bookingDate);
+                endOfDay.setUTCHours(23, 59, 59, 999);
+
+                const count = await this.appointmentModel.countDocuments({
+                    mentorId,
+                    meetingDate: { $gte: startOfDay, $lte: endOfDay },
+                    status: APPOINTMENT_STATUSES.SCHEDULED,
+                });
+
+                if (count >= (availability?.maxBookingsPerDay ?? 5)) continue;
+
+                const dateStrLoop = bookingDate.toISOString().split('T')[0];
+
+                const dayAvailability = availability?.weeklySlots.find(
+                    d => d.date.toISOString().split('T')[0] === dateStrLoop
+                );
+
+                if (!dayAvailability || dayAvailability.slots.length === 0) continue;
+
+                // slot validation
+                const selectedHour24 = originalHours;
+                const selectedPeriod = selectedHour24 >= 12 ? "PM" : "AM";
+
+                let displayHour = selectedHour24 % 12;
+                if (displayHour === 0) displayHour = 12;
+
+                const slotExists = dayAvailability.slots.some(s =>
+                    s.startTime === `${displayHour}:00` &&
+                    s.startPeriod === selectedPeriod
+                );
+
+                if (!slotExists) continue;
+
+                bookingDate.setUTCHours(originalHours, originalMinutes, 0, 0);
+
+                finalMeetingDate = new Date(bookingDate);
+                break;
+            }
         }
+
+        meetingDate.setTime(finalMeetingDate.getTime());
 
         // Get user and mentor details for Zoom meeting topic
         const userDoc = await this.appointmentModel.db.model('User').findById(dto.userId).lean() as any;
