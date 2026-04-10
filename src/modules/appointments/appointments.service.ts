@@ -124,18 +124,25 @@ export class AppointmentsService {
 
         if (dailyCount >= (availability?.maxBookingsPerDay ?? 5)) {
 
+            // Normal booking → block
             if (!dto.isSessionBooking) {
                 throw new BadRequestException(
                     "Mentor has reached maximum bookings for this day."
                 );
             }
 
+            // Session booking → auto assign
+            const MAX_LOOKAHEAD_DAYS = 50;
+            let attempts = 0;
+
             const originalHours = finalMeetingDate.getUTCHours();
             const originalMinutes = finalMeetingDate.getUTCMinutes();
 
             let bookingDate = new Date(finalMeetingDate);
 
-            while (true) {
+            while (attempts < MAX_LOOKAHEAD_DAYS) {
+                attempts++;
+
                 bookingDate.setUTCDate(bookingDate.getUTCDate() + 1);
 
                 const startOfDay = new Date(bookingDate);
@@ -174,14 +181,32 @@ export class AppointmentsService {
 
                 if (!slotExists) continue;
 
-                bookingDate.setUTCHours(originalHours, originalMinutes, 0, 0);
+                // overlap check (critical)
+                const newStart = new Date(bookingDate);
+                newStart.setUTCHours(originalHours, originalMinutes, 0, 0);
 
-                finalMeetingDate = new Date(bookingDate);
+                const newEnd = new Date(newStart.getTime() + durationMinutes * 60000);
+
+                const overlap = await this.appointmentModel.findOne({
+                    mentorId,
+                    meetingDate: { $lt: newEnd },
+                    endTime: { $gt: newStart },
+                    status: APPOINTMENT_STATUSES.SCHEDULED
+                });
+
+                if (overlap) continue;
+
+                finalMeetingDate = newStart;
                 break;
             }
-        }
 
-        meetingDate.setTime(finalMeetingDate.getTime());
+            if (attempts === MAX_LOOKAHEAD_DAYS) {
+                throw new BadRequestException(
+                    "No available slots found in the next 50 days."
+                );
+            }
+        }
+        const finalStartDate = new Date(finalMeetingDate);
 
         // Get user and mentor details for Zoom meeting topic
         const userDoc = await this.appointmentModel.db.model('User').findById(dto.userId).lean() as any;
@@ -212,7 +237,7 @@ export class AppointmentsService {
 
                 const zoomResponse = await this.zoomService.createMeeting({
                     topic: `Mentoring Session: ${userName} with ${mentorName}`,
-                    startTime: meetingDate.toISOString(),
+                    startTime: finalStartDate.toISOString(),
                     duration: durationMinutes,
                     timezone: 'Asia/Kolkata',
                     agenda: dto.notes || `Scheduled mentoring session between ${userName} and ${mentorName}`,
@@ -247,8 +272,8 @@ export class AppointmentsService {
 
         const appointment = new this.appointmentModel({
             ...appointmentFields,
-            meetingDate,
-            endTime,
+            meetingDate: finalStartDate,
+            endTime: new Date(finalStartDate.getTime() + durationMinutes * 60000),
             userId: new Types.ObjectId(dto.userId),
             mentorId,
             platform: APPOINTMENT_PLATFORMS.ZOOM,
@@ -263,17 +288,31 @@ export class AppointmentsService {
             this.appointmentModel.findById(saved._id)
         ).lean();
 
+        // use FINAL date (not original)
+        const finalDateStr = finalMeetingDate.toISOString().split('T')[0];
+
+        // recompute slot based on FINAL time
+        const finalMeetingInTz = new Date(finalMeetingDate.getTime() + (5.5 * 60 * 60 * 1000));
+
+        const finalHour24 = finalMeetingInTz.getUTCHours();
+        const finalPeriod = finalHour24 >= 12 ? "PM" : "AM";
+
+        let finalDisplayHour = finalHour24 % 12;
+        if (finalDisplayHour === 0) finalDisplayHour = 12;
+
+        const finalSlot = {
+            startTime: `${finalDisplayHour}:00`,
+            startPeriod: finalPeriod
+        };
+
         await this.availabilityModel.updateOne(
             {
                 mentorId,
-                "weeklySlots.date": new Date(dateStr)
+                "weeklySlots.date": new Date(finalDateStr)
             },
             {
                 $pull: {
-                    "weeklySlots.$.slots": {
-                        startTime: selectedSlot.startTime,
-                        startPeriod: selectedSlot.startPeriod
-                    }
+                    "weeklySlots.$.slots": finalSlot
                 }
             }
         );
