@@ -1160,7 +1160,8 @@ export class RoadMapsService {
                         meetingDate: tryDate.toISOString(),
                         platform: 'zoom',
                         notes: "Auto scheduled",
-                        initiatorRole: 'director'
+                        initiatorRole: 'director',
+                        isSessionBooking: true
                     });
 
                     meetingDate = tryDate;
