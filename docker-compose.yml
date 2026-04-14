@@ -27,7 +27,7 @@ services:
         max-size: "10m"
         max-file: "3"
 
-  # Transcript summary (FastAPI + FLAN-T5) — server folder: ../ccc-agent
+  # Transcript summary service (CCC-agent FastAPI + LangChain/OpenAI)
   transcript-summary:
     build:
       context: ../CCC-agent
@@ -37,9 +37,12 @@ services:
     ports:
       - "127.0.0.1:8080:8080"
     environment:
-      MODEL_ID: ${SUMMARY_MODEL_ID:-google/flan-t5-base}
-    volumes:
-      - hf_model_cache:/root/.cache/huggingface
+      OPENAI_API_KEY: ${OPENAI_API_KEY}
+      OPENAI_MODEL: ${SUMMARY_MODEL_ID:-gpt-4.1-mini}
+      OPENAI_TEMPERATURE: ${SUMMARY_MODEL_TEMPERATURE:-0.2}
+      OPENAI_MAX_TOKENS: ${SUMMARY_MODEL_MAX_NEW_TOKENS:-700}
+      HOST: 0.0.0.0
+      PORT: 8080
     networks:
       - ccc-network
     healthcheck:
@@ -53,7 +56,7 @@ services:
       interval: 30s
       timeout: 10s
       retries: 5
-      start_period: 60s
+      start_period: 30s
     logging:
       driver: "json-file"
       options:
@@ -113,10 +116,9 @@ services:
       FIREBASE_CLIENT_EMAIL: ${FIREBASE_CLIENT_EMAIL}
       FIREBASE_PRIVATE_KEY: ${FIREBASE_PRIVATE_KEY}
 
-      # AI transcript summary — use Docker service name on ccc-network
-      SUMMARY_MODEL_PROVIDER: ${SUMMARY_MODEL_PROVIDER:-hf}
-      SUMMARY_MODEL_API_URL: ${SUMMARY_MODEL_API_URL:-http://transcript-summary:8080/generate}
-      SUMMARY_MODEL_ID: ${SUMMARY_MODEL_ID:-google/flan-t5-base}
+      # AI transcript summary service URL (CCC-agent)
+      SUMMARY_SERVICE_URL: ${SUMMARY_SERVICE_URL:-http://transcript-summary:8080/summarize}
+      SUMMARY_MODEL_ID: ${SUMMARY_MODEL_ID:-gpt-4.1-mini}
       SUMMARY_MODEL_TIMEOUT_MS: ${SUMMARY_MODEL_TIMEOUT_MS:-120000}
       SUMMARY_MODEL_RETRIES: ${SUMMARY_MODEL_RETRIES:-1}
     depends_on:
@@ -179,6 +181,4 @@ volumes:
   nginx_cache:
     driver: local
   nginx_logs:
-    driver: local
-  hf_model_cache:
     driver: local
