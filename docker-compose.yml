@@ -2,8 +2,8 @@ services:
   # Frontend Application (Next.js)
   frontend:
     build:
-      # Keep this path explicit to avoid accidentally building an unexpected sibling folder.
-      context: ../CCC-Web
+      # Set FRONTEND_BUILD_CONTEXT to match your environment (e.g. ../frontend or ../CCC-Web).
+      context: ${FRONTEND_BUILD_CONTEXT:-../frontend}
       dockerfile: Dockerfile
       args:
         NEXT_PUBLIC_API_BASE_URL: ${NEXT_PUBLIC_API_BASE_URL}
