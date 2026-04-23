@@ -2,6 +2,7 @@ services:
   # Frontend Application (Next.js)
   frontend:
     build:
+      # Keep this path explicit to avoid accidentally building an unexpected sibling folder.
       context: ../frontend
       dockerfile: Dockerfile
       args:
@@ -13,6 +14,17 @@ services:
       NODE_ENV: production
       PORT: 3001
       NEXT_TELEMETRY_DISABLED: 1
+    # Runtime hardening to reduce exploit impact.
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    # Allow temp writes but prevent executing dropped binaries from temp locations.
+    tmpfs:
+      - /tmp:rw,noexec,nosuid,nodev,size=64m
+      - /var/tmp:rw,noexec,nosuid,nodev,size=32m
+    pids_limit: 256
+    init: true
     networks:
       - ccc-network
     healthcheck:
