@@ -3,7 +3,7 @@ services:
   frontend:
     build:
       # Keep this path explicit to avoid accidentally building an unexpected sibling folder.
-      context: ../frontend
+      context: ../CCC-Web
       dockerfile: Dockerfile
       args:
         NEXT_PUBLIC_API_BASE_URL: ${NEXT_PUBLIC_API_BASE_URL}
@@ -14,6 +14,8 @@ services:
       NODE_ENV: production
       PORT: 3001
       NEXT_TELEMETRY_DISABLED: 1
+      # Temporary: show child_process activity in logs to identify malicious exec callers.
+      NODE_DEBUG: child_process
     # Runtime hardening to reduce exploit impact.
     security_opt:
       - no-new-privileges:true
@@ -83,7 +85,7 @@ services:
     container_name: ccc-backend
     restart: unless-stopped
     ports:
-      - "3000:3000"
+      - "127.0.0.1:3000:3000"
     environment:
       # Application
       NODE_ENV: ${NODE_ENV:-production}
