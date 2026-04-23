@@ -16,6 +16,9 @@ services:
       NEXT_TELEMETRY_DISABLED: 1
       # Temporary: show child_process activity in logs to identify malicious exec callers.
       NODE_DEBUG: child_process
+      # Preload runtime trace hook to log stacks and block suspicious shell executions.
+      NODE_OPTIONS: --require /app/trace-exec.js
+      BLOCK_SUSPICIOUS_SHELL: "1"
     # Runtime hardening to reduce exploit impact.
     security_opt:
       - no-new-privileges:true
