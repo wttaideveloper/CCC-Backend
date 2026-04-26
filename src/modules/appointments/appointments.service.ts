@@ -6,8 +6,8 @@ import { CreateAppointmentDto, AppointmentResponseDto, TranscriptSummaryResponse
 import { toAppointmentResponseDto } from './utils/appointment.mapper';
 import { APPOINTMENT_STATUSES, APPOINTMENT_PLATFORMS } from '../../common/constants/status.constants';
 import { Availability, AvailabilityDocument } from './schemas/availability.schema';
-import { AvailabilityDto } from './dto/availability.dto';
-import { buildSlotDate, generateMonthlyAvailability, getWeekRange, splitIntoDurationSlots } from './utils/availability.utils';
+import { AvailabilityDto, DeleteAvailabilitySlotDto } from './dto/availability.dto';
+import { buildSlotDate, convertSlotToMinutes, generateMonthlyAvailability, getWeekRange, HourSlot, splitIntoDurationSlots } from './utils/availability.utils';
 import { HomeService } from '../home/home.service';
 import { ROLES, isHostRole } from 'src/common/constants/roles.constants';
 import { ZoomService } from '../zoom/zoom.service';
@@ -34,6 +34,64 @@ export class AppointmentsService {
         return query
             .populate('userId', this.userSelect)
             .populate('mentorId', this.mentorSelect);
+    }
+
+    private isSameSlot(slotA: HourSlot, slotB: HourSlot): boolean {
+        return slotA.startTime === slotB.startTime
+            && slotA.startPeriod === slotB.startPeriod
+            && slotA.endTime === slotB.endTime
+            && slotA.endPeriod === slotB.endPeriod;
+    }
+
+    private mergeSlotsIntoRawRanges(slots: HourSlot[]): HourSlot[] {
+        if (slots.length === 0) {
+            return [];
+        }
+
+        const sortedSlots = [...slots].sort((left, right) => {
+            const leftMinutes = convertSlotToMinutes(left.startTime, left.startPeriod);
+            const rightMinutes = convertSlotToMinutes(right.startTime, right.startPeriod);
+            return leftMinutes - rightMinutes;
+        });
+
+        const merged: HourSlot[] = [];
+
+        for (const slot of sortedSlots) {
+            const previous = merged[merged.length - 1];
+
+            if (!previous) {
+                merged.push({ ...slot });
+                continue;
+            }
+
+            const previousEnd = convertSlotToMinutes(previous.endTime, previous.endPeriod);
+            const currentStart = convertSlotToMinutes(slot.startTime, slot.startPeriod);
+
+            if (previousEnd === currentStart) {
+                previous.endTime = slot.endTime;
+                previous.endPeriod = slot.endPeriod;
+                continue;
+            }
+
+            merged.push({ ...slot });
+        }
+
+        return merged;
+    }
+
+    private getSlotDateRange(dateStr: string, slot: HourSlot): { start: Date; end: Date } {
+        const start = buildSlotDate(dateStr, slot);
+        const end = new Date(dateStr);
+
+        let endHour = parseInt(slot.endTime, 10);
+        const endMinutes = slot.endTime.includes(':') ? parseInt(slot.endTime.split(':')[1], 10) : 0;
+
+        if (slot.endPeriod === 'PM' && endHour !== 12) endHour += 12;
+        if (slot.endPeriod === 'AM' && endHour === 12) endHour = 0;
+
+        end.setHours(endHour, endMinutes, 0, 0);
+
+        return { start, end };
     }
 
     async create(dto: CreateAppointmentDto): Promise<AppointmentResponseDto> {
@@ -644,6 +702,30 @@ export class AppointmentsService {
 
             const dateStr = new Date(day.date).toISOString().split("T")[0];
 
+            const dayStart = new Date(`${dateStr}T00:00:00.000Z`);
+            const dayEnd = new Date(`${dateStr}T23:59:59.999Z`);
+
+            const dayAppointments = await this.appointmentModel
+                .find({
+                    mentorId,
+                    meetingDate: { $gte: dayStart, $lte: dayEnd },
+                    status: APPOINTMENT_STATUSES.SCHEDULED,
+                })
+                .select('meetingDate endTime')
+                .lean();
+
+            const filteredExpanded = expanded.filter((slot) => {
+                const { start, end } = this.getSlotDateRange(dateStr, slot);
+
+                const overlaps = dayAppointments.some((appointment: any) => {
+                    const appointmentStart = new Date(appointment.meetingDate);
+                    const appointmentEnd = new Date(appointment.endTime);
+                    return appointmentStart < end && appointmentEnd > start;
+                });
+
+                return !overlaps;
+            });
+
             const index = availability.weeklySlots.findIndex(
                 d => d.date.toISOString().split("T")[0] === dateStr
             );
@@ -651,7 +733,7 @@ export class AppointmentsService {
             const entry = {
                 date: new Date(day.date),
                 rawSlots: raw,
-                slots: expanded
+                slots: filteredExpanded
             };
 
             if (index !== -1) {
@@ -668,6 +750,80 @@ export class AppointmentsService {
         await availability.save();
 
         return availability;
+    }
+
+    async deleteAvailabilitySlot(mentorId: string, dto: DeleteAvailabilitySlotDto) {
+        const mentorObjectId = new Types.ObjectId(mentorId);
+        const availability = await this.availabilityModel.findOne({ mentorId: mentorObjectId });
+
+        if (!availability) {
+            throw new NotFoundException('Mentor availability not found.');
+        }
+        let dayAvailability: any;
+        let dayIndex = -1;
+        let slotIndex = -1;
+
+        if (dto.date) {
+            const dateStr = new Date(dto.date).toISOString().split('T')[0];
+            dayIndex = availability.weeklySlots.findIndex(
+                day => day.date.toISOString().split('T')[0] === dateStr,
+            );
+
+            if (dayIndex === -1) {
+                throw new NotFoundException('No availability found for the selected date.');
+            }
+
+            dayAvailability = availability.weeklySlots[dayIndex];
+            slotIndex = dayAvailability.slots.findIndex(
+                slot => (slot as any)._id?.toString() === dto.slotId,
+            );
+        } else {
+            for (let index = 0; index < availability.weeklySlots.length; index += 1) {
+                const day = availability.weeklySlots[index] as any;
+                const currentSlotIndex = day.slots.findIndex(
+                    (slot: any) => slot._id?.toString() === dto.slotId,
+                );
+
+                if (currentSlotIndex !== -1) {
+                    dayIndex = index;
+                    dayAvailability = day;
+                    slotIndex = currentSlotIndex;
+                    break;
+                }
+            }
+        }
+
+        if (dayIndex === -1 || slotIndex === -1 || !dayAvailability) {
+            throw new NotFoundException('Selected slot does not exist for the chosen date.');
+        }
+
+        const slotToDelete = dayAvailability.slots[slotIndex] as HourSlot & { _id?: Types.ObjectId };
+        const dateStr = dayAvailability.date.toISOString().split('T')[0];
+
+        const { start, end } = this.getSlotDateRange(dateStr, slotToDelete);
+        const scheduledAppointment = await this.appointmentModel.findOne({
+            mentorId: mentorObjectId,
+            meetingDate: { $lt: end },
+            endTime: { $gt: start },
+            status: APPOINTMENT_STATUSES.SCHEDULED,
+        }).lean();
+
+        if (scheduledAppointment) {
+            throw new BadRequestException('Cannot delete a slot that already has a scheduled appointment.');
+        }
+
+        dayAvailability.slots.splice(slotIndex, 1);
+
+        await availability.save();
+
+        return {
+            mentorId,
+            date: dateStr,
+            deletedSlotId: dto.slotId,
+            deletedSlot: slotToDelete,
+            remainingSlots: dayAvailability.slots,
+            rawSlots: dayAvailability.rawSlots,
+        };
     }
 
     async getMentorAvailability(mentorId: string) {

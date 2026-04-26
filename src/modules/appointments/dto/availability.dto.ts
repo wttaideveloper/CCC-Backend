@@ -1,18 +1,20 @@
-import { IsArray, IsEnum, IsNumber, IsOptional, IsString, ValidateNested } from 'class-validator';
+import { IsArray, IsDateString, IsEnum, IsMongoId, IsNumber, IsOptional, IsString, Matches, ValidateNested } from 'class-validator';
 import { Type } from 'class-transformer';
+
+const SLOT_TIME_REGEX = /^(0?[1-9]|1[0-2]):00$/;
 
 export class TimeSlotDto {
     @IsString()
-    startTime: string;
+    startTime!: string;
 
     @IsEnum(['AM', 'PM'])
-    startPeriod: 'AM' | 'PM';
+    startPeriod!: 'AM' | 'PM';
 
     @IsString()
-    endTime: string;
+    endTime!: string;
 
     @IsEnum(['AM', 'PM'])
-    endPeriod: 'AM' | 'PM';
+    endPeriod!: 'AM' | 'PM';
 }
 
 export class DayAvailabilityDto {
@@ -20,22 +22,22 @@ export class DayAvailabilityDto {
     // day: number;
 
     @IsString()
-    date: string;
+    date!: string;
 
     @IsArray()
     @ValidateNested({ each: true })
     @Type(() => TimeSlotDto)
-    slots: TimeSlotDto[];
+    slots!: TimeSlotDto[];
 }
 
 export class AvailabilityDto {
     @IsString()
-    mentorId: string;
+    mentorId!: string;
 
     @IsArray()
     @ValidateNested({ each: true })
     @Type(() => DayAvailabilityDto)
-    weeklySlots: DayAvailabilityDto[];
+    weeklySlots!: DayAvailabilityDto[];
 
     @IsOptional()
     @IsNumber()
@@ -48,4 +50,13 @@ export class AvailabilityDto {
     @IsOptional()
     @IsNumber()
     maxBookingsPerDay?: number;
+}
+
+export class DeleteAvailabilitySlotDto {
+    @IsMongoId({ message: 'slotId must be a valid Mongo ObjectId.' })
+    slotId!: string;
+
+    @IsOptional()
+    @IsDateString()
+    date?: string;
 }

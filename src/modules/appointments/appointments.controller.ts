@@ -1,10 +1,11 @@
-import { Controller, Post, Body, Get, Param, Patch, Query, HttpCode, Headers, Logger, Req, BadRequestException } from '@nestjs/common';
+import { Controller, Post, Body, Get, Param, Patch, Query, HttpCode, Headers, Logger, Req, BadRequestException, Delete } from '@nestjs/common';
 import { AppointmentsService } from './appointments.service';
 import { CreateAppointmentDto, AppointmentResponseDto, UpdateAppointmentDto, CancelAppointmentDto, TranscriptSummaryResponseDto } from './dto/appointment.dto';
 import { BaseResponse } from 'src/shared/interfaces/base-response.interface';
 import { createHmac } from 'crypto';
 import { ConfigService } from '@nestjs/config';
-import { AvailabilityDto } from './dto/availability.dto';
+import { AvailabilityDto, DeleteAvailabilitySlotDto } from './dto/availability.dto';
+import { ParseMongoIdPipe } from 'src/common/pipes/parse-mongo-id.pipe';
 
 @Controller('appointments')
 export class AppointmentsController {
@@ -101,6 +102,19 @@ export class AppointmentsController {
             success: true,
             message: "Weekly availability updated.",
             data
+        };
+    }
+
+    @Delete('availability/:mentorId/slot')
+    async deleteAvailabilitySlot(
+        @Param('mentorId', ParseMongoIdPipe) mentorId: string,
+        @Body() dto: DeleteAvailabilitySlotDto,
+    ): Promise<BaseResponse<any>> {
+        const data = await this.appointmentsService.deleteAvailabilitySlot(mentorId, dto);
+        return {
+            success: true,
+            message: 'Availability slot deleted successfully.',
+            data,
         };
     }
 
