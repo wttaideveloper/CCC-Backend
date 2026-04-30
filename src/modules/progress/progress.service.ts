@@ -230,16 +230,30 @@ export class ProgressService {
                         upsert: true,
                     }
                 ).exec();
-                // Create assignment records for tracking due date and meeting later
-                const assignmentDocs = newAssessmentIds.map(assessmentId => ({
-                    assessmentId: new Types.ObjectId(assessmentId),
-                    userId: new Types.ObjectId(userId),
-                    assignedAt: new Date(),
-                    dueDate: dto.dueDate ? new Date(dto.dueDate) : undefined,
-                    status: ASSESSMENT_ASSIGNMENT_STATUSES.ASSIGNED
-                }));
-                
-                const res = await this.assessmentAssignedModel.insertMany(assignmentDocs);
+                // Create or update AssessmentAssigned records for ALL requested assessments.
+                // Using bulkWrite with upsert so that re-assigning can update dueDate on existing records
+                // without violating the unique index on (assessmentId, userId).
+                // $set only updates dueDate; $setOnInsert only fires on new docs (preserves status of existing).
+                await this.assessmentAssignedModel.bulkWrite(
+                    dto.assessmentIds.map(assessmentId => ({
+                        updateOne: {
+                            filter: {
+                                assessmentId: new Types.ObjectId(assessmentId),
+                                userId: new Types.ObjectId(userId),
+                            },
+                            update: {
+                                $set: {
+                                    dueDate: dto.dueDate ? new Date(dto.dueDate) : null,
+                                },
+                                $setOnInsert: {
+                                    assignedAt: new Date(),
+                                    status: ASSESSMENT_ASSIGNMENT_STATUSES.ASSIGNED,
+                                },
+                            },
+                            upsert: true,
+                        },
+                    }))
+                );
 
                 for (const assessmentId of newAssessmentIds) {
                     await this.assessmentModel.updateOne(
