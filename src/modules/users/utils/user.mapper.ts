@@ -21,5 +21,13 @@ export function toUserResponseDto(user: UserDocument | any): UserResponseDto {
         createdAt: user.createdAt,
         updatedAt: user.updatedAt,
         assignedId: user.assignedId,
+        fieldMentorInvitation: user.fieldMentorInvitation
+            ? {
+                invitedBy: user.fieldMentorInvitation.invitedBy?.toString() || String(user.fieldMentorInvitation.invitedBy),
+                invitedAt: user.fieldMentorInvitation.invitedAt,
+                token: user.fieldMentorInvitation.token,
+                expiresAt: user.fieldMentorInvitation.expiresAt,
+            }
+            : undefined,
     };
 }

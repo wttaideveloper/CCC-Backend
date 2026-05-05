@@ -1,5 +1,19 @@
 import { IsString, IsEmail, IsBoolean, IsOptional, IsDate, IsMongoId, IsArray, ArrayMinSize } from 'class-validator';
 
+export class FieldMentorInvitationResponseDto {
+    @IsMongoId()
+    invitedBy: string;
+
+    @IsDate()
+    invitedAt: Date;
+
+    @IsString()
+    token: string;
+
+    @IsDate()
+    expiresAt: Date;
+}
+
 export class UserResponseDto {
     @IsString()
     id: string;
@@ -57,6 +71,9 @@ export class UserResponseDto {
     @ArrayMinSize(1)
     @IsMongoId({ each: true })
     assignedId: string[];
+
+    @IsOptional()
+    fieldMentorInvitation?: FieldMentorInvitationResponseDto;
 }
 
 export class AssignMentorMenteeDto {
