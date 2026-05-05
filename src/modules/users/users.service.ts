@@ -568,6 +568,34 @@ export class UsersService {
         return toUserResponseDto(updatedUser);
     }
 
+    async rejectInvitation(dto: AcceptInvitationDto): Promise<UserResponseDto> {
+        const user = await this.userModel.findOne({
+            'fieldMentorInvitation.token': dto.token,
+        });
+
+        if (!user) {
+            throw new NotFoundException('Invalid invitation token');
+        }
+
+        if (!user.fieldMentorInvitation || user.fieldMentorInvitation.expiresAt < new Date()) {
+            throw new BadRequestException('Invitation has expired');
+        }
+
+        const updatedUser = await this.userModel.findByIdAndUpdate(
+            user._id,
+            {
+                $unset: { fieldMentorInvitation: 1 },
+            },
+            { new: true }
+        );
+
+        if (!updatedUser) {
+            throw new NotFoundException('User not found');
+        }
+
+        return toUserResponseDto(updatedUser);
+    }
+
     async markCompleted(dto: MarkCompletedDto): Promise<UserResponseDto> {
         const user = await this.userModel.findByIdAndUpdate(
             dto.userId,

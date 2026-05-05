@@ -301,6 +301,18 @@ export class UsersController {
     };
   }
 
+  @Post('reject-invitation')
+  async rejectInvitation(
+    @Body() dto: AcceptInvitationDto,
+  ): Promise<BaseResponse<UserResponseDto>> {
+    const user = await this.usersService.rejectInvitation(dto);
+    return {
+      success: true,
+      message: 'Invitation rejected successfully.',
+      data: user,
+    };
+  }
+
   @Patch(':id/mark-completed')
   // @Roles(ROLES.DIRECTOR, ROLES.MENTOR)
   async markCompleted(
