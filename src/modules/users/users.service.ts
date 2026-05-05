@@ -538,10 +538,24 @@ export class UsersService {
             throw new BadRequestException('Invitation has expired');
         }
 
+        // Remove all assigned users since user is changing to field mentor
+        const assignedIds = user.assignedId || [];
+        
+        if (assignedIds.length > 0) {
+            // Remove assigned relationship for all assigned users
+            await this.userModel.updateMany(
+                { _id: { $in: assignedIds } },
+                { $pull: { assignedId: user._id } }
+            );
+        }
+
         const updatedUser = await this.userModel.findByIdAndUpdate(
             user._id,
             {
-                role: ROLES.FIELD_MENTOR,
+                $set: {
+                    role: ROLES.FIELD_MENTOR,
+                    assignedId: [],
+                },
                 $unset: { fieldMentorInvitation: 1 },
             },
             { new: true }

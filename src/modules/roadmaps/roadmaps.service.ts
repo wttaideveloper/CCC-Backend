@@ -22,6 +22,15 @@ import { buildMeetingDate, normalizeRoadmapName, SESSION_FLOW, SESSION_NOTES } f
 import { AppointmentsService } from '../appointments/appointments.service';
 import { S3Service } from '../s3/s3.service';
 
+function resolveDefaultSteps(totalSteps?: number, extras?: any[]): number {
+    if (typeof totalSteps === 'number' && totalSteps > 0) {
+        return totalSteps;
+    }
+
+    const extrasCount = extras?.length ?? 0;
+    return extrasCount > 0 ? extrasCount : 1;
+}
+
 @Injectable()
 export class RoadMapsService {
     constructor(
@@ -64,7 +73,7 @@ export class RoadMapsService {
 
         const roadmapsWithSteps = (dto.roadmaps || []).map(nested => ({
             ...nested,
-            totalSteps: nested.totalSteps ?? (nested.extras?.length ?? 0),
+            totalSteps: resolveDefaultSteps(nested.totalSteps, nested.extras),
         }));
 
         const nestedTotalSteps = roadmapsWithSteps.reduce(
@@ -72,7 +81,11 @@ export class RoadMapsService {
             0
         );
         const mainExtrasSteps = dto.extras?.length ?? 0;
-        const computedTotalSteps = dto.totalSteps ?? (mainExtrasSteps + nestedTotalSteps);
+        const computedTotalSteps = dto.totalSteps && dto.totalSteps > 0
+            ? dto.totalSteps
+            : mainExtrasSteps + nestedTotalSteps > 0
+                ? mainExtrasSteps + nestedTotalSteps
+                : 1;
 
         const roadMap = await this.roadMapModel.create({
             ...dto,
@@ -388,7 +401,7 @@ export class RoadMapsService {
 
     async addNestedRoadMap(roadMapId: string, dto: NestedRoadMapItemDto, image?: Express.Multer.File): Promise<RoadMapResponseDto> {
         const roadMapObjectId = new Types.ObjectId(roadMapId);
-        const nestedRoadmapTotalSteps = dto.totalSteps ?? (dto.extras?.length ?? 0);
+        const nestedRoadmapTotalSteps = resolveDefaultSteps(dto.totalSteps, dto.extras);
 
         let imageUrl: string | undefined;
 

@@ -18,6 +18,20 @@ import {
 import { ASSESSMENT_ASSIGNMENT_STATUSES, PROGRESS_STATUSES } from '../../common/constants/status.constants';
 import { AssessmentAssigned, AssessmentAssignedDocument } from '../assessment/schemas/assessment_assigned';
 
+function resolveAssignedRoadmapSteps(totalSteps?: number, extras?: any[], nestedRoadmaps?: any[]): number {
+    if (typeof totalSteps === 'number' && totalSteps > 0) {
+        return totalSteps;
+    }
+
+    const ownSteps = extras?.length ?? 0;
+    const nestedSteps = (nestedRoadmaps || []).reduce(
+        (sum: number, nested: any) => sum + (nested.totalSteps && nested.totalSteps > 0 ? nested.totalSteps : ((nested.extras?.length ?? 0) || 1)),
+        0
+    );
+
+    return ownSteps + nestedSteps > 0 ? ownSteps + nestedSteps : 1;
+}
+
 @Injectable()
 export class ProgressService {
     constructor(
@@ -49,7 +63,7 @@ export class ProgressService {
         // Step 1: Validate all roadmaps exist and fetch their data including nested roadmaps
         const roadMaps = await this.roadMapModel.find(
             { _id: { $in: dto.roadMapIds } },
-            { _id: 1, totalSteps: 1, roadmaps: 1 }
+            { _id: 1, totalSteps: 1, extras: 1, roadmaps: 1 }
         ).lean().exec();
 
         if (roadMaps.length !== dto.roadMapIds.length) {
@@ -62,7 +76,7 @@ export class ProgressService {
         const roadMapDataMap = new Map(roadMaps.map(r => [
             r._id.toString(),
             {
-                totalSteps: r.totalSteps || 0,
+                totalSteps: resolveAssignedRoadmapSteps(r.totalSteps, r.extras, r.roadmaps),
                 nestedRoadmaps: r.roadmaps || []
             }
         ]));
@@ -109,7 +123,9 @@ export class ProgressService {
                     const nestedRoadmaps = nestedRoadmapsData.map((nested: any) => ({
                         nestedRoadmapId: nested._id,
                         completedSteps: 0,
-                        totalSteps: nested.totalSteps || 0,
+                        totalSteps: nested.totalSteps && nested.totalSteps > 0
+                            ? nested.totalSteps
+                            : ((nested.extras?.length ?? 0) || 1),
                         progressPercentage: 0,
                         status: PROGRESS_STATUSES.NOT_STARTED,
                     }));
